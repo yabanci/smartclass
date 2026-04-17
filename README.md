@@ -8,14 +8,38 @@ Backend for smart-classroom management: auth, devices (Tuya/Shelly/Sonoff/Aqara/
 - **Frontend (planned):** React 18 + Vite + TypeScript + Tailwind + shadcn/ui
 - **Infra:** PostgreSQL 16, Docker Compose
 
-## Run the whole stack
+## Quickstart
 
 ```bash
-make up         # or: docker compose up --build -d
-make logs       # tail all services
-make down       # stop everything
-make clean      # stop + wipe volumes (Postgres, HA config, MQTT state)
+make up         # boots all 5 services, waits for healthy
+make seed       # creates demo users + classroom + 3 devices + weekly schedule (idempotent)
 ```
+
+Open **http://localhost:3000** and sign in:
+
+| Role    | Email                   | Password      |
+|---------|-------------------------|---------------|
+| admin   | `admin@smartclass.kz`   | `admin1234`   |
+| teacher | `teacher@smartclass.kz` | `teacher1234` |
+
+The teacher lands on the pre-seeded **Kabinet 101** with three demo devices (one per driver: `generic_http`, `homeassistant`, `smartthings`) and a week of sample lessons. Only the admin can open `/logs`.
+
+To swap in real hardware, edit the device in the UI (or `PATCH /api/v1/devices/<id>`) and replace the placeholder `token`/`deviceId` in its config:
+- **Kitchen Light** — Long-Lived Access Token from Home Assistant at http://localhost:8123
+- **Samsung AC** — Personal Access Token from https://account.smartthings.com/tokens + device UUID from `GET /v1/devices`
+
+### Day-to-day
+
+```bash
+make logs       # tail all services
+make ps         # status + ports
+make down       # stop (data preserved)
+make clean      # stop + wipe volumes (Postgres, HA config, MQTT state)
+make test       # Go unit + race tests (18 packages)
+make e2e        # live 32-step API/websocket test (stack must be running)
+```
+
+## What's running
 
 5 services, 1 network, 1 command:
 

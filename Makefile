@@ -1,7 +1,10 @@
-.PHONY: up down logs ps restart rebuild clean test e2e
+.PHONY: up down logs ps restart rebuild clean test e2e seed
 
 up:
 	docker compose up --build -d
+	@echo ""
+	@echo "Stack starting. Tail logs with 'make logs', seed demo data with 'make seed'."
+	@echo "Frontend: http://localhost:3000   HA: http://localhost:8123   API: http://localhost:8080"
 
 down:
 	docker compose down
@@ -25,6 +28,10 @@ clean:
 
 test:
 	cd backend && go test ./... -count=1
+
+# Seed demo users + classroom + sample devices. Idempotent.
+seed:
+	python3 scripts/seed.py
 
 # End-to-end test — stack must be running (make up). Requires Python 3 + websockets.
 e2e:
