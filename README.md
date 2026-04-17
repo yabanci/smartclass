@@ -8,18 +8,33 @@ Backend for smart-classroom management: auth, devices (Tuya/Shelly/Sonoff/Aqara/
 - **Frontend (planned):** React 18 + Vite + TypeScript + Tailwind + shadcn/ui
 - **Infra:** PostgreSQL 16, Docker Compose
 
-## Run (Docker)
+## Run the whole stack
 
 ```bash
-cp .env.example .env          # optional; compose has defaults
-docker compose up --build
+make up         # or: docker compose up --build -d
+make logs       # tail all services
+make down       # stop everything
+make clean      # stop + wipe volumes (Postgres, HA config, MQTT state)
 ```
 
-- Frontend (nginx) → http://localhost:3000
-- Backend → http://localhost:8080
-- Postgres → localhost:5432
+5 services, 1 network, 1 command:
 
-The frontend proxies `/api/*` and `/api/v1/ws` to the backend, so the UI talks to a same-origin URL in production.
+| Service | URL / port | Purpose |
+|---|---|---|
+| **frontend** | http://localhost:3000 | React UI (nginx, proxies `/api/*` and `/api/v1/ws` to backend) |
+| **backend**  | http://localhost:8080 | Go API + WebSocket hub |
+| **postgres** | localhost:5432 | App data + audit log |
+| **homeassistant** | http://localhost:8123 | Universal device translator (Xiaomi / Samsung / Tuya / Aqara / Zigbee / Matter / …) |
+| **mosquitto** | mqtt://localhost:1883 · ws://localhost:9001 | MQTT broker (Tasmota, Zigbee2MQTT, generic IoT) |
+
+Inside the docker network each service reaches the others by its name: backend talks to Home Assistant at `http://homeassistant:8123` and MQTT at `mosquitto:1883`. The frontend proxies `/api/*` and `/api/v1/ws` through nginx to the backend.
+
+### First-time Home Assistant setup
+
+1. Open http://localhost:8123 → complete onboarding (admin user, location).
+2. Pair devices: `Settings → Devices & Services → Add Integration` (Xiaomi Mi Home, SmartThings, Tuya, MQTT, Zigbee2MQTT, …).
+3. Profile → **Long-Lived Access Tokens → Create Token**, copy it.
+4. Register the device in our backend with `driver: "homeassistant"` and config `{baseUrl: "http://homeassistant:8123", token: "<token>", entityId: "light.kitchen"}`.
 
 ## Dev (local Go)
 
