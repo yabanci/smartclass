@@ -6,7 +6,6 @@ import type { User } from '@/api/types';
 
 interface AuthState {
   user: User | null;
-  refreshToken: string | null;
   status: 'bootstrapping' | 'authenticated' | 'anonymous';
   bootstrap: () => Promise<void>;
   login: (email: string, password: string) => Promise<void>;
@@ -18,51 +17,65 @@ interface AuthState {
 
 export const useAuth = create<AuthState>((set, get) => ({
   user: null,
-  refreshToken: null,
   status: 'bootstrapping',
 
   bootstrap: async () => {
-    if (!storage.getAccess()) {
+    if (!storage.getAccess() && !storage.getRefresh()) {
       set({ status: 'anonymous' });
       return;
     }
     try {
       const user = await userApi.me();
       set({ user, status: 'authenticated' });
+      return;
     } catch {
-      storage.setAccess(null);
-      set({ status: 'anonymous' });
+      // access token was missing or expired — try the refresh token
     }
+    const fresh = await get().refresh();
+    if (fresh) {
+      try {
+        const user = await userApi.me();
+        set({ user, status: 'authenticated' });
+        return;
+      } catch {
+        /* fall through */
+      }
+    }
+    storage.clear();
+    set({ status: 'anonymous' });
   },
 
   login: async (email, password) => {
     const res = await authApi.login({ email, password });
     storage.setAccess(res.tokens.accessToken);
-    set({ user: res.user, refreshToken: res.tokens.refreshToken, status: 'authenticated' });
+    storage.setRefresh(res.tokens.refreshToken);
+    set({ user: res.user, status: 'authenticated' });
   },
 
   register: async (args) => {
     const res = await authApi.register(args);
     storage.setAccess(res.tokens.accessToken);
-    set({ user: res.user, refreshToken: res.tokens.refreshToken, status: 'authenticated' });
+    storage.setRefresh(res.tokens.refreshToken);
+    set({ user: res.user, status: 'authenticated' });
   },
 
   logout: () => {
-    storage.setAccess(null);
-    set({ user: null, refreshToken: null, status: 'anonymous' });
+    storage.clear();
+    set({ user: null, status: 'anonymous' });
   },
 
   refresh: async () => {
-    const rt = get().refreshToken;
+    const rt = storage.getRefresh();
     if (!rt) return null;
     try {
       const res = await authApi.refresh(rt);
       storage.setAccess(res.tokens.accessToken);
-      set({ user: res.user, refreshToken: res.tokens.refreshToken, status: 'authenticated' });
+      storage.setRefresh(res.tokens.refreshToken);
+      set({ user: res.user, status: 'authenticated' });
       return res.tokens.accessToken;
     } catch {
-      storage.setAccess(null);
-      set({ user: null, refreshToken: null, status: 'anonymous' });
+      storage.clear();
+      set({ user: null, status: 'anonymous' });
       return null;
     }
   },
