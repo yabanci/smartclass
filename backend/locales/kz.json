@@ -21,5 +21,14 @@
   "device.not_found": "Құрылғы табылмады",
   "device.unknown_driver": "Белгісіз құрылғы драйвері",
   "device.command_failed": "Құрылғыға команда орындалмады",
-  "device.unsupported_command": "Команда қолдау көрсетілмейді"
+  "device.unsupported_command": "Команда қолдау көрсетілмейді",
+
+  "schedule.not_found": "Сабақ табылмады",
+  "schedule.overlap": "Сабақ басқа сабақпен қабаттасады",
+  "schedule.invalid_time": "Уақыт қате",
+
+  "scene.not_found": "Режим табылмады",
+  "scene.step_failed": "Режим қадамы орындалмады",
+
+  "sensor.invalid_metric": "Белгісіз датчик метрикасы"
 }

@@ -17,6 +17,9 @@ import (
 	"smartclass/internal/platform/i18n"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/realtime/ws"
+	"smartclass/internal/scene"
+	"smartclass/internal/schedule"
+	"smartclass/internal/sensor"
 	"smartclass/internal/user"
 )
 
@@ -34,6 +37,9 @@ type Deps struct {
 	UserHandler      *user.Handler
 	ClassroomHandler *classroom.Handler
 	DeviceHandler    *device.Handler
+	ScheduleHandler  *schedule.Handler
+	SceneHandler     *scene.Handler
+	SensorHandler    *sensor.Handler
 	WSHandler        *ws.Handler
 }
 
@@ -56,12 +62,26 @@ func New(d Deps) *Server {
 
 		r.Group(func(r chi.Router) {
 			r.Use(mw.Authn(d.Issuer, d.Bundle))
+
 			r.Route("/users", d.UserHandler.Routes)
+
 			r.Route("/classrooms", func(r chi.Router) {
 				d.ClassroomHandler.Routes(r)
 				r.Route("/{id}/devices", d.DeviceHandler.ClassroomRoutes)
+				r.Route("/{id}/schedule", d.ScheduleHandler.ClassroomRoutes)
+				r.Route("/{id}/scenes", d.SceneHandler.ClassroomRoutes)
+				r.Route("/{id}/sensors", d.SensorHandler.ClassroomRoutes)
 			})
-			r.Route("/devices", d.DeviceHandler.Routes)
+
+			r.Route("/devices", func(r chi.Router) {
+				d.DeviceHandler.Routes(r)
+				r.Route("/{id}/sensors", d.SensorHandler.DeviceRoutes)
+			})
+
+			r.Route("/schedule", d.ScheduleHandler.Routes)
+			r.Route("/scenes", d.SceneHandler.Routes)
+			r.Route("/sensors", d.SensorHandler.Routes)
+
 			if d.WSHandler != nil {
 				r.Get("/ws", d.WSHandler.Serve)
 			}

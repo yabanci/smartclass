@@ -24,6 +24,9 @@ import (
 	"smartclass/internal/platform/validation"
 	"smartclass/internal/realtime"
 	"smartclass/internal/realtime/ws"
+	"smartclass/internal/scene"
+	"smartclass/internal/schedule"
+	"smartclass/internal/sensor"
 	"smartclass/internal/server"
 	"smartclass/internal/user"
 )
@@ -59,6 +62,9 @@ func main() {
 	userRepo := user.NewPostgresRepository(db.Pool)
 	classroomRepo := classroom.NewPostgresRepository(db.Pool)
 	deviceRepo := device.NewPostgresRepository(db.Pool)
+	scheduleRepo := schedule.NewPostgresRepository(db.Pool)
+	sceneRepo := scene.NewPostgresRepository(db.Pool)
+	sensorRepo := sensor.NewPostgresRepository(db.Pool)
 
 	hash := hasher.NewBcrypt(cfg.Bcrypt.Cost)
 	issuer := tokens.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL, cfg.JWT.Issuer)
@@ -75,11 +81,17 @@ func main() {
 	userSvc := user.NewService(userRepo, hash)
 	classroomSvc := classroom.NewService(classroomRepo)
 	deviceSvc := device.NewService(deviceRepo, classroomSvc, factory, broker)
+	scheduleSvc := schedule.NewService(scheduleRepo, classroomSvc)
+	sceneSvc := scene.NewService(sceneRepo, classroomSvc, deviceSvc, broker)
+	sensorSvc := sensor.NewService(sensorRepo, classroomSvc, deviceSvc, broker)
 
 	authH := auth.NewHandler(authSvc, valid, bundle)
 	userH := user.NewHandler(userSvc, valid, bundle)
 	classroomH := classroom.NewHandler(classroomSvc, valid, bundle)
 	deviceH := device.NewHandler(deviceSvc, valid, bundle)
+	scheduleH := schedule.NewHandler(scheduleSvc, valid, bundle)
+	sceneH := scene.NewHandler(sceneSvc, valid, bundle)
+	sensorH := sensor.NewHandler(sensorSvc, valid, bundle)
 	wsH := ws.NewHandler(hub, logger, bundle)
 
 	srv := server.New(server.Deps{
@@ -91,6 +103,9 @@ func main() {
 		UserHandler:      userH,
 		ClassroomHandler: classroomH,
 		DeviceHandler:    deviceH,
+		ScheduleHandler:  scheduleH,
+		SceneHandler:     sceneH,
+		SensorHandler:    sensorH,
 		WSHandler:        wsH,
 	})
 

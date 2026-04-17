@@ -21,5 +21,14 @@
   "device.not_found": "Устройство не найдено",
   "device.unknown_driver": "Неизвестный драйвер устройства",
   "device.command_failed": "Команда устройству не выполнена",
-  "device.unsupported_command": "Команда не поддерживается"
+  "device.unsupported_command": "Команда не поддерживается",
+
+  "schedule.not_found": "Урок не найден",
+  "schedule.overlap": "Урок пересекается с существующим",
+  "schedule.invalid_time": "Некорректное время",
+
+  "scene.not_found": "Режим не найден",
+  "scene.step_failed": "Ошибка выполнения шага режима",
+
+  "sensor.invalid_metric": "Неизвестная метрика датчика"
 }

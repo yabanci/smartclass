@@ -21,5 +21,14 @@
   "device.not_found": "Device not found",
   "device.unknown_driver": "Unknown device driver",
   "device.command_failed": "Device command failed",
-  "device.unsupported_command": "Unsupported command"
+  "device.unsupported_command": "Unsupported command",
+
+  "schedule.not_found": "Lesson not found",
+  "schedule.overlap": "Lesson overlaps with an existing one",
+  "schedule.invalid_time": "Invalid time range",
+
+  "scene.not_found": "Scene not found",
+  "scene.step_failed": "Scene step failed",
+
+  "sensor.invalid_metric": "Unknown sensor metric"
 }
