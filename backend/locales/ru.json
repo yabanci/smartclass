@@ -1,0 +1,19 @@
+{
+  "ok": "ОК",
+  "internal_error": "Внутренняя ошибка сервера",
+  "not_found": "Не найдено",
+  "unauthorized": "Не авторизован",
+  "forbidden": "Доступ запрещён",
+  "bad_request": "Некорректный запрос",
+  "too_many_requests": "Слишком много запросов",
+  "validation_failed": "Ошибка валидации",
+
+  "auth.invalid_credentials": "Неверный email или пароль",
+  "auth.email_taken": "Email уже зарегистрирован",
+  "auth.invalid_token": "Неверный или просроченный токен",
+  "auth.invalid_refresh": "Неверный refresh-токен",
+  "auth.weak_password": "Пароль должен быть не короче 8 символов",
+
+  "user.not_found": "Пользователь не найден",
+  "user.password_mismatch": "Текущий пароль неверен"
+}

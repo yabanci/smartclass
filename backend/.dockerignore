@@ -1,0 +1,12 @@
+bin/
+tmp/
+coverage.*
+*.test
+*.out
+.env
+.env.local
+.git/
+.github/
+.idea/
+.vscode/
+README.md

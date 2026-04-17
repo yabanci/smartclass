@@ -1,0 +1,19 @@
+{
+  "ok": "OK",
+  "internal_error": "Internal server error",
+  "not_found": "Not found",
+  "unauthorized": "Unauthorized",
+  "forbidden": "Forbidden",
+  "bad_request": "Bad request",
+  "too_many_requests": "Too many requests",
+  "validation_failed": "Validation failed",
+
+  "auth.invalid_credentials": "Invalid email or password",
+  "auth.email_taken": "Email already registered",
+  "auth.invalid_token": "Invalid or expired token",
+  "auth.invalid_refresh": "Invalid refresh token",
+  "auth.weak_password": "Password must be at least 8 characters",
+
+  "user.not_found": "User not found",
+  "user.password_mismatch": "Current password is incorrect"
+}

@@ -1,0 +1,19 @@
+{
+  "ok": "ОК",
+  "internal_error": "Ішкі сервер қатесі",
+  "not_found": "Табылмады",
+  "unauthorized": "Авторизация жоқ",
+  "forbidden": "Рұқсат жоқ",
+  "bad_request": "Қате сұраныс",
+  "too_many_requests": "Тым көп сұраныс",
+  "validation_failed": "Тексеру қатесі",
+
+  "auth.invalid_credentials": "Email немесе құпиясөз қате",
+  "auth.email_taken": "Email бұрын тіркелген",
+  "auth.invalid_token": "Токен жарамсыз немесе мерзімі өткен",
+  "auth.invalid_refresh": "Refresh токені жарамсыз",
+  "auth.weak_password": "Құпиясөз кемінде 8 таңбадан тұруы керек",
+
+  "user.not_found": "Пайдаланушы табылмады",
+  "user.password_mismatch": "Қазіргі құпиясөз қате"
+}
