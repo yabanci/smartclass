@@ -15,7 +15,11 @@ cp .env.example .env          # optional; compose has defaults
 docker compose up --build
 ```
 
-Backend → http://localhost:8080, Postgres → localhost:5432.
+- Frontend (nginx) → http://localhost:3000
+- Backend → http://localhost:8080
+- Postgres → localhost:5432
+
+The frontend proxies `/api/*` and `/api/v1/ws` to the backend, so the UI talks to a same-origin URL in production.
 
 ## Dev (local Go)
 
@@ -48,4 +52,4 @@ docker-compose.yml
 - [x] **Phase 2** — classrooms, devices, devicectl Driver abstraction (generic HTTP), WebSocket hub/broker
 - [x] **Phase 3** — schedule (weekly lessons + overlap + current), scenes (command sequences), sensors (ingestion + history + latest)
 - [x] **Phase 4** — notifications (warning triggers: high/low temp, humidity, device offline), audit log (admin-only), analytics (sensor series, device usage, energy)
-- [ ] **Phase 5** — React frontend
+- [x] **Phase 5** — React 18 + Vite + TS + Tailwind + TanStack Query + Zustand + react-i18next (EN/RU/KZ). Mobile-width PWA shell with all screens wired to the backend. Served by nginx in Docker.

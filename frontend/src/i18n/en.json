@@ -1,0 +1,106 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "create": "Create",
+    "close": "Close",
+    "confirm": "Confirm",
+    "search": "Search",
+    "empty": "No items",
+    "retry": "Retry",
+    "online": "Online",
+    "offline": "Offline"
+  },
+  "nav": {
+    "home": "Home",
+    "devices": "Devices",
+    "schedule": "Schedule",
+    "analytics": "Analytics",
+    "profile": "Profile"
+  },
+  "auth": {
+    "login": "Sign in",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "fullName": "Full name",
+    "role": "Role",
+    "roleTeacher": "Teacher",
+    "roleAdmin": "Admin",
+    "roleTechnician": "Technician",
+    "haveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "logout": "Log out",
+    "passwordMismatch": "Passwords do not match"
+  },
+  "home": {
+    "title": "Smart Classroom",
+    "noClassroom": "Create your first classroom",
+    "createClassroom": "New classroom",
+    "classroomName": "Classroom name",
+    "activeDevices": "Active devices",
+    "currentLesson": "Current lesson",
+    "noLesson": "No lesson in progress",
+    "environment": "Environment",
+    "temperature": "Temperature",
+    "humidity": "Humidity"
+  },
+  "devices": {
+    "title": "Devices",
+    "add": "Add device",
+    "name": "Name",
+    "type": "Type",
+    "brand": "Brand",
+    "driver": "Driver",
+    "config": "Config (JSON)",
+    "on": "Turn on",
+    "off": "Turn off",
+    "empty": "No devices yet",
+    "status": "Status"
+  },
+  "schedule": {
+    "title": "Schedule",
+    "addLesson": "Add lesson",
+    "subject": "Subject",
+    "day": "Day",
+    "startsAt": "Starts",
+    "endsAt": "Ends",
+    "notes": "Notes",
+    "daysShort": ["Mon", "Tue", "Wed", "Thu", "Fri"]
+  },
+  "scenes": {
+    "title": "Scenes",
+    "add": "New scene",
+    "run": "Run",
+    "name": "Scene name",
+    "description": "Description",
+    "addStep": "Add step",
+    "empty": "No scenes yet"
+  },
+  "analytics": {
+    "title": "Analytics",
+    "sensorsSeries": "Sensor series",
+    "deviceUsage": "Device usage",
+    "energy": "Energy",
+    "metric": "Metric",
+    "bucket": "Bucket",
+    "lastWeek": "Last 7 days"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications"
+  },
+  "profile": {
+    "title": "Profile",
+    "language": "Language",
+    "phone": "Phone",
+    "changePassword": "Change password",
+    "currentPassword": "Current password",
+    "newPassword": "New password"
+  }
+}

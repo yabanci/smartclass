@@ -1,0 +1,106 @@
+{
+  "common": {
+    "loading": "Жүктелуде...",
+    "save": "Сақтау",
+    "cancel": "Болдырмау",
+    "delete": "Жою",
+    "edit": "Өзгерту",
+    "create": "Жасау",
+    "close": "Жабу",
+    "confirm": "Растау",
+    "search": "Іздеу",
+    "empty": "Бос",
+    "retry": "Қайталау",
+    "online": "Онлайн",
+    "offline": "Офлайн"
+  },
+  "nav": {
+    "home": "Басты",
+    "devices": "Құрылғылар",
+    "schedule": "Кесте",
+    "analytics": "Аналитика",
+    "profile": "Профиль"
+  },
+  "auth": {
+    "login": "Кіру",
+    "register": "Тіркелу",
+    "email": "Email",
+    "password": "Құпиясөз",
+    "confirmPassword": "Құпиясөзді қайталаңыз",
+    "fullName": "Аты-жөні",
+    "role": "Лауазымы",
+    "roleTeacher": "Мұғалім",
+    "roleAdmin": "Әкімші",
+    "roleTechnician": "Техник",
+    "haveAccount": "Аккаунтыңыз бар ма?",
+    "noAccount": "Аккаунт жоқ па?",
+    "logout": "Шығу",
+    "passwordMismatch": "Құпиясөздер сәйкес емес"
+  },
+  "home": {
+    "title": "Ақылды сынып",
+    "noClassroom": "Алғашқы кабинет жасаңыз",
+    "createClassroom": "Жаңа кабинет",
+    "classroomName": "Кабинет атауы",
+    "activeDevices": "Белсенді құрылғылар",
+    "currentLesson": "Қазіргі сабақ",
+    "noLesson": "Сабақ жоқ",
+    "environment": "Орта",
+    "temperature": "Температура",
+    "humidity": "Ылғалдылық"
+  },
+  "devices": {
+    "title": "Құрылғылар",
+    "add": "Құрылғы қосу",
+    "name": "Атауы",
+    "type": "Түрі",
+    "brand": "Бренд",
+    "driver": "Драйвер",
+    "config": "Конфигурация (JSON)",
+    "on": "Қосу",
+    "off": "Өшіру",
+    "empty": "Құрылғылар жоқ",
+    "status": "Күй"
+  },
+  "schedule": {
+    "title": "Кесте",
+    "addLesson": "Сабақ қосу",
+    "subject": "Пән",
+    "day": "Күн",
+    "startsAt": "Басталуы",
+    "endsAt": "Аяқталуы",
+    "notes": "Ескертпелер",
+    "daysShort": ["Дс", "Сс", "Ср", "Бс", "Жм"]
+  },
+  "scenes": {
+    "title": "Режимдер",
+    "add": "Жаңа режим",
+    "run": "Іске қосу",
+    "name": "Атауы",
+    "description": "Сипаттама",
+    "addStep": "Қадам қосу",
+    "empty": "Режимдер жоқ"
+  },
+  "analytics": {
+    "title": "Аналитика",
+    "sensorsSeries": "Датчик деректері",
+    "deviceUsage": "Құрылғыларды пайдалану",
+    "energy": "Энергия",
+    "metric": "Метрика",
+    "bucket": "Интервал",
+    "lastWeek": "Соңғы 7 күн"
+  },
+  "notifications": {
+    "title": "Хабарламалар",
+    "markAllRead": "Барлығын оқылды деп белгілеу",
+    "empty": "Хабарлама жоқ"
+  },
+  "profile": {
+    "title": "Профиль",
+    "language": "Тіл",
+    "phone": "Телефон",
+    "changePassword": "Құпиясөзді өзгерту",
+    "currentPassword": "Қазіргі құпиясөз",
+    "newPassword": "Жаңа құпиясөз"
+  }
+}

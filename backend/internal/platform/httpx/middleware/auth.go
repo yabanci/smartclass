@@ -36,13 +36,12 @@ func PrincipalFrom(ctx context.Context) (Principal, bool) {
 func Authn(issuer tokens.Issuer, bundle *i18n.Bundle) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			raw := r.Header.Get("Authorization")
-			const p = "Bearer "
-			if !strings.HasPrefix(raw, p) {
+			token := extractToken(r)
+			if token == "" {
 				httpx.Fail(w, http.StatusUnauthorized, "unauthorized", bundle.T(i18n.LangFrom(r.Context()), "unauthorized"), nil)
 				return
 			}
-			claims, err := issuer.Parse(strings.TrimPrefix(raw, p))
+			claims, err := issuer.Parse(token)
 			if err != nil || claims.Kind != tokens.KindAccess {
 				httpx.Fail(w, http.StatusUnauthorized, "unauthorized", bundle.T(i18n.LangFrom(r.Context()), "auth.invalid_token"), nil)
 				return
@@ -52,6 +51,20 @@ func Authn(issuer tokens.Issuer, bundle *i18n.Bundle) func(http.Handler) http.Ha
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// extractToken reads the access JWT from the standard Authorization header, and
+// falls back to the "access_token" query parameter — required for WebSocket
+// upgrades where browsers cannot set custom headers.
+func extractToken(r *http.Request) string {
+	const prefix = "Bearer "
+	if raw := r.Header.Get("Authorization"); strings.HasPrefix(raw, prefix) {
+		return strings.TrimPrefix(raw, prefix)
+	}
+	if q := r.URL.Query().Get("access_token"); q != "" {
+		return q
+	}
+	return ""
 }
 
 func RequireRole(bundle *i18n.Bundle, roles ...string) func(http.Handler) http.Handler {

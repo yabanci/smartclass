@@ -1,0 +1,106 @@
+{
+  "common": {
+    "loading": "Загрузка...",
+    "save": "Сохранить",
+    "cancel": "Отмена",
+    "delete": "Удалить",
+    "edit": "Изменить",
+    "create": "Создать",
+    "close": "Закрыть",
+    "confirm": "Подтвердить",
+    "search": "Поиск",
+    "empty": "Ничего нет",
+    "retry": "Повторить",
+    "online": "Онлайн",
+    "offline": "Офлайн"
+  },
+  "nav": {
+    "home": "Главная",
+    "devices": "Устройства",
+    "schedule": "Расписание",
+    "analytics": "Аналитика",
+    "profile": "Профиль"
+  },
+  "auth": {
+    "login": "Войти",
+    "register": "Регистрация",
+    "email": "Email",
+    "password": "Пароль",
+    "confirmPassword": "Повтор пароля",
+    "fullName": "ФИО",
+    "role": "Должность",
+    "roleTeacher": "Учитель",
+    "roleAdmin": "Администратор",
+    "roleTechnician": "Техник",
+    "haveAccount": "Уже есть аккаунт?",
+    "noAccount": "Нет аккаунта?",
+    "logout": "Выйти",
+    "passwordMismatch": "Пароли не совпадают"
+  },
+  "home": {
+    "title": "Умный класс",
+    "noClassroom": "Создайте первый кабинет",
+    "createClassroom": "Новый кабинет",
+    "classroomName": "Название кабинета",
+    "activeDevices": "Активные устройства",
+    "currentLesson": "Текущий урок",
+    "noLesson": "Урок не идёт",
+    "environment": "Среда",
+    "temperature": "Температура",
+    "humidity": "Влажность"
+  },
+  "devices": {
+    "title": "Устройства",
+    "add": "Добавить устройство",
+    "name": "Название",
+    "type": "Тип",
+    "brand": "Бренд",
+    "driver": "Драйвер",
+    "config": "Конфиг (JSON)",
+    "on": "Включить",
+    "off": "Выключить",
+    "empty": "Устройств пока нет",
+    "status": "Статус"
+  },
+  "schedule": {
+    "title": "Расписание",
+    "addLesson": "Добавить урок",
+    "subject": "Предмет",
+    "day": "День",
+    "startsAt": "Начало",
+    "endsAt": "Конец",
+    "notes": "Заметки",
+    "daysShort": ["Пн", "Вт", "Ср", "Чт", "Пт"]
+  },
+  "scenes": {
+    "title": "Режимы",
+    "add": "Новый режим",
+    "run": "Запустить",
+    "name": "Название режима",
+    "description": "Описание",
+    "addStep": "Добавить шаг",
+    "empty": "Режимов пока нет"
+  },
+  "analytics": {
+    "title": "Аналитика",
+    "sensorsSeries": "Данные датчиков",
+    "deviceUsage": "Использование устройств",
+    "energy": "Энергопотребление",
+    "metric": "Метрика",
+    "bucket": "Интервал",
+    "lastWeek": "Последние 7 дней"
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "markAllRead": "Прочитать все",
+    "empty": "Уведомлений нет"
+  },
+  "profile": {
+    "title": "Профиль",
+    "language": "Язык",
+    "phone": "Телефон",
+    "changePassword": "Сменить пароль",
+    "currentPassword": "Текущий пароль",
+    "newPassword": "Новый пароль"
+  }
+}

@@ -47,6 +47,18 @@ services:
     networks: [smartclass]
     restart: unless-stopped
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: smartclass-frontend
+    depends_on:
+      - backend
+    ports:
+      - "${FRONTEND_PORT:-3000}:80"
+    networks: [smartclass]
+    restart: unless-stopped
+
 volumes:
   postgres-data:
 

@@ -1,0 +1,104 @@
+import { client, extract, Envelope } from './client';
+import type {
+  AuthResponse, User, Classroom, Device, Lesson, WeekSchedule,
+  Scene, SensorReading, Notification, TimePoint, DeviceUsage, CommandType,
+} from './types';
+
+const unwrap = async <T>(p: Promise<{ data: Envelope<T> }>): Promise<T> => extract((await p).data);
+
+export const authApi = {
+  register: (body: { email: string; password: string; fullName: string; role: string; language?: string; phone?: string }) =>
+    unwrap<AuthResponse>(client.post('/auth/register', body)),
+  login: (body: { email: string; password: string }) =>
+    unwrap<AuthResponse>(client.post('/auth/login', body)),
+  refresh: (refreshToken: string) =>
+    unwrap<AuthResponse>(client.post('/auth/refresh', { refreshToken })),
+};
+
+export const userApi = {
+  me: () => unwrap<User>(client.get('/users/me')),
+  update: (body: Partial<Pick<User, 'fullName' | 'language' | 'avatarUrl' | 'phone'>>) =>
+    unwrap<User>(client.patch('/users/me', body)),
+  changePassword: (body: { currentPassword: string; newPassword: string }) =>
+    client.post('/users/me/password', body),
+};
+
+export const classroomApi = {
+  list: () => unwrap<Classroom[]>(client.get('/classrooms')),
+  get: (id: string) => unwrap<Classroom>(client.get(`/classrooms/${id}`)),
+  create: (body: { name: string; description?: string }) =>
+    unwrap<Classroom>(client.post('/classrooms', body)),
+  update: (id: string, body: { name?: string; description?: string }) =>
+    unwrap<Classroom>(client.patch(`/classrooms/${id}`, body)),
+  remove: (id: string) => client.delete(`/classrooms/${id}`),
+};
+
+export const deviceApi = {
+  listByClassroom: (classroomID: string) =>
+    unwrap<Device[]>(client.get(`/classrooms/${classroomID}/devices`)),
+  get: (id: string) => unwrap<Device>(client.get(`/devices/${id}`)),
+  create: (body: {
+    classroomId: string; name: string; type: string; brand: string; driver: string;
+    config?: Record<string, unknown>;
+  }) => unwrap<Device>(client.post('/devices', body)),
+  update: (id: string, body: Partial<{ name: string; type: string; brand: string; driver: string; config: Record<string, unknown> }>) =>
+    unwrap<Device>(client.patch(`/devices/${id}`, body)),
+  remove: (id: string) => client.delete(`/devices/${id}`),
+  command: (id: string, cmd: { type: CommandType; value?: unknown }) =>
+    unwrap<Device>(client.post(`/devices/${id}/commands`, cmd)),
+};
+
+export const scheduleApi = {
+  week: (classroomID: string) =>
+    unwrap<WeekSchedule>(client.get(`/classrooms/${classroomID}/schedule`)),
+  day: (classroomID: string, day: number) =>
+    unwrap<Lesson[]>(client.get(`/classrooms/${classroomID}/schedule/day/${day}`)),
+  current: (classroomID: string) =>
+    unwrap<Lesson | null>(client.get(`/classrooms/${classroomID}/schedule/current`)),
+  create: (body: { classroomId: string; subject: string; dayOfWeek: number; startsAt: string; endsAt: string; notes?: string; teacherId?: string }) =>
+    unwrap<Lesson>(client.post('/schedule', body)),
+  update: (id: string, body: Partial<{ subject: string; dayOfWeek: number; startsAt: string; endsAt: string; notes: string }>) =>
+    unwrap<Lesson>(client.patch(`/schedule/${id}`, body)),
+  remove: (id: string) => client.delete(`/schedule/${id}`),
+};
+
+export const sceneApi = {
+  listByClassroom: (classroomID: string) =>
+    unwrap<Scene[]>(client.get(`/classrooms/${classroomID}/scenes`)),
+  get: (id: string) => unwrap<Scene>(client.get(`/scenes/${id}`)),
+  create: (body: { classroomId: string; name: string; description?: string; steps: Scene['steps'] }) =>
+    unwrap<Scene>(client.post('/scenes', body)),
+  update: (id: string, body: Partial<{ name: string; description: string; steps: Scene['steps'] }>) =>
+    unwrap<Scene>(client.patch(`/scenes/${id}`, body)),
+  remove: (id: string) => client.delete(`/scenes/${id}`),
+  run: (id: string) => unwrap<{ sceneId: string; steps: Array<{ step: Scene['steps'][0]; success: boolean; error?: string }> }>(client.post(`/scenes/${id}/run`)),
+};
+
+export const sensorApi = {
+  latest: (classroomID: string) =>
+    unwrap<SensorReading[]>(client.get(`/classrooms/${classroomID}/sensors/readings/latest`)),
+  history: (deviceID: string, params: { metric?: string; from?: string; to?: string; limit?: number }) =>
+    unwrap<SensorReading[]>(client.get(`/devices/${deviceID}/sensors/readings`, { params })),
+  ingest: (readings: Array<{ deviceId: string; metric: string; value: number; unit?: string }>) =>
+    unwrap<{ accepted: number }>(client.post('/sensors/readings', { readings })),
+};
+
+export const notificationApi = {
+  list: (opts?: { unread?: boolean; limit?: number }) =>
+    unwrap<Notification[]>(client.get('/notifications', {
+      params: { unread: opts?.unread ? 'true' : undefined, limit: opts?.limit },
+    })),
+  unreadCount: () =>
+    unwrap<{ count: number }>(client.get('/notifications/unread-count')),
+  markRead: (id: string) => client.post(`/notifications/${id}/read`),
+  markAllRead: () => client.post('/notifications/read-all'),
+};
+
+export const analyticsApi = {
+  sensors: (classroomID: string, params: { metric: string; bucket?: 'hour' | 'day' | 'week' | 'month'; from?: string; to?: string }) =>
+    unwrap<TimePoint[]>(client.get(`/classrooms/${classroomID}/analytics/sensors`, { params })),
+  usage: (classroomID: string, params?: { from?: string; to?: string }) =>
+    unwrap<DeviceUsage[]>(client.get(`/classrooms/${classroomID}/analytics/usage`, { params })),
+  energy: (classroomID: string, params?: { from?: string; to?: string }) =>
+    unwrap<{ total: number }>(client.get(`/classrooms/${classroomID}/analytics/energy`, { params })),
+};
