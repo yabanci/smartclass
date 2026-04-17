@@ -15,5 +15,11 @@
   "auth.weak_password": "Құпиясөз кемінде 8 таңбадан тұруы керек",
 
   "user.not_found": "Пайдаланушы табылмады",
-  "user.password_mismatch": "Қазіргі құпиясөз қате"
+  "user.password_mismatch": "Қазіргі құпиясөз қате",
+
+  "classroom.not_found": "Кабинет табылмады",
+  "device.not_found": "Құрылғы табылмады",
+  "device.unknown_driver": "Белгісіз құрылғы драйвері",
+  "device.command_failed": "Құрылғыға команда орындалмады",
+  "device.unsupported_command": "Команда қолдау көрсетілмейді"
 }

@@ -15,5 +15,11 @@
   "auth.weak_password": "Пароль должен быть не короче 8 символов",
 
   "user.not_found": "Пользователь не найден",
-  "user.password_mismatch": "Текущий пароль неверен"
+  "user.password_mismatch": "Текущий пароль неверен",
+
+  "classroom.not_found": "Кабинет не найден",
+  "device.not_found": "Устройство не найдено",
+  "device.unknown_driver": "Неизвестный драйвер устройства",
+  "device.command_failed": "Команда устройству не выполнена",
+  "device.unsupported_command": "Команда не поддерживается"
 }

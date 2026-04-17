@@ -15,5 +15,11 @@
   "auth.weak_password": "Password must be at least 8 characters",
 
   "user.not_found": "User not found",
-  "user.password_mismatch": "Current password is incorrect"
+  "user.password_mismatch": "Current password is incorrect",
+
+  "classroom.not_found": "Classroom not found",
+  "device.not_found": "Device not found",
+  "device.unknown_driver": "Unknown device driver",
+  "device.command_failed": "Device command failed",
+  "device.unsupported_command": "Unsupported command"
 }

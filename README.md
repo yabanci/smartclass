@@ -45,7 +45,7 @@ docker-compose.yml
 ## Phases
 
 - [x] **Phase 1** — auth, user, JWT, Postgres, migrations, i18n, rate-limit, CORS, Docker, tests
-- [ ] **Phase 2** — classrooms, devices, devicectl Driver abstraction, WebSocket hub
+- [x] **Phase 2** — classrooms, devices, devicectl Driver abstraction (generic HTTP), WebSocket hub/broker
 - [ ] **Phase 3** — schedule, scenes, sensors
 - [ ] **Phase 4** — analytics, notifications, logs
 - [ ] **Phase 5** — React frontend

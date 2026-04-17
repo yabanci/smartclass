@@ -9,11 +9,14 @@ import (
 	"go.uber.org/zap"
 
 	"smartclass/internal/auth"
+	"smartclass/internal/classroom"
 	"smartclass/internal/config"
+	"smartclass/internal/device"
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
 	"smartclass/internal/platform/tokens"
+	"smartclass/internal/realtime/ws"
 	"smartclass/internal/user"
 )
 
@@ -23,12 +26,15 @@ type Server struct {
 }
 
 type Deps struct {
-	Cfg         config.Config
-	Logger      *zap.Logger
-	Bundle      *i18n.Bundle
-	Issuer      tokens.Issuer
-	AuthHandler *auth.Handler
-	UserHandler *user.Handler
+	Cfg              config.Config
+	Logger           *zap.Logger
+	Bundle           *i18n.Bundle
+	Issuer           tokens.Issuer
+	AuthHandler      *auth.Handler
+	UserHandler      *user.Handler
+	ClassroomHandler *classroom.Handler
+	DeviceHandler    *device.Handler
+	WSHandler        *ws.Handler
 }
 
 func New(d Deps) *Server {
@@ -51,6 +57,14 @@ func New(d Deps) *Server {
 		r.Group(func(r chi.Router) {
 			r.Use(mw.Authn(d.Issuer, d.Bundle))
 			r.Route("/users", d.UserHandler.Routes)
+			r.Route("/classrooms", func(r chi.Router) {
+				d.ClassroomHandler.Routes(r)
+				r.Route("/{id}/devices", d.DeviceHandler.ClassroomRoutes)
+			})
+			r.Route("/devices", d.DeviceHandler.Routes)
+			if d.WSHandler != nil {
+				r.Get("/ws", d.WSHandler.Serve)
+			}
 		})
 	})
 
