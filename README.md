@@ -53,3 +53,75 @@ docker-compose.yml
 - [x] **Phase 3** — schedule (weekly lessons + overlap + current), scenes (command sequences), sensors (ingestion + history + latest)
 - [x] **Phase 4** — notifications (warning triggers: high/low temp, humidity, device offline), audit log (admin-only), analytics (sensor series, device usage, energy)
 - [x] **Phase 5** — React 18 + Vite + TS + Tailwind + TanStack Query + Zustand + react-i18next (EN/RU/KZ). Mobile-width PWA shell with all screens wired to the backend. Served by nginx in Docker.
+
+## Device drivers
+
+The backend ships three drivers out of the box. Each one plugs into the same `devicectl.Driver` interface — adding another protocol is one file under `backend/internal/devicectl/drivers/<name>/` plus a `factory.Register(...)` line in `cmd/server/main.go`.
+
+| Driver | Name in API | When to use |
+|---|---|---|
+| `generic_http` | `generic_http` | Shelly Gen1 / Sonoff DIY / Tasmota / any LAN device with a plain REST API |
+| `homeassistant` | `homeassistant` | Recommended for **Xiaomi Mi Home, Samsung SmartThings, Tuya, Aqara, Sonoff, Matter, Zigbee, HomeKit** — Home Assistant acts as a universal translator and we hit its REST API |
+| `smartthings` | `smartthings` | Official Samsung SmartThings REST v1 (no HA needed) |
+
+### Home Assistant (covers Xiaomi, Samsung, Huawei-via-Matter, Tuya, Aqara, Sonoff)
+
+1. Run Home Assistant (Home Assistant OS, Supervised, Container) and pair your devices through its UI (`Settings → Devices & Services`).
+2. Generate a **long-lived access token**: `user profile → Long-lived Access Tokens → Create token`.
+3. Register the device in our backend:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/devices \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "classroomId": "<uuid>",
+    "name": "Kitchen Light",
+    "type": "light",
+    "brand": "xiaomi",
+    "driver": "homeassistant",
+    "config": {
+      "baseUrl": "http://homeassistant.local:8123",
+      "token": "<long-lived token>",
+      "entityId": "light.kitchen"
+    }
+  }'
+```
+
+Supported commands per HA domain:
+- `switch.*`, `light.*` → `ON`, `OFF`, `SET_VALUE` (light: brightness 0-100)
+- `cover.*` → `OPEN`, `CLOSE`, `SET_VALUE` (position 0-100)
+- `lock.*` → `OPEN`/`CLOSE` (unlock/lock)
+- `climate.*` → `SET_VALUE` (target temperature)
+- `fan.*` → `SET_VALUE` (percentage)
+
+### SmartThings (Samsung)
+
+1. Get a **Personal Access Token** at https://account.smartthings.com/tokens.
+2. List devices to get their UUIDs: `curl -H "Authorization: Bearer $PAT" https://api.smartthings.com/v1/devices`.
+3. Register:
+
+```bash
+curl -X POST http://localhost:8080/api/v1/devices \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{
+    "classroomId": "<uuid>",
+    "name": "Samsung AC",
+    "type": "climate",
+    "brand": "samsung",
+    "driver": "smartthings",
+    "config": {
+      "token": "pat-...",
+      "deviceId": "<smartthings device uuid>"
+    }
+  }'
+```
+
+By default the driver maps `ON/OFF → switch`, `OPEN/CLOSE → windowShade`, `SET_VALUE → switchLevel.setLevel`. Override via `"capability"` and `"setCommand"` for locks (`"lock"` + `unlock/lock`), thermostats (`"thermostatHeatingSetpoint"` + `"setHeatingSetpoint"`), coloured bulbs, etc.
+
+### Notes on specific vendors
+
+- **Xiaomi / Mi Home / Aqara** — no stable public API. Go through Home Assistant (integrations: `xiaomi_miio`, `aqara`, `xiaomi_aqara`).
+- **Huawei (HarmonyOS / HiLink)** — no public API. The only reliable path is buying Matter-certified Huawei devices and pairing them via Home Assistant's Matter integration, then using the `homeassistant` driver.
+- **Samsung** — either `smartthings` directly, or via Home Assistant.
+- **Tuya / Smart Life** — Home Assistant has an official Tuya integration (cloud).
+- **Sonoff / Shelly** — `generic_http` works on LAN for most models; otherwise Home Assistant.

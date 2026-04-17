@@ -19,6 +19,8 @@ import (
 	"smartclass/internal/device"
 	"smartclass/internal/devicectl"
 	"smartclass/internal/devicectl/drivers/generic"
+	"smartclass/internal/devicectl/drivers/homeassistant"
+	"smartclass/internal/devicectl/drivers/smartthings"
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/i18n"
@@ -78,6 +80,8 @@ func main() {
 
 	factory := devicectl.NewFactory()
 	factory.Register(generic.New(nil))
+	factory.Register(homeassistant.New(nil))
+	factory.Register(smartthings.New(nil))
 	logger.Info("device drivers registered", zap.Strings("drivers", factory.Names()))
 
 	hub := ws.NewHub(logger)
