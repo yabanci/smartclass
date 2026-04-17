@@ -30,5 +30,7 @@
   "scene.not_found": "Scene not found",
   "scene.step_failed": "Scene step failed",
 
-  "sensor.invalid_metric": "Unknown sensor metric"
+  "sensor.invalid_metric": "Unknown sensor metric",
+
+  "analytics.invalid_bucket": "Invalid aggregation bucket (expected: hour/day/week/month)"
 }

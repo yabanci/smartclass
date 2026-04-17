@@ -16,18 +16,35 @@ import (
 
 var ErrInvalidMetric = httpx.NewDomainError("invalid_metric", http.StatusBadRequest, "sensor.invalid_metric")
 
+type Trigger interface {
+	OnSensorReading(ctx context.Context, classroomID, deviceID uuid.UUID, metric string, value float64, unit string)
+}
+
+type noopTrigger struct{}
+
+func (noopTrigger) OnSensorReading(context.Context, uuid.UUID, uuid.UUID, string, float64, string) {
+}
+
 type Service struct {
 	repo      Repository
 	classroom *classroom.Service
 	devices   *device.Service
 	broker    realtime.Broker
+	trigger   Trigger
 }
 
 func NewService(repo Repository, cls *classroom.Service, devices *device.Service, broker realtime.Broker) *Service {
 	if broker == nil {
 		broker = realtime.Noop{}
 	}
-	return &Service{repo: repo, classroom: cls, devices: devices, broker: broker}
+	return &Service{repo: repo, classroom: cls, devices: devices, broker: broker, trigger: noopTrigger{}}
+}
+
+func (s *Service) WithTrigger(t Trigger) *Service {
+	if t != nil {
+		s.trigger = t
+	}
+	return s
 }
 
 type IngestItem struct {
@@ -65,6 +82,7 @@ func (s *Service) Ingest(ctx context.Context, p classroom.Principal, items []Ing
 			Raw:        it.Raw,
 		})
 		s.publish(ctx, d.ClassroomID, it.DeviceID, it.Metric, it.Value, it.Unit, rec)
+		s.trigger.OnSensorReading(ctx, d.ClassroomID, it.DeviceID, string(it.Metric), it.Value, it.Unit)
 	}
 	if err := s.repo.Insert(ctx, readings); err != nil {
 		return 0, err

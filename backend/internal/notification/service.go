@@ -1,0 +1,126 @@
+package notification
+
+import (
+	"context"
+	"fmt"
+	"net/http"
+
+	"github.com/google/uuid"
+
+	"smartclass/internal/platform/httpx"
+	"smartclass/internal/realtime"
+)
+
+var ErrDomainNotFound = httpx.NewDomainError("notification_not_found", http.StatusNotFound, "not_found")
+
+type MemberLookup interface {
+	Members(ctx context.Context, classroomID uuid.UUID) ([]uuid.UUID, error)
+}
+
+type Service struct {
+	repo    Repository
+	members MemberLookup
+	broker  realtime.Broker
+}
+
+func NewService(repo Repository, members MemberLookup, broker realtime.Broker) *Service {
+	if broker == nil {
+		broker = realtime.Noop{}
+	}
+	return &Service{repo: repo, members: members, broker: broker}
+}
+
+type Input struct {
+	UserID      uuid.UUID
+	ClassroomID *uuid.UUID
+	Type        Type
+	Title       string
+	Message     string
+	Metadata    map[string]any
+}
+
+func (s *Service) CreateForUser(ctx context.Context, in Input) (*Notification, error) {
+	if !in.Type.Valid() {
+		return nil, httpx.ErrBadRequest
+	}
+	n := toNotification(in)
+	if err := s.repo.Create(ctx, n); err != nil {
+		return nil, err
+	}
+	s.publish(ctx, n)
+	return n, nil
+}
+
+func (s *Service) CreateForClassroom(ctx context.Context, classroomID uuid.UUID, in Input) ([]*Notification, error) {
+	if !in.Type.Valid() {
+		return nil, httpx.ErrBadRequest
+	}
+	members, err := s.members.Members(ctx, classroomID)
+	if err != nil {
+		return nil, err
+	}
+	if len(members) == 0 {
+		return nil, nil
+	}
+	cid := classroomID
+	items := make([]*Notification, 0, len(members))
+	for _, uid := range members {
+		n := toNotification(in)
+		n.UserID = uid
+		n.ClassroomID = &cid
+		items = append(items, n)
+	}
+	if err := s.repo.CreateBatch(ctx, items); err != nil {
+		return nil, err
+	}
+	for _, n := range items {
+		s.publish(ctx, n)
+	}
+	return items, nil
+}
+
+func (s *Service) List(ctx context.Context, userID uuid.UUID, onlyUnread bool, limit, offset int) ([]*Notification, error) {
+	return s.repo.List(ctx, ListFilter{UserID: userID, OnlyUnread: onlyUnread, Limit: limit, Offset: offset})
+}
+
+func (s *Service) CountUnread(ctx context.Context, userID uuid.UUID) (int, error) {
+	return s.repo.CountUnread(ctx, userID)
+}
+
+func (s *Service) MarkRead(ctx context.Context, userID, id uuid.UUID) error {
+	if err := s.repo.MarkRead(ctx, userID, id); err != nil {
+		return ErrDomainNotFound
+	}
+	return nil
+}
+
+func (s *Service) MarkAllRead(ctx context.Context, userID uuid.UUID) error {
+	return s.repo.MarkAllRead(ctx, userID)
+}
+
+func toNotification(in Input) *Notification {
+	return &Notification{
+		ID:          uuid.New(),
+		UserID:      in.UserID,
+		ClassroomID: in.ClassroomID,
+		Type:        in.Type,
+		Title:       in.Title,
+		Message:     in.Message,
+		Metadata:    in.Metadata,
+	}
+}
+
+func (s *Service) publish(ctx context.Context, n *Notification) {
+	_ = s.broker.Publish(ctx, realtime.Event{
+		Topic: fmt.Sprintf("user:%s:notifications", n.UserID.String()),
+		Type:  "notification.created",
+		Payload: map[string]any{
+			"id":        n.ID.String(),
+			"type":      string(n.Type),
+			"title":     n.Title,
+			"message":   n.Message,
+			"metadata":  n.Metadata,
+			"createdAt": n.CreatedAt,
+		},
+	})
+}

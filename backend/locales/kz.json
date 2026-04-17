@@ -30,5 +30,7 @@
   "scene.not_found": "Режим табылмады",
   "scene.step_failed": "Режим қадамы орындалмады",
 
-  "sensor.invalid_metric": "Белгісіз датчик метрикасы"
+  "sensor.invalid_metric": "Белгісіз датчик метрикасы",
+
+  "analytics.invalid_bucket": "Агрегация интервалы қате (hour/day/week/month)"
 }

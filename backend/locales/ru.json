@@ -30,5 +30,7 @@
   "scene.not_found": "Режим не найден",
   "scene.step_failed": "Ошибка выполнения шага режима",
 
-  "sensor.invalid_metric": "Неизвестная метрика датчика"
+  "sensor.invalid_metric": "Неизвестная метрика датчика",
+
+  "analytics.invalid_bucket": "Неверный интервал агрегации (допустимо: hour/day/week/month)"
 }

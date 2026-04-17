@@ -11,12 +11,15 @@ import (
 
 	"go.uber.org/zap"
 
+	"smartclass/internal/analytics"
+	"smartclass/internal/auditlog"
 	"smartclass/internal/auth"
 	"smartclass/internal/classroom"
 	"smartclass/internal/config"
 	"smartclass/internal/device"
 	"smartclass/internal/devicectl"
 	"smartclass/internal/devicectl/drivers/generic"
+	"smartclass/internal/notification"
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/i18n"
 	"smartclass/internal/platform/postgres"
@@ -65,6 +68,9 @@ func main() {
 	scheduleRepo := schedule.NewPostgresRepository(db.Pool)
 	sceneRepo := scene.NewPostgresRepository(db.Pool)
 	sensorRepo := sensor.NewPostgresRepository(db.Pool)
+	notificationRepo := notification.NewPostgresRepository(db.Pool)
+	auditRepo := auditlog.NewPostgresRepository(db.Pool)
+	analyticsRepo := analytics.NewPostgresRepository(db.Pool)
 
 	hash := hasher.NewBcrypt(cfg.Bcrypt.Cost)
 	issuer := tokens.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL, cfg.JWT.Issuer)
@@ -77,13 +83,22 @@ func main() {
 	hub := ws.NewHub(logger)
 	var broker realtime.Broker = hub
 
+	auditSvc := auditlog.NewService(auditRepo, logger)
+
+	classroomSvc := classroom.NewService(classroomRepo)
+	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker)
+	triggerEngine := notification.NewEngine(notificationSvc, notification.DefaultRules())
+
 	authSvc := auth.NewService(userRepo, hash, issuer)
 	userSvc := user.NewService(userRepo, hash)
-	classroomSvc := classroom.NewService(classroomRepo)
-	deviceSvc := device.NewService(deviceRepo, classroomSvc, factory, broker)
+	deviceSvc := device.NewService(deviceRepo, classroomSvc, factory, broker).
+		WithTrigger(triggerEngine).
+		WithRecorder(auditSvc)
 	scheduleSvc := schedule.NewService(scheduleRepo, classroomSvc)
 	sceneSvc := scene.NewService(sceneRepo, classroomSvc, deviceSvc, broker)
-	sensorSvc := sensor.NewService(sensorRepo, classroomSvc, deviceSvc, broker)
+	sensorSvc := sensor.NewService(sensorRepo, classroomSvc, deviceSvc, broker).
+		WithTrigger(triggerEngine)
+	analyticsSvc := analytics.NewService(analyticsRepo, classroomSvc)
 
 	authH := auth.NewHandler(authSvc, valid, bundle)
 	userH := user.NewHandler(userSvc, valid, bundle)
@@ -92,21 +107,27 @@ func main() {
 	scheduleH := schedule.NewHandler(scheduleSvc, valid, bundle)
 	sceneH := scene.NewHandler(sceneSvc, valid, bundle)
 	sensorH := sensor.NewHandler(sensorSvc, valid, bundle)
+	notificationH := notification.NewHandler(notificationSvc, bundle)
+	auditH := auditlog.NewHandler(auditSvc, bundle)
+	analyticsH := analytics.NewHandler(analyticsSvc, bundle)
 	wsH := ws.NewHandler(hub, logger, bundle)
 
 	srv := server.New(server.Deps{
-		Cfg:              cfg,
-		Logger:           logger,
-		Bundle:           bundle,
-		Issuer:           issuer,
-		AuthHandler:      authH,
-		UserHandler:      userH,
-		ClassroomHandler: classroomH,
-		DeviceHandler:    deviceH,
-		ScheduleHandler:  scheduleH,
-		SceneHandler:     sceneH,
-		SensorHandler:    sensorH,
-		WSHandler:        wsH,
+		Cfg:                 cfg,
+		Logger:              logger,
+		Bundle:              bundle,
+		Issuer:              issuer,
+		AuthHandler:         authH,
+		UserHandler:         userH,
+		ClassroomHandler:    classroomH,
+		DeviceHandler:       deviceH,
+		ScheduleHandler:     scheduleH,
+		SceneHandler:        sceneH,
+		SensorHandler:       sensorH,
+		NotificationHandler: notificationH,
+		AuditHandler:        auditH,
+		AnalyticsHandler:    analyticsH,
+		WSHandler:           wsH,
 	})
 
 	go func() {
@@ -123,6 +144,9 @@ func main() {
 	defer cancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {
 		logger.Error("shutdown", zap.Error(err))
+	}
+	if err := auditSvc.FlushSync(shutdownCtx); err != nil {
+		logger.Warn("audit flush", zap.Error(err))
 	}
 }
 

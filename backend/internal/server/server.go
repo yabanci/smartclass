@@ -8,10 +8,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.uber.org/zap"
 
+	"smartclass/internal/analytics"
+	"smartclass/internal/auditlog"
 	"smartclass/internal/auth"
 	"smartclass/internal/classroom"
 	"smartclass/internal/config"
 	"smartclass/internal/device"
+	"smartclass/internal/notification"
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
@@ -29,18 +32,21 @@ type Server struct {
 }
 
 type Deps struct {
-	Cfg              config.Config
-	Logger           *zap.Logger
-	Bundle           *i18n.Bundle
-	Issuer           tokens.Issuer
-	AuthHandler      *auth.Handler
-	UserHandler      *user.Handler
-	ClassroomHandler *classroom.Handler
-	DeviceHandler    *device.Handler
-	ScheduleHandler  *schedule.Handler
-	SceneHandler     *scene.Handler
-	SensorHandler    *sensor.Handler
-	WSHandler        *ws.Handler
+	Cfg                 config.Config
+	Logger              *zap.Logger
+	Bundle              *i18n.Bundle
+	Issuer              tokens.Issuer
+	AuthHandler         *auth.Handler
+	UserHandler         *user.Handler
+	ClassroomHandler    *classroom.Handler
+	DeviceHandler       *device.Handler
+	ScheduleHandler     *schedule.Handler
+	SceneHandler        *scene.Handler
+	SensorHandler       *sensor.Handler
+	NotificationHandler *notification.Handler
+	AuditHandler        *auditlog.Handler
+	AnalyticsHandler    *analytics.Handler
+	WSHandler           *ws.Handler
 }
 
 func New(d Deps) *Server {
@@ -71,6 +77,7 @@ func New(d Deps) *Server {
 				r.Route("/{id}/schedule", d.ScheduleHandler.ClassroomRoutes)
 				r.Route("/{id}/scenes", d.SceneHandler.ClassroomRoutes)
 				r.Route("/{id}/sensors", d.SensorHandler.ClassroomRoutes)
+				r.Route("/{id}/analytics", d.AnalyticsHandler.ClassroomRoutes)
 			})
 
 			r.Route("/devices", func(r chi.Router) {
@@ -81,6 +88,8 @@ func New(d Deps) *Server {
 			r.Route("/schedule", d.ScheduleHandler.Routes)
 			r.Route("/scenes", d.SceneHandler.Routes)
 			r.Route("/sensors", d.SensorHandler.Routes)
+			r.Route("/notifications", d.NotificationHandler.Routes)
+			r.Route("/logs", d.AuditHandler.Routes)
 
 			if d.WSHandler != nil {
 				r.Get("/ws", d.WSHandler.Serve)

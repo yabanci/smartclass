@@ -22,18 +22,52 @@ var (
 	ErrUnsupportedCmd   = httpx.NewDomainError("unsupported_command", http.StatusBadRequest, "device.unsupported_command")
 )
 
+type Trigger interface {
+	OnDeviceStateChange(ctx context.Context, classroomID, deviceID uuid.UUID, name string, online bool, status string)
+}
+
+type noopTrigger struct{}
+
+func (noopTrigger) OnDeviceStateChange(context.Context, uuid.UUID, uuid.UUID, string, bool, string) {
+}
+
+type Recorder interface {
+	Record(ctx context.Context, actor *uuid.UUID, entity string, entityID *uuid.UUID, action string, meta map[string]any)
+}
+
+type noopRecorder struct{}
+
+func (noopRecorder) Record(context.Context, *uuid.UUID, string, *uuid.UUID, string, map[string]any) {
+}
+
 type Service struct {
 	repo      Repository
 	classroom *classroom.Service
 	factory   *devicectl.Factory
 	broker    realtime.Broker
+	trigger   Trigger
+	recorder  Recorder
 }
 
 func NewService(repo Repository, cls *classroom.Service, f *devicectl.Factory, broker realtime.Broker) *Service {
 	if broker == nil {
 		broker = realtime.Noop{}
 	}
-	return &Service{repo: repo, classroom: cls, factory: f, broker: broker}
+	return &Service{repo: repo, classroom: cls, factory: f, broker: broker, trigger: noopTrigger{}, recorder: noopRecorder{}}
+}
+
+func (s *Service) WithTrigger(t Trigger) *Service {
+	if t != nil {
+		s.trigger = t
+	}
+	return s
+}
+
+func (s *Service) WithRecorder(r Recorder) *Service {
+	if r != nil {
+		s.recorder = r
+	}
+	return s
 }
 
 type CreateInput struct {
@@ -66,6 +100,11 @@ func (s *Service) Create(ctx context.Context, p classroom.Principal, in CreateIn
 		return nil, err
 	}
 	s.publish(ctx, d, "device.created")
+	actor := p.UserID
+	s.recorder.Record(ctx, &actor, "device", &d.ID, "create", map[string]any{
+		"classroomId": d.ClassroomID.String(),
+		"name":        d.Name, "driver": d.Driver, "brand": d.Brand,
+	})
 	return d, nil
 }
 
@@ -128,6 +167,8 @@ func (s *Service) Update(ctx context.Context, p classroom.Principal, id uuid.UUI
 		return nil, err
 	}
 	s.publish(ctx, d, "device.updated")
+	actor := p.UserID
+	s.recorder.Record(ctx, &actor, "device", &d.ID, "update", nil)
 	return d, nil
 }
 
@@ -143,6 +184,8 @@ func (s *Service) Delete(ctx context.Context, p classroom.Principal, id uuid.UUI
 		return err
 	}
 	s.publish(ctx, d, "device.deleted")
+	actor := p.UserID
+	s.recorder.Record(ctx, &actor, "device", &d.ID, "delete", map[string]any{"name": d.Name})
 	return nil
 }
 
@@ -167,11 +210,16 @@ func (s *Service) Execute(ctx context.Context, p classroom.Principal, id uuid.UU
 		if errors.Is(err, devicectl.ErrUnsupportedCommand) {
 			return nil, ErrUnsupportedCmd
 		}
+		prevOnline := d.Online
 		_ = s.repo.UpdateState(ctx, d.ID, d.Status, false, d.LastSeenAt)
 		d.Online = false
 		s.publish(ctx, d, "device.unavailable")
+		if prevOnline {
+			s.trigger.OnDeviceStateChange(ctx, d.ClassroomID, d.ID, d.Name, false, d.Status)
+		}
 		return nil, fmt.Errorf("%w: %v", ErrCommandFailed, err)
 	}
+	prevOnline := d.Online
 	d.Status = string(res.Status)
 	d.Online = res.Online
 	ls := res.LastSeen
@@ -180,6 +228,13 @@ func (s *Service) Execute(ctx context.Context, p classroom.Principal, id uuid.UU
 		return nil, err
 	}
 	s.publish(ctx, d, "device.state_changed")
+	if prevOnline != d.Online {
+		s.trigger.OnDeviceStateChange(ctx, d.ClassroomID, d.ID, d.Name, d.Online, d.Status)
+	}
+	actor := p.UserID
+	s.recorder.Record(ctx, &actor, "device", &d.ID, "command", map[string]any{
+		"type": string(cmd.Type), "value": cmd.Value, "status": d.Status,
+	})
 	return d, nil
 }
 
