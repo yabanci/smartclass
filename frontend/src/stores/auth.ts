@@ -20,29 +20,36 @@ export const useAuth = create<AuthState>((set, get) => ({
   status: 'bootstrapping',
 
   bootstrap: async () => {
+    // bootstrap must not override state the user has already moved past
+    // (e.g. submitted a login form before /me finished resolving).
+    const stillBootstrapping = () => get().status === 'bootstrapping';
+
     if (!storage.getAccess() && !storage.getRefresh()) {
-      set({ status: 'anonymous' });
+      if (stillBootstrapping()) set({ status: 'anonymous' });
       return;
     }
     try {
       const user = await userApi.me();
-      set({ user, status: 'authenticated' });
+      if (stillBootstrapping()) set({ user, status: 'authenticated' });
       return;
     } catch {
-      // access token was missing or expired — try the refresh token
+      // access token missing or expired — try refresh
     }
+    if (!stillBootstrapping()) return;
     const fresh = await get().refresh();
     if (fresh) {
       try {
         const user = await userApi.me();
-        set({ user, status: 'authenticated' });
+        if (stillBootstrapping()) set({ user, status: 'authenticated' });
         return;
       } catch {
         /* fall through */
       }
     }
-    storage.clear();
-    set({ status: 'anonymous' });
+    if (stillBootstrapping()) {
+      storage.clear();
+      set({ status: 'anonymous' });
+    }
   },
 
   login: async (email, password) => {

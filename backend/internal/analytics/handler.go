@@ -65,6 +65,9 @@ func (h *Handler) sensors(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, err)
 		return
 	}
+	if series == nil {
+		series = []TimePoint{}
+	}
 	httpx.JSON(w, http.StatusOK, series)
 }
 
@@ -85,6 +88,9 @@ func (h *Handler) usage(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, h.bundle, err)
 		return
+	}
+	if items == nil {
+		items = []DeviceUsage{}
 	}
 	httpx.JSON(w, http.StatusOK, items)
 }

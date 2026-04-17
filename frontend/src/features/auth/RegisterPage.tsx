@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { SplashScreen } from '@/components/SplashScreen';
 import { useAuth } from '@/stores/auth';
 import { errorMessage } from '@/api/client';
 
@@ -20,6 +21,7 @@ export function RegisterPage() {
   const [err, setErr] = useState('');
   const [loading, setLoading] = useState(false);
 
+  if (status === 'bootstrapping') return <SplashScreen />;
   if (status === 'authenticated') return <Navigate to="/" replace />;
 
   const submit = async (e: FormEvent) => {

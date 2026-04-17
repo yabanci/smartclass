@@ -68,6 +68,9 @@ type config struct {
 	Component  string `json:"component"`
 	Capability string `json:"capability"`
 	SetCommand string `json:"setCommand"`
+	// BaseURL optionally overrides the SmartThings API host per-device.
+	// Useful for tests, custom gateways, and SmartThings Schema connectors.
+	BaseURL string `json:"baseUrl"`
 }
 
 func parseConfig(raw map[string]any) (*config, error) {
@@ -150,7 +153,7 @@ func (d *Driver) Execute(ctx context.Context, t devicectl.Target, cmd devicectl.
 		return devicectl.Result{}, err
 	}
 	body := map[string]any{"commands": []stCommand{stCmd}}
-	raw, err := d.postJSON(ctx, cfg.Token, "/devices/"+cfg.DeviceID+"/commands", body)
+	raw, err := d.postJSON(ctx, cfg, "/devices/"+cfg.DeviceID+"/commands", body)
 	if err != nil {
 		return devicectl.Result{Online: false}, err
 	}
@@ -167,7 +170,7 @@ func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Resul
 	if err != nil {
 		return devicectl.Result{}, err
 	}
-	raw, err := d.getJSON(ctx, cfg.Token, "/devices/"+cfg.DeviceID+"/status")
+	raw, err := d.getJSON(ctx, cfg, "/devices/"+cfg.DeviceID+"/status")
 	if err != nil {
 		return devicectl.Result{Online: false}, err
 	}
@@ -179,25 +182,32 @@ func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Resul
 	}, nil
 }
 
-func (d *Driver) postJSON(ctx context.Context, token, path string, body any) (map[string]any, error) {
+func (d *Driver) postJSON(ctx context.Context, cfg *config, path string, body any) (map[string]any, error) {
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", devicectl.ErrInvalidConfig, err)
 	}
-	return d.do(ctx, http.MethodPost, token, path, bytes.NewReader(bodyJSON))
+	return d.do(ctx, http.MethodPost, cfg, path, bytes.NewReader(bodyJSON))
 }
 
-func (d *Driver) getJSON(ctx context.Context, token, path string) (map[string]any, error) {
-	return d.do(ctx, http.MethodGet, token, path, nil)
+func (d *Driver) getJSON(ctx context.Context, cfg *config, path string) (map[string]any, error) {
+	return d.do(ctx, http.MethodGet, cfg, path, nil)
 }
 
-func (d *Driver) do(ctx context.Context, method, token, path string, body io.Reader) (map[string]any, error) {
-	url := strings.TrimRight(d.baseURL, "/") + path
+func (d *Driver) baseFor(cfg *config) string {
+	if cfg.BaseURL != "" {
+		return cfg.BaseURL
+	}
+	return d.baseURL
+}
+
+func (d *Driver) do(ctx context.Context, method string, cfg *config, path string, body io.Reader) (map[string]any, error) {
+	url := strings.TrimRight(d.baseFor(cfg), "/") + path
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	req.Header.Set("Authorization", "Bearer "+cfg.Token)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := d.client.Do(req)
 	if err != nil {

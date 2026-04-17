@@ -1,4 +1,4 @@
-.PHONY: up down logs ps restart rebuild clean test
+.PHONY: up down logs ps restart rebuild clean test e2e
 
 up:
 	docker compose up --build -d
@@ -25,3 +25,7 @@ clean:
 
 test:
 	cd backend && go test ./... -count=1
+
+# End-to-end test — stack must be running (make up). Requires Python 3 + websockets.
+e2e:
+	python3 scripts/e2e.py

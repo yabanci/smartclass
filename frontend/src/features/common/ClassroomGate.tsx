@@ -14,10 +14,12 @@ export function ClassroomPicker({ onCreate }: { onCreate?: () => void }) {
   const q = useQuery({ queryKey: ['classrooms'], queryFn: () => classroomApi.list() });
 
   useEffect(() => {
-    if (q.data && q.data.length > 0 && !activeID) {
-      setActive(q.data[0].id);
+    if (!q.data) return;
+    if (q.data.length === 0) {
+      if (activeID) setActive(null);
+      return;
     }
-    if (q.data && q.data.length > 0 && activeID && !q.data.find((c) => c.id === activeID)) {
+    if (!activeID || !q.data.find((c) => c.id === activeID)) {
       setActive(q.data[0].id);
     }
   }, [q.data, activeID, setActive]);
