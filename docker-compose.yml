@@ -36,6 +36,34 @@ services:
     restart: unless-stopped
     networks: [smartclass]
 
+  # One-shot init: drops Xiaomi's official HA custom component into the HA
+  # config volume before HA starts. Needed because the legacy `xiaomi_miio`
+  # cloud login is broken on current Xiaomi auth API (2025+) and returns
+  # `cloud_login_error`. The new `xiaomi_home` integration from github.com/XiaoMi
+  # uses OAuth and actually works. Idempotent — skips re-install if present.
+  ha-init:
+    image: alpine:3.19
+    container_name: smartclass-hass-init
+    volumes:
+      - hass-config:/config
+    command: >
+      sh -c "
+      set -e;
+      apk add --no-cache curl tar >/dev/null;
+      mkdir -p /config/custom_components;
+      if [ ! -d /config/custom_components/xiaomi_home ]; then
+        echo 'Installing xiaomi_home custom component...';
+        cd /tmp;
+        curl -sL https://github.com/XiaoMi/ha_xiaomi_home/archive/refs/heads/main.tar.gz | tar xz;
+        mv ha_xiaomi_home-main/custom_components/xiaomi_home /config/custom_components/;
+        rm -rf ha_xiaomi_home-main;
+        echo 'xiaomi_home installed';
+      else
+        echo 'xiaomi_home already present, skipping';
+      fi
+      "
+    restart: "no"
+
   homeassistant:
     image: ghcr.io/home-assistant/home-assistant:stable
     container_name: smartclass-hass
@@ -49,6 +77,8 @@ services:
     depends_on:
       mosquitto:
         condition: service_healthy
+      ha-init:
+        condition: service_completed_successfully
     restart: unless-stopped
     networks: [smartclass]
 

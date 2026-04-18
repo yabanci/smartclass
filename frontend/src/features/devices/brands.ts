@@ -17,9 +17,12 @@ export type Brand = {
 export const BRANDS: Brand[] = [
   {
     id: 'xiaomi',
+    // xiaomi_home is Xiaomi's official OAuth integration (preferred — replaces
+    // the legacy xiaomi_miio cloud login which Xiaomi broke in 2025).
+    // xiaomi_miio stays as a fallback for LAN-only pairing by IP+token.
     label: 'Xiaomi · Mi Home · Yeelight',
     emoji: '🏮',
-    handlers: ['xiaomi_miio', 'yeelight', 'xiaomi_miot', 'xiaomi_bluetooth'],
+    handlers: ['xiaomi_home', 'xiaomi_miot', 'yeelight', 'xiaomi_miio', 'xiaomi_bluetooth'],
     pairing: 'cloud',
   },
   {
