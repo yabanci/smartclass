@@ -294,9 +294,18 @@ func (c *Client) postOnboardingStep(ctx context.Context, token, path string, bod
 }
 
 func (c *Client) ListFlowHandlers(ctx context.Context, token string) ([]FlowHandler, error) {
-	var out []FlowHandler
-	if err := c.getJSON(ctx, token, "/api/config/config_entries/flow_handlers", &out); err != nil {
+	// HA returns this endpoint as a flat []string of domain names (e.g.
+	// ["xiaomi_miio", "tuya", "hue"]), not the richer object array older
+	// integrations documentation showed. Decode as strings and project each
+	// domain into a FlowHandler with ConfigFlow=true so the frontend's brand
+	// catalog can still match on domain.
+	var domains []string
+	if err := c.getJSON(ctx, token, "/api/config/config_entries/flow_handlers", &domains); err != nil {
 		return nil, err
+	}
+	out := make([]FlowHandler, 0, len(domains))
+	for _, d := range domains {
+		out = append(out, FlowHandler{Domain: d, Name: d, ConfigFlow: true})
 	}
 	return out, nil
 }
