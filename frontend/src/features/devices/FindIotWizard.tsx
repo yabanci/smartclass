@@ -568,6 +568,21 @@ function SchemaFieldInput({
 }) {
   const label = `${field.name}${field.required ? ' *' : ''}`;
   if (field.options && field.options.length > 0) {
+    // HA sends options in two shapes depending on the integration:
+    // 1. Flat scalars ["cn", "sg", "ru"] — value === label
+    // 2. [value, label] pairs like ["sg", "Singapore"] — common for selectors
+    // 3. {value, label} objects — used by some newer integrations
+    // Normalize all three to {v, l} so the dropdown shows a human label but
+    // submits the machine value (fixes HA "invalid option" when the pair's
+    // label gets stringified and posted back as the value).
+    const opts = field.options.map((o) => {
+      if (Array.isArray(o) && o.length >= 2) return { v: String(o[0]), l: String(o[1]) };
+      if (o && typeof o === 'object') {
+        const obj = o as { value?: unknown; label?: unknown };
+        return { v: String(obj.value ?? ''), l: String(obj.label ?? obj.value ?? '') };
+      }
+      return { v: String(o), l: String(o) };
+    });
     return (
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span>
@@ -577,9 +592,9 @@ function SchemaFieldInput({
           onChange={(e) => onChange(e.target.value)}
         >
           <option value="" />
-          {field.options.map((o) => (
-            <option key={String(o)} value={String(o)}>
-              {String(o)}
+          {opts.map((o) => (
+            <option key={o.v} value={o.v}>
+              {o.l === o.v ? o.v : `${o.l} (${o.v})`}
             </option>
           ))}
         </select>
