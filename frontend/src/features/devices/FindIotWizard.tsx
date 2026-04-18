@@ -527,12 +527,22 @@ function WizardStep({
     );
   }
 
+  // HA reports form-level errors under the magic key "base" (everything else
+  // is keyed by field name). Pull it out and surface it as a banner so the
+  // user knows *why* the same form reappeared after submit instead of
+  // silently thinking nothing happened.
+  const baseError = step.errors?.base;
   return (
     <form onSubmit={submit} className="flex flex-col gap-3">
       <div>
         <p className="text-xs uppercase tracking-wide text-slate-400">{handler.name}</p>
         {step.description && <p className="text-sm text-slate-700 mt-1">{step.description}</p>}
       </div>
+      {baseError && (
+        <div className="rounded-xl border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+          {baseError}
+        </div>
+      )}
       {(step.data_schema ?? []).map((f) => (
         <SchemaFieldInput
           key={f.name}
