@@ -60,6 +60,13 @@ services:
         echo 'xiaomi_home installed';
       else
         echo 'xiaomi_home already present, skipping';
+      fi;
+      # Pin homeassistant internal_url to localhost so OAuth callbacks
+      # (e.g. xiaomi_home) don't use the mDNS hostname 'homeassistant.local'
+      # which Windows can't resolve.
+      if [ -f /config/configuration.yaml ] && ! grep -q 'internal_url' /config/configuration.yaml; then
+        printf '\nhomeassistant:\n  internal_url: http://localhost:8123\n  external_url: http://localhost:8123\n' >> /config/configuration.yaml;
+        echo 'internal_url pinned to localhost';
       fi
       "
     restart: "no"
