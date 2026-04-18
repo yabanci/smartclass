@@ -30,7 +30,7 @@ func ParseLang(s string) Lang {
 	case EN, RU, KZ:
 		return Lang(s)
 	}
-	return EN
+	return KZ
 }
 
 type Bundle struct {
@@ -41,7 +41,7 @@ type Bundle struct {
 
 func NewBundle(def Lang) *Bundle {
 	if _, ok := supported[def]; !ok {
-		def = EN
+		def = KZ
 	}
 	return &Bundle{
 		default_: def,
@@ -89,7 +89,7 @@ func (b *Bundle) LoadDir(dir string) error {
 }
 
 func MustLoadDir(dir string) *Bundle {
-	b := NewBundle(EN)
+	b := NewBundle(KZ)
 	if err := b.LoadDir(dir); err != nil {
 		panic(err)
 	}
@@ -129,7 +129,7 @@ func LangFrom(ctx context.Context) Lang {
 	if v, ok := ctx.Value(ctxKey{}).(Lang); ok {
 		return v
 	}
-	return EN
+	return KZ
 }
 
 var ErrUnsupportedLang = errors.New("unsupported language")

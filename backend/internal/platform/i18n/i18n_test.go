@@ -9,14 +9,14 @@ import (
 
 func TestParseLang(t *testing.T) {
 	cases := map[string]Lang{
-		"":            EN,
+		"":            KZ,
 		"en":          EN,
 		"EN":          EN,
 		"ru":          RU,
 		"kz":          KZ,
 		"ru-RU":       RU,
 		"en,ru;q=0.9": EN,
-		"fr":          EN,
+		"fr":          KZ,
 	}
 	for in, want := range cases {
 		assert.Equal(t, want, ParseLang(in), "input=%q", in)
@@ -42,5 +42,5 @@ func TestBundle_T_Format(t *testing.T) {
 func TestLangCtx(t *testing.T) {
 	ctx := WithLang(context.Background(), RU)
 	assert.Equal(t, RU, LangFrom(ctx))
-	assert.Equal(t, EN, LangFrom(context.Background()))
+	assert.Equal(t, KZ, LangFrom(context.Background()))
 }

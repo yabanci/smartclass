@@ -55,7 +55,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput) (*LoginResult,
 	}
 	lang := in.Language
 	if lang == "" {
-		lang = "en"
+		lang = "kz"
 	}
 	u := &user.User{
 		ID:           uuid.New(),

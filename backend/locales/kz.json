@@ -32,5 +32,11 @@
 
   "sensor.invalid_metric": "Белгісіз датчик метрикасы",
 
-  "analytics.invalid_bucket": "Агрегация интервалы қате (hour/day/week/month)"
+  "analytics.invalid_bucket": "Агрегация интервалы қате (hour/day/week/month)",
+
+  "hass.not_configured": "Home Assistant әлі конфигурацияланбаған",
+  "hass.already_onboarded": "Home Assistant қолмен орнатылған — админ токен енгізу керек",
+  "hass.onboarding_failed": "Home Assistant онбординг қатесі",
+  "hass.upstream": "Home Assistant жауап бермеді",
+  "hass.flow_not_found": "Орнату процесі табылмады"
 }

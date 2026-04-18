@@ -32,5 +32,11 @@
 
   "sensor.invalid_metric": "Неизвестная метрика датчика",
 
-  "analytics.invalid_bucket": "Неверный интервал агрегации (допустимо: hour/day/week/month)"
+  "analytics.invalid_bucket": "Неверный интервал агрегации (допустимо: hour/day/week/month)",
+
+  "hass.not_configured": "Home Assistant ещё не настроен",
+  "hass.already_onboarded": "Home Assistant уже настроен вручную — админ должен указать токен",
+  "hass.onboarding_failed": "Ошибка онбординга Home Assistant",
+  "hass.upstream": "Home Assistant не ответил",
+  "hass.flow_not_found": "Процесс настройки не найден"
 }

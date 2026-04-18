@@ -14,6 +14,7 @@ import (
 	"smartclass/internal/classroom"
 	"smartclass/internal/config"
 	"smartclass/internal/device"
+	"smartclass/internal/hass"
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
@@ -46,6 +47,7 @@ type Deps struct {
 	NotificationHandler *notification.Handler
 	AuditHandler        *auditlog.Handler
 	AnalyticsHandler    *analytics.Handler
+	HassHandler         *hass.Handler
 	WSHandler           *ws.Handler
 }
 
@@ -90,6 +92,9 @@ func New(d Deps) *Server {
 			r.Route("/sensors", d.SensorHandler.Routes)
 			r.Route("/notifications", d.NotificationHandler.Routes)
 			r.Route("/logs", d.AuditHandler.Routes)
+			if d.HassHandler != nil {
+				r.Route("/hass", d.HassHandler.Routes)
+			}
 
 			if d.WSHandler != nil {
 				r.Get("/ws", d.WSHandler.Serve)

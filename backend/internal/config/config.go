@@ -15,6 +15,7 @@ type Config struct {
 	Bcrypt    Bcrypt        `envPrefix:"BCRYPT_"`
 	RateLimit RateLimit     `envPrefix:"RATE_LIMIT_"`
 	CORS      CORS          `envPrefix:"CORS_"`
+	Hass      Hass          `envPrefix:"HASS_"`
 	Paths     Paths
 	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
@@ -55,6 +56,14 @@ type RateLimit struct {
 
 type CORS struct {
 	Origins []string `env:"ORIGINS" envSeparator:"," envDefault:"*"`
+}
+
+type Hass struct {
+	URL           string `env:"URL" envDefault:"http://homeassistant:8123"`
+	OwnerName     string `env:"OWNER_NAME" envDefault:"Smart Classroom"`
+	OwnerUsername string `env:"OWNER_USERNAME" envDefault:"smartclass"`
+	OwnerPassword string `env:"OWNER_PASSWORD" envDefault:"smartclass1234"`
+	Language      string `env:"LANGUAGE" envDefault:"kz"`
 }
 
 type Paths struct {

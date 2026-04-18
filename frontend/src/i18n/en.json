@@ -52,6 +52,7 @@
   "devices": {
     "title": "Devices",
     "add": "Add device",
+    "findIot": "Find IoT",
     "name": "Name",
     "type": "Type",
     "brand": "Brand",
@@ -61,6 +62,28 @@
     "off": "Turn off",
     "empty": "No devices yet",
     "status": "Status"
+  },
+  "hass": {
+    "title": "Find IoT",
+    "notReady": "Home Assistant is still starting. Please wait...",
+    "alreadySetup": "HA was set up manually. Paste a long-lived access token to enable the wizard:",
+    "saveToken": "Save token",
+    "pickBrand": "Pick a manufacturer",
+    "allBrands": "Show all integrations",
+    "brandNotAvailable": "This brand's integration isn't loaded in Home Assistant yet. Try \"Show all integrations\".",
+    "pickIntegration": "Pick an integration",
+    "searchIntegration": "Search...",
+    "discoveredEntities": "Discovered devices",
+    "noEntities": "Nothing yet. Pair an integration first.",
+    "addToClassroom": "Add to classroom",
+    "next": "Next",
+    "abort": "Cancel",
+    "created": "Done!",
+    "loadingEntities": "Loading devices...",
+    "cloudHint": "Before you start: install the manufacturer's app, create an account, and add the device there. We'll reuse the same login and password.",
+    "lanHint": "Before you start: make sure the device is on the same Wi-Fi as the server. You'll find its IP address in your router's admin panel.",
+    "verifyOk": "Device responded. Current state: {{state}}",
+    "verifyOffline": "Device added, but it's offline right now. Check power and network."
   },
   "schedule": {
     "title": "Schedule",

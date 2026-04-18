@@ -21,6 +21,7 @@ import (
 	"smartclass/internal/devicectl/drivers/generic"
 	"smartclass/internal/devicectl/drivers/homeassistant"
 	"smartclass/internal/devicectl/drivers/smartthings"
+	"smartclass/internal/hass"
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/i18n"
@@ -73,6 +74,7 @@ func main() {
 	notificationRepo := notification.NewPostgresRepository(db.Pool)
 	auditRepo := auditlog.NewPostgresRepository(db.Pool)
 	analyticsRepo := analytics.NewPostgresRepository(db.Pool)
+	hassRepo := hass.NewPostgresRepository(db.Pool)
 
 	hash := hasher.NewBcrypt(cfg.Bcrypt.Cost)
 	issuer := tokens.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL, cfg.JWT.Issuer)
@@ -104,6 +106,16 @@ func main() {
 		WithTrigger(triggerEngine)
 	analyticsSvc := analytics.NewService(analyticsRepo, classroomSvc)
 
+	hassClient := hass.NewClient(cfg.Hass.URL, nil)
+	hassSvc := hass.NewService(hass.Config{
+		BaseURL:       cfg.Hass.URL,
+		OwnerName:     cfg.Hass.OwnerName,
+		OwnerUsername: cfg.Hass.OwnerUsername,
+		OwnerPassword: cfg.Hass.OwnerPassword,
+		Language:      cfg.Hass.Language,
+	}, hassRepo, hassClient, deviceSvc, logger)
+	go hassSvc.BootstrapWithRetry(ctx)
+
 	authH := auth.NewHandler(authSvc, valid, bundle)
 	userH := user.NewHandler(userSvc, valid, bundle)
 	classroomH := classroom.NewHandler(classroomSvc, valid, bundle)
@@ -114,6 +126,7 @@ func main() {
 	notificationH := notification.NewHandler(notificationSvc, bundle)
 	auditH := auditlog.NewHandler(auditSvc, bundle)
 	analyticsH := analytics.NewHandler(analyticsSvc, bundle)
+	hassH := hass.NewHandler(hassSvc, valid, bundle)
 	wsH := ws.NewHandler(hub, logger, bundle)
 
 	srv := server.New(server.Deps{
@@ -131,6 +144,7 @@ func main() {
 		NotificationHandler: notificationH,
 		AuditHandler:        auditH,
 		AnalyticsHandler:    analyticsH,
+		HassHandler:         hassH,
 		WSHandler:           wsH,
 	})
 

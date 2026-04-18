@@ -5,11 +5,11 @@ import en from './en.json';
 import ru from './ru.json';
 import kz from './kz.json';
 
-export const SUPPORTED_LANGS = ['en', 'ru', 'kz'] as const;
+export const SUPPORTED_LANGS = ['kz', 'en', 'ru'] as const;
 export type SupportedLang = (typeof SUPPORTED_LANGS)[number];
 
 i18n.use(LanguageDetector).use(initReactI18next).init({
-  fallbackLng: 'en',
+  fallbackLng: 'kz',
   supportedLngs: [...SUPPORTED_LANGS],
   resources: {
     en: { translation: en },

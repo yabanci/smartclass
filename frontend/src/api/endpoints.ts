@@ -94,6 +94,65 @@ export const notificationApi = {
   markAllRead: () => client.post('/notifications/read-all'),
 };
 
+export type HassFlowHandler = {
+  domain: string;
+  name: string;
+  integration?: string;
+  iot_class?: string;
+  config_flow: boolean;
+};
+
+export type HassSchemaField = {
+  name: string;
+  type: string;
+  required?: boolean;
+  optional?: boolean;
+  default?: unknown;
+  options?: unknown[];
+};
+
+export type HassFlowStep = {
+  flow_id?: string;
+  handler?: string;
+  type: 'form' | 'create_entry' | 'abort' | 'progress' | 'external_step';
+  step_id?: string;
+  data_schema?: HassSchemaField[];
+  errors?: Record<string, string>;
+  description?: string;
+  reason?: string;
+  title?: string;
+  result?: Record<string, unknown>;
+};
+
+export type HassEntity = {
+  entity_id: string;
+  state: string;
+  domain: string;
+  friendly_name: string;
+  attributes?: Record<string, unknown>;
+};
+
+export type HassStatus = {
+  baseUrl: string;
+  configured: boolean;
+  onboarded: boolean;
+  reason?: string;
+};
+
+export const hassApi = {
+  status: () => unwrap<HassStatus>(client.get('/hass/status')),
+  setToken: (token: string) => unwrap<HassStatus>(client.post('/hass/token', { token })),
+  integrations: () => unwrap<HassFlowHandler[]>(client.get('/hass/integrations')),
+  startFlow: (handler: string) =>
+    unwrap<HassFlowStep>(client.post('/hass/flows', { handler })),
+  stepFlow: (flowID: string, data: Record<string, unknown>) =>
+    unwrap<HassFlowStep>(client.post(`/hass/flows/${flowID}/step`, { data })),
+  abortFlow: (flowID: string) => client.delete(`/hass/flows/${flowID}`),
+  entities: () => unwrap<HassEntity[]>(client.get('/hass/entities')),
+  adopt: (body: { entityId: string; classroomId: string; name?: string; brand?: string }) =>
+    unwrap<Device>(client.post('/hass/adopt', body)),
+};
+
 export const analyticsApi = {
   sensors: (classroomID: string, params: { metric: string; bucket?: 'hour' | 'day' | 'week' | 'month'; from?: string; to?: string }) =>
     unwrap<TimePoint[]>(client.get(`/classrooms/${classroomID}/analytics/sensors`, { params })),

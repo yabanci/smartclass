@@ -32,5 +32,11 @@
 
   "sensor.invalid_metric": "Unknown sensor metric",
 
-  "analytics.invalid_bucket": "Invalid aggregation bucket (expected: hour/day/week/month)"
+  "analytics.invalid_bucket": "Invalid aggregation bucket (expected: hour/day/week/month)",
+
+  "hass.not_configured": "Home Assistant is not configured yet",
+  "hass.already_onboarded": "Home Assistant was set up manually — an admin must provide a token",
+  "hass.onboarding_failed": "Home Assistant onboarding failed",
+  "hass.upstream": "Home Assistant did not respond",
+  "hass.flow_not_found": "Config flow not found"
 }

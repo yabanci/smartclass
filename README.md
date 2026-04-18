@@ -53,12 +53,19 @@ make e2e        # live 32-step API/websocket test (stack must be running)
 
 Inside the docker network each service reaches the others by its name: backend talks to Home Assistant at `http://homeassistant:8123` and MQTT at `mosquitto:1883`. The frontend proxies `/api/*` and `/api/v1/ws` through nginx to the backend.
 
-### First-time Home Assistant setup
+### Home Assistant: now driven from our UI
 
-1. Open http://localhost:8123 → complete onboarding (admin user, location).
-2. Pair devices: `Settings → Devices & Services → Add Integration` (Xiaomi Mi Home, SmartThings, Tuya, MQTT, Zigbee2MQTT, …).
-3. Profile → **Long-Lived Access Tokens → Create Token**, copy it.
-4. Register the device in our backend with `driver: "homeassistant"` and config `{baseUrl: "http://homeassistant:8123", token: "<token>", entityId: "light.kitchen"}`.
+You **do not need to open `http://localhost:8123` anymore**. On a fresh `make up` the backend automatically:
+
+1. Polls HA until it's reachable, then calls its onboarding API to create the owner account (`smartclass` / `smartclass1234` by default — override with `HASS_OWNER_USERNAME` / `HASS_OWNER_PASSWORD` env vars).
+2. Mints a long-lived access token and persists it in our `hass_config` Postgres table.
+3. Exposes the rest through our own REST API and a wizard on the **Devices** page (button "Найти IoT" / "Find IoT"):
+   - `GET /api/v1/hass/integrations` — list every integration HA knows about (Xiaomi, Tuya, MQTT, Zigbee2MQTT, SmartThings, …).
+   - `POST /api/v1/hass/flows` + `POST /api/v1/hass/flows/{id}/step` — proxy HA's dynamic config flow so the user steps through pairing inside our UI.
+   - `GET /api/v1/hass/entities` — discovered devices, ready to be adopted.
+   - `POST /api/v1/hass/adopt` — turns an HA `entity_id` into a Device row in a classroom (driver `homeassistant`, config pre-filled with the shared token).
+
+If your `hass-config` volume already contains a manually-onboarded HA install (returns `409 hass_already_onboarded`), open `http://localhost:8123 → Profile → Security → Long-Lived Access Tokens → Create Token` once, paste it into the wizard's "Save token" form, and from then on everything stays in our UI. To re-trigger auto-onboarding from scratch run `make clean && make up`.
 
 ## Dev (local Go)
 
