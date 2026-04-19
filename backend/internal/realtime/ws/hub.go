@@ -18,10 +18,11 @@ import (
 )
 
 type Client struct {
-	ID     string
-	send   chan []byte
-	topics map[string]struct{}
-	closed chan struct{}
+	ID        string
+	send      chan []byte
+	topics    map[string]struct{}
+	closed    chan struct{}
+	closeOnce sync.Once
 }
 
 func newClient(id string, topics []string) *Client {
@@ -35,6 +36,15 @@ func newClient(id string, topics []string) *Client {
 		topics: set,
 		closed: make(chan struct{}),
 	}
+}
+
+// close signals writePump to exit. Safe to call multiple times. We never
+// close c.send — concurrent Publish goroutines would panic on send-to-closed.
+// writePump exits via <-c.closed instead of the ok-idiom on c.send.
+func (c *Client) close() {
+	c.closeOnce.Do(func() {
+		close(c.closed)
+	})
 }
 
 type Hub struct {
@@ -70,7 +80,6 @@ func (h *Hub) Register(c *Client) {
 
 func (h *Hub) Unregister(c *Client) {
 	h.mu.Lock()
-	defer h.mu.Unlock()
 	delete(h.byID, c.ID)
 	for t := range c.topics {
 		if subs, ok := h.byTopic[t]; ok {
@@ -80,12 +89,8 @@ func (h *Hub) Unregister(c *Client) {
 			}
 		}
 	}
-	select {
-	case <-c.closed:
-	default:
-		close(c.closed)
-	}
-	close(c.send)
+	h.mu.Unlock()
+	c.close()
 	h.log.Debug("ws: client unregistered", zap.String("id", c.ID))
 }
 
@@ -104,6 +109,9 @@ func (h *Hub) Publish(_ context.Context, event realtime.Event) error {
 
 	for _, c := range clients {
 		select {
+		case <-c.closed:
+			// client is shutting down — skip to avoid sending on a channel
+			// whose consumer (writePump) has already exited.
 		case c.send <- payload:
 		default:
 			h.log.Warn("ws: dropping slow client", zap.String("id", c.ID))

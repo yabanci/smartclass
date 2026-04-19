@@ -75,3 +75,45 @@ func assertNoMessage(t *testing.T, c *Client) {
 	case <-time.After(50 * time.Millisecond):
 	}
 }
+
+// Regression: Publish used to panic with "send on closed channel" when a
+// Unregister raced with an in-flight broadcast. Now Publish sees c.closed
+// and skips. Run under -race to fail if the invariant regresses.
+func TestHub_ConcurrentPublishUnregister_NoPanic(t *testing.T) {
+	hub := NewHub(nil)
+	const N = 50
+	clients := make([]*Client, N)
+	for i := 0; i < N; i++ {
+		clients[i] = newClient(string(rune('a'+i)), []string{"t"})
+		hub.Register(clients[i])
+	}
+
+	done := make(chan struct{})
+	// publisher
+	go func() {
+		for i := 0; i < 500; i++ {
+			_ = hub.Publish(context.Background(), realtime.Event{Topic: "t", Type: "x"})
+		}
+		close(done)
+	}()
+	// racer: unregister all while publisher runs
+	for _, c := range clients {
+		hub.Unregister(c)
+	}
+	<-done
+
+	// Double-unregister is a no-op, not a panic.
+	hub.Unregister(clients[0])
+}
+
+// Close signal must idempotently unblock writePump-style consumers.
+func TestClient_Close_Idempotent(t *testing.T) {
+	c := newClient("x", nil)
+	c.close()
+	c.close() // must not panic
+	select {
+	case <-c.closed:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("closed channel was not signalled")
+	}
+}

@@ -31,9 +31,16 @@ type Service struct {
 	logger   *zap.Logger
 	devices  *device.Service
 
-	mu         sync.Mutex
-	creds      *Credentials
+	mu           sync.Mutex
+	creds        *Credentials
 	bootstrapErr error
+
+	// refreshMu serialises access-token refreshes. A bare sync.Mutex lets
+	// two goroutines both observe NeedsRefresh() and both call HA's /auth/token
+	// concurrently, leaving one of the two refreshed access tokens orphaned
+	// (and the next request racing to find which one landed in s.creds).
+	// Under refreshMu we double-check and refresh at most once.
+	refreshMu sync.Mutex
 }
 
 func NewService(cfg Config, repo Repository, client *Client, devices *device.Service, logger *zap.Logger) *Service {
@@ -165,6 +172,23 @@ func (s *Service) Credentials(ctx context.Context) (*Credentials, error) {
 	}
 	if s.creds.RefreshToken == "" {
 		// manually-set long-lived token; no refresh path
+		c := *s.creds
+		s.mu.Unlock()
+		return &c, nil
+	}
+	s.mu.Unlock()
+
+	// Serialise refreshes so N parallel expired callers trigger exactly one
+	// /auth/token round-trip; the later ones re-read the cached token.
+	s.refreshMu.Lock()
+	defer s.refreshMu.Unlock()
+
+	s.mu.Lock()
+	if s.creds == nil || s.creds.Token == "" {
+		s.mu.Unlock()
+		return s.Bootstrap(ctx)
+	}
+	if !s.creds.NeedsRefresh() {
 		c := *s.creds
 		s.mu.Unlock()
 		return &c, nil

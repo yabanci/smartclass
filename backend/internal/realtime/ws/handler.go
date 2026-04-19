@@ -100,12 +100,12 @@ func (h *Handler) writePump(conn *websocket.Conn, c *Client) {
 	}()
 	for {
 		select {
-		case msg, ok := <-c.send:
+		case <-c.closed:
 			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
-			if !ok {
-				_ = conn.WriteMessage(websocket.CloseMessage, []byte{})
-				return
-			}
+			_ = conn.WriteMessage(websocket.CloseMessage, []byte{})
+			return
+		case msg := <-c.send:
+			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
 			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 				return
 			}
@@ -114,8 +114,6 @@ func (h *Handler) writePump(conn *websocket.Conn, c *Client) {
 			if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
 				return
 			}
-		case <-c.closed:
-			return
 		}
 	}
 }

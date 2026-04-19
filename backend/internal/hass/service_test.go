@@ -7,8 +7,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -284,6 +286,87 @@ func TestSetToken_DoesNotRefresh(t *testing.T) {
 	assert.Equal(t, "manual-bypass", c.Token)
 	assert.Empty(t, c.RefreshToken, "manual long-lived token has no refresh token")
 	assert.True(t, c.ExpiresAt.IsZero(), "manual token never expires from our POV")
+}
+
+// Regression: Credentials() used to release the mutex between the
+// NeedsRefresh check and the HA token exchange, so N parallel callers of
+// Credentials on a near-expired token all triggered independent refreshes.
+// With refreshMu + double-check, refresh_token grant hits upstream once.
+func TestCredentials_SerializesConcurrentRefresh(t *testing.T) {
+	var refreshCount atomic.Int32
+	var authCodeCalled atomic.Bool
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/onboarding", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"step": "user", "done": false}})
+	})
+	mux.HandleFunc("/api/onboarding/users", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"auth_code": "c"})
+	})
+	mux.HandleFunc("/auth/token", func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		switch r.FormValue("grant_type") {
+		case "authorization_code":
+			if !authCodeCalled.CompareAndSwap(false, true) {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			// expires_in=1 forces NeedsRefresh() to return true immediately,
+			// so any follow-up Credentials() call enters the refresh path.
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token":  "A",
+				"refresh_token": "R",
+				"token_type":    "Bearer",
+				"expires_in":    1,
+			})
+		case "refresh_token":
+			refreshCount.Add(1)
+			// Latency so concurrent callers definitely pile up on refreshMu;
+			// without serialization each would issue its own /auth/token.
+			time.Sleep(50 * time.Millisecond)
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "A2",
+				"token_type":   "Bearer",
+				"expires_in":   3600,
+			})
+		default:
+			w.WriteHeader(http.StatusBadRequest)
+		}
+	})
+	for _, p := range []string{
+		"/api/onboarding/core_config",
+		"/api/onboarding/analytics",
+		"/api/onboarding/integration",
+	} {
+		mux.HandleFunc(p, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	}
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	svc := newSvc(t, srv.URL)
+	_, err := svc.Bootstrap(context.Background())
+	require.NoError(t, err)
+
+	const N = 20
+	var wg sync.WaitGroup
+	wg.Add(N)
+	errs := make(chan error, N)
+	for i := 0; i < N; i++ {
+		go func() {
+			defer wg.Done()
+			if _, err := svc.Credentials(context.Background()); err != nil {
+				errs <- err
+			}
+		}()
+	}
+	wg.Wait()
+	close(errs)
+	for e := range errs {
+		t.Fatalf("concurrent Credentials error: %v", e)
+	}
+
+	assert.Equal(t, int32(1), refreshCount.Load(),
+		"refresh_token grant should be exchanged exactly once for N parallel callers")
 }
 
 func TestStatus_ReflectsConfiguredState(t *testing.T) {

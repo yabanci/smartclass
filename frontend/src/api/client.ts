@@ -38,13 +38,31 @@ client.interceptors.request.use((cfg: InternalAxiosRequestConfig) => {
   return cfg;
 });
 
+// When several requests fire in parallel and the access token has just
+// expired, every one of them will hit 401. Without coordination each would
+// call refreshHandler() — which POSTs /auth/refresh — producing N refresh
+// round-trips and racing to write the new access token to storage. We gate
+// with a single in-flight promise: the first 401 starts the refresh, the
+// rest await that same promise and reuse the resulting token.
+let pendingRefresh: Promise<string | null> | null = null;
+
+async function sharedRefresh(): Promise<string | null> {
+  if (!refreshHandler) return null;
+  if (!pendingRefresh) {
+    pendingRefresh = refreshHandler().finally(() => {
+      pendingRefresh = null;
+    });
+  }
+  return pendingRefresh;
+}
+
 client.interceptors.response.use(
   (r) => r,
   async (err: AxiosError<Envelope<unknown>>) => {
     const original = err.config as InternalAxiosRequestConfig & { _retry?: boolean };
     if (err.response?.status === 401 && !original?._retry && refreshHandler) {
       original._retry = true;
-      const fresh = await refreshHandler();
+      const fresh = await sharedRefresh();
       if (fresh) {
         original.headers = original.headers ?? {};
         original.headers.Authorization = `Bearer ${fresh}`;
@@ -55,6 +73,14 @@ client.interceptors.response.use(
     return Promise.reject(err);
   },
 );
+
+// Exported for tests.
+export const __testing = {
+  sharedRefresh,
+  resetPendingRefresh: () => {
+    pendingRefresh = null;
+  },
+};
 
 export function extract<T>(env: Envelope<T>): T {
   if (env.error) throw new ApiErrorObj(env.error);
