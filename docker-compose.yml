@@ -46,29 +46,34 @@ services:
     container_name: smartclass-hass-init
     volumes:
       - hass-config:/config
-    command: >
-      sh -c "
-      set -e;
-      apk add --no-cache curl tar >/dev/null;
-      mkdir -p /config/custom_components;
-      if [ ! -d /config/custom_components/xiaomi_home ]; then
-        echo 'Installing xiaomi_home custom component...';
-        cd /tmp;
-        curl -sL https://github.com/XiaoMi/ha_xiaomi_home/archive/refs/heads/main.tar.gz | tar xz;
-        mv ha_xiaomi_home-main/custom_components/xiaomi_home /config/custom_components/;
-        rm -rf ha_xiaomi_home-main;
-        echo 'xiaomi_home installed';
-      else
-        echo 'xiaomi_home already present, skipping';
-      fi;
-      # Pin homeassistant internal_url to localhost so OAuth callbacks
-      # (e.g. xiaomi_home) don't use the mDNS hostname 'homeassistant.local'
-      # which Windows can't resolve.
-      if [ -f /config/configuration.yaml ] && ! grep -q 'internal_url' /config/configuration.yaml; then
-        printf '\nhomeassistant:\n  internal_url: http://localhost:8123\n  external_url: http://localhost:8123\n' >> /config/configuration.yaml;
-        echo 'internal_url pinned to localhost';
-      fi
-      "
+    # NOTE: uses the LITERAL (|) block scalar so newlines + `#` comments stay
+    # intact. The previous folded-scalar form collapsed the script to a single
+    # line, which made the `#` comments swallow the second `if … then` and
+    # caused `sh: syntax error: unexpected "fi"`.
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        apk add --no-cache curl tar >/dev/null
+        mkdir -p /config/custom_components
+        if [ ! -d /config/custom_components/xiaomi_home ]; then
+          echo "Installing xiaomi_home custom component..."
+          cd /tmp
+          curl -sL https://github.com/XiaoMi/ha_xiaomi_home/archive/refs/heads/main.tar.gz | tar xz
+          mv ha_xiaomi_home-main/custom_components/xiaomi_home /config/custom_components/
+          rm -rf ha_xiaomi_home-main
+          echo "xiaomi_home installed"
+        else
+          echo "xiaomi_home already present, skipping"
+        fi
+        # Pin HA internal_url to localhost so OAuth callbacks (xiaomi_home)
+        # don't emit 'homeassistant.local' — that mDNS name doesn't resolve
+        # on Windows clients.
+        if [ -f /config/configuration.yaml ] && ! grep -q 'internal_url' /config/configuration.yaml; then
+          printf '%s\n' '' 'homeassistant:' '  internal_url: http://localhost:8123' '  external_url: http://localhost:8123' >> /config/configuration.yaml
+          echo "internal_url pinned to localhost"
+        fi
     restart: "no"
 
   homeassistant:
