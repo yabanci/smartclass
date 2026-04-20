@@ -1,13 +1,14 @@
 import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { useState, useMemo, FormEvent } from 'react';
-import { Bell, Cpu, Thermometer, Droplets, Calendar } from 'lucide-react';
+import { Cpu, Thermometer, Droplets, Calendar, Zap } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Modal } from '@/components/ui/Modal';
-import { classroomApi, deviceApi, notificationApi, scheduleApi, sensorApi } from '@/api/endpoints';
+import { classroomApi, deviceApi, scheduleApi, sensorApi } from '@/api/endpoints';
+import type { CommandType } from '@/api/types';
 import { useActiveClassroom } from '@/stores/classroom';
 import { ClassroomPicker } from '@/features/common/ClassroomGate';
 import { useWebSocket } from '@/hooks/useWebSocket';
@@ -39,8 +40,6 @@ export function HomePage() {
     enabled: !!activeID,
   });
 
-  const unreadQ = useQuery({ queryKey: ['notif-unread'], queryFn: () => notificationApi.unreadCount() });
-
   const topics = useMemo(
     () => (activeID ? [`classroom:${activeID}:devices`, `classroom:${activeID}:sensors`] : []),
     [activeID],
@@ -61,49 +60,106 @@ export function HomePage() {
     },
   });
 
-  const activeDevices = (devicesQ.data ?? []).filter((d) => d.online).length;
+  const commandMut = useMutation({
+    mutationFn: ({ id, type }: { id: string; type: CommandType }) => deviceApi.command(id, { type }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['devices', activeID] }),
+  });
+
+  const list = devicesQ.data ?? [];
+  const activeDevices = list.filter((d) => d.online).length;
+  const onCount = list.filter((d) => d.status === 'on' || d.status === 'open').length;
   const temp = sensorsQ.data?.find((r) => r.metric === 'temperature');
   const humid = sensorsQ.data?.find((r) => r.metric === 'humidity');
 
+  const allOn = () =>
+    list.filter((d) => d.status !== 'on').forEach((d) => commandMut.mutate({ id: d.id, type: 'ON' }));
+  const allOff = () =>
+    list
+      .filter((d) => d.status === 'on' || d.status === 'open')
+      .forEach((d) => commandMut.mutate({ id: d.id, type: 'OFF' }));
+
   return (
     <div className="p-4 flex flex-col gap-4 animate-fadeIn">
-      <header className="flex items-center justify-between pt-2">
-        <div>
-          <h1 className="text-2xl font-bold text-primary">{t('home.title')}</h1>
-          {classroomsQ.data && classroomsQ.data.length > 0 && activeID && (
-            <p className="text-sm text-slate-500">
-              {classroomsQ.data.find((c) => c.id === activeID)?.name}
-            </p>
-          )}
-        </div>
-        <Link to="/notifications" className="relative p-2 rounded-full bg-white soft-shadow text-primary">
-          <Bell size={20} />
-          {(unreadQ.data?.count ?? 0) > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 min-w-4 h-4 px-1 rounded-full bg-danger text-white text-[10px] flex items-center justify-center">
-              {unreadQ.data?.count}
-            </span>
-          )}
-        </Link>
-      </header>
-
       <ClassroomPicker onCreate={() => setShowCreate(true)} />
+
+      {activeID && classroomsQ.data && (
+        <p className="text-xs text-slate-500 dark:text-slate-400 -mt-2">
+          {classroomsQ.data.find((c) => c.id === activeID)?.name}
+        </p>
+      )}
 
       {activeID && (
         <>
           <div className="grid grid-cols-2 gap-3">
-            <Card className="flex flex-col gap-1">
+            <Card className="!p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Cpu size={16} className="text-primary" />
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{t('home.activeDevices')}</span>
+              </div>
+              <p className="text-2xl font-bold">{activeDevices}</p>
+              <p className="text-xs text-accent">● {onCount} {t('devices.on').toLowerCase()}</p>
+            </Card>
+            <Card className="!p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  <Zap size={16} className="text-accent" />
+                </div>
+                <span className="text-xs text-slate-500 dark:text-slate-400">{t('analytics.energy')}</span>
+              </div>
+              <p className="text-2xl font-bold">
+                {((onCount || 0) * 0.2).toFixed(1)}
+                <span className="text-sm"> kW</span>
+              </p>
+              <p className="text-xs text-slate-500">—</p>
+            </Card>
+          </div>
+
+          {list.length > 0 && (
+            <Card className="!p-4">
+              <h3 className="text-sm font-bold mb-3">{t('devices.quickControls')}</h3>
+              <div className="flex gap-2">
+                <button
+                  onClick={allOn}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-xs font-semibold hover:opacity-90 transition"
+                >
+                  {t('devices.allOn')}
+                </button>
+                <button
+                  onClick={allOff}
+                  className="flex-1 py-2.5 bg-gray-200 dark:bg-dark-surface text-gray-700 dark:text-gray-200 rounded-xl text-xs font-semibold hover:opacity-90 transition"
+                >
+                  {t('devices.allOff')}
+                </button>
+                <Link
+                  to="/devices"
+                  className="flex-1 py-2.5 bg-accent/10 text-accent rounded-xl text-xs font-semibold hover:bg-accent/20 transition flex items-center justify-center"
+                >
+                  🌿 {t('devices.eco')}
+                </Link>
+              </div>
+            </Card>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="!p-4 flex flex-col gap-1">
               <div className="flex items-center gap-2 text-secondary">
-                <Thermometer size={18} />
-                <span className="text-xs font-semibold text-slate-500 uppercase">{t('home.temperature')}</span>
+                <Thermometer size={16} />
+                <span className="text-xs font-semibold text-slate-500 uppercase">
+                  {t('home.temperature')}
+                </span>
               </div>
               <span className="text-2xl font-bold text-primary">
                 {temp ? `${temp.value.toFixed(1)}°${temp.unit || 'C'}` : '—'}
               </span>
             </Card>
-            <Card className="flex flex-col gap-1">
+            <Card className="!p-4 flex flex-col gap-1">
               <div className="flex items-center gap-2 text-secondary">
-                <Droplets size={18} />
-                <span className="text-xs font-semibold text-slate-500 uppercase">{t('home.humidity')}</span>
+                <Droplets size={16} />
+                <span className="text-xs font-semibold text-slate-500 uppercase">
+                  {t('home.humidity')}
+                </span>
               </div>
               <span className="text-2xl font-bold text-primary">
                 {humid ? `${humid.value.toFixed(0)}${humid.unit || '%'}` : '—'}
@@ -111,34 +167,19 @@ export function HomePage() {
             </Card>
           </div>
 
-          <Card>
+          <Card className="!p-4">
             <div className="flex items-center gap-2 mb-2 text-primary">
-              <Cpu size={18} />
-              <span className="font-semibold">{t('home.activeDevices')}</span>
-            </div>
-            <div className="flex items-end justify-between">
-              <span className="text-3xl font-bold text-primary">
-                {activeDevices}
-                <span className="text-base text-slate-400">/{devicesQ.data?.length ?? 0}</span>
-              </span>
-              <Link to="/devices" className="text-xs text-secondary font-semibold">
-                {t('nav.devices')} →
-              </Link>
-            </div>
-          </Card>
-
-          <Card>
-            <div className="flex items-center gap-2 mb-2 text-primary">
-              <Calendar size={18} />
+              <Calendar size={16} />
               <span className="font-semibold">{t('home.currentLesson')}</span>
             </div>
             {currentQ.data ? (
-              <>
-                <p className="text-xl font-bold text-primary">{currentQ.data.subject}</p>
-                <p className="text-sm text-slate-500">
+              <div className="highlight-lesson rounded-xl p-3">
+                <p className="text-xs text-accent font-semibold">● {t('home.currentLesson')}</p>
+                <p className="text-sm font-bold">{currentQ.data.subject}</p>
+                <p className="text-xs text-slate-500">
                   {currentQ.data.startsAt} – {currentQ.data.endsAt}
                 </p>
-              </>
+              </div>
             ) : (
               <p className="text-sm text-slate-500">{t('home.noLesson')}</p>
             )}

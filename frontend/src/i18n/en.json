@@ -61,7 +61,18 @@
     "on": "Turn on",
     "off": "Turn off",
     "empty": "No devices yet",
-    "status": "Status"
+    "status": "Status",
+    "brightness": "Brightness",
+    "temperature": "Temperature",
+    "level": "Level",
+    "levelLow": "Low",
+    "levelMid": "Medium",
+    "levelHigh": "High",
+    "allOn": "All on",
+    "allOff": "All off",
+    "eco": "Eco",
+    "quickControls": "Quick controls",
+    "sending": "Sending..."
   },
   "hass": {
     "title": "Find IoT",

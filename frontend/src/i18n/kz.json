@@ -61,7 +61,18 @@
     "on": "Қосу",
     "off": "Өшіру",
     "empty": "Құрылғылар жоқ",
-    "status": "Күй"
+    "status": "Күй",
+    "brightness": "Жарықтығы",
+    "temperature": "Температура",
+    "level": "Деңгей",
+    "levelLow": "Әлсіз",
+    "levelMid": "Орташа",
+    "levelHigh": "Күшті",
+    "allOn": "Барлығын қосу",
+    "allOff": "Барлығын өшіру",
+    "eco": "Эко",
+    "quickControls": "Жылдам басқару",
+    "sending": "Жіберілуде..."
   },
   "hass": {
     "title": "IoT іздеу",
