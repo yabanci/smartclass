@@ -1,18 +1,26 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        primary: '#1E3A8A',
+        primary: '#3A7BFF',
         secondary: '#06B6D4',
-        accent: '#22C55E',
+        accent: '#34C759',
         warn: '#F59E0B',
         danger: '#EF4444',
-        bg: '#F8FAFC',
+        surface: '#F5F7FA',
+        bg: '#F5F7FA',
+        dark: {
+          bg: '#1a1a2e',
+          card: '#16213e',
+          surface: '#0f3460',
+        },
       },
       fontFamily: {
-        dm: ['"DM Sans"', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        main: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        dm: ['Nunito', 'ui-sans-serif', 'system-ui', 'sans-serif'],
       },
       keyframes: {
         glow: { '0%,100%': { opacity: 0.6 }, '50%': { opacity: 1 } },
