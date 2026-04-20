@@ -68,13 +68,23 @@ services:
           echo "xiaomi_home already present, skipping"
         fi
         # xiaomi_home hardcodes OAUTH_REDIRECT_URL=http://homeassistant.local:8123
-        # (see miot/const.py) and locks the form field to that single value.
-        # `homeassistant.local` doesn't resolve on Windows / non-mDNS clients, so
-        # the Mi OAuth callback breaks. Patch in-place to localhost — idempotent.
+        # in miot/const.py, AND locks the form field in config_flow.py to that
+        # single value via `vol.In([OAUTH_REDIRECT_URL])`. `homeassistant.local`
+        # doesn't resolve on Windows/Docker Desktop (no mDNS), and what value
+        # actually reaches HA depends on the user's setup (localhost vs LAN IP
+        # vs host.docker.internal). Two idempotent patches:
+        #   1. Const default → http://localhost:8123 (works on Docker Desktop)
+        #   2. Form field → free-text (`str`) so the user can override without
+        #      re-patching for non-default setups.
         if [ -f /config/custom_components/xiaomi_home/miot/const.py ]; then
           sed -i 's|http://homeassistant.local:8123|http://localhost:8123|g' \
             /config/custom_components/xiaomi_home/miot/const.py
-          echo "xiaomi_home OAUTH_REDIRECT_URL pinned to localhost"
+          echo "xiaomi_home OAUTH_REDIRECT_URL default pinned to localhost"
+        fi
+        if [ -f /config/custom_components/xiaomi_home/config_flow.py ]; then
+          sed -i 's|vol.In(\[OAUTH_REDIRECT_URL\])|str|g' \
+            /config/custom_components/xiaomi_home/config_flow.py
+          echo "xiaomi_home oauth_redirect_url field unlocked (free text)"
         fi
     restart: "no"
 
