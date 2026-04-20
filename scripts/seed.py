@@ -84,29 +84,33 @@ def main():
 
     print("→ users")
     admin_id, admin_tok = register_or_login(ADMIN)
-    teacher_id, _ = register_or_login(TEACHER)
+    teacher_id, teacher_tok = register_or_login(TEACHER)
 
+    # Classroom is owned by the TEACHER so they can add/edit/delete devices
+    # from the UI. The backend only lets the classroom owner (or admin role)
+    # mutate — members can only read. Admin is added as a member afterwards
+    # so `/logs` and audit flows still have a classroom to look at.
     print("→ classroom")
-    _, body = req("GET", "/api/v1/classrooms", token=admin_tok)
+    _, body = req("GET", "/api/v1/classrooms", token=teacher_tok)
     existing = next((c for c in body["data"] if c["name"] == "Kabinet 101"), None)
     if existing:
         classroom_id = existing["id"]
         print(f"  = classroom already exists: {classroom_id}")
     else:
-        _, body = req("POST", "/api/v1/classrooms", token=admin_tok,
+        _, body = req("POST", "/api/v1/classrooms", token=teacher_tok,
                       body={"name": "Kabinet 101",
                             "description": "Sample classroom with mixed devices"})
         classroom_id = body["data"]["id"]
-        print(f"  ✓ created classroom {classroom_id}")
+        print(f"  ✓ created classroom {classroom_id} (owner: teacher)")
 
     _, body = req("POST", f"/api/v1/classrooms/{classroom_id}/members",
-                  token=admin_tok,
-                  body={"userId": teacher_id},
+                  token=teacher_tok,
+                  body={"userId": admin_id},
                   expect=(204, 409))
-    print("  ✓ assigned teacher to classroom")
+    print("  ✓ assigned admin as member")
 
     print("→ devices")
-    _, body = req("GET", f"/api/v1/classrooms/{classroom_id}/devices", token=admin_tok)
+    _, body = req("GET", f"/api/v1/classrooms/{classroom_id}/devices", token=teacher_tok)
     existing_names = {d["name"] for d in body["data"]}
 
     samples = [
@@ -150,12 +154,12 @@ def main():
         if s["name"] in existing_names:
             print(f"  = device '{s['name']}' already exists")
             continue
-        req("POST", "/api/v1/devices", token=admin_tok,
+        req("POST", "/api/v1/devices", token=teacher_tok,
             body={**s, "classroomId": classroom_id})
         print(f"  ✓ created device '{s['name']}'")
 
     print("→ schedule sample")
-    _, body = req("GET", f"/api/v1/classrooms/{classroom_id}/schedule", token=admin_tok)
+    _, body = req("GET", f"/api/v1/classrooms/{classroom_id}/schedule", token=teacher_tok)
     if not any(body["data"].get(str(d)) for d in (1, 2, 3, 4, 5)):
         for day, subj, s, e in [
             (1, "Math",       "09:00", "09:45"),
@@ -163,7 +167,7 @@ def main():
             (2, "Literature", "09:00", "09:45"),
             (3, "History",    "09:00", "09:45"),
         ]:
-            req("POST", "/api/v1/schedule", token=admin_tok, body={
+            req("POST", "/api/v1/schedule", token=teacher_tok, body={
                 "classroomId": classroom_id, "subject": subj,
                 "dayOfWeek": day, "startsAt": s, "endsAt": e,
             })
