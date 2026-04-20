@@ -527,6 +527,44 @@ function WizardStep({
     );
   }
 
+  // OAuth / external-step: HA waits for the user to complete auth in a separate
+  // tab, then the flow advances when we re-submit. The link is embedded in
+  // description_placeholders as an <a href="..."> fragment (HA's translation
+  // system splits the string, we don't have translations loaded, so extract
+  // the href ourselves and show a single button).
+  if (step.type === 'progress' || step.type === 'external_step') {
+    const href = extractOAuthHref(step.description_placeholders);
+    return (
+      <div className="flex flex-col gap-3">
+        <p className="text-xs uppercase tracking-wide text-slate-400">{handler.name}</p>
+        <Card className="!bg-sky-50 !border-sky-200">
+          <p className="text-sm text-slate-700">{t('hass.oauthHint')}</p>
+        </Card>
+        {href && (
+          <a href={href} target="_blank" rel="noreferrer" className="block">
+            <Button type="button" className="w-full">
+              {t('hass.oauthOpen')}
+            </Button>
+          </a>
+        )}
+        {error && <p className="text-xs text-danger">{error}</p>}
+        <div className="flex gap-2">
+          <Button type="button" variant="ghost" onClick={onAbort} className="flex-1">
+            {t('hass.abort')}
+          </Button>
+          <Button
+            type="button"
+            onClick={() => onSubmit({})}
+            disabled={submitting}
+            className="flex-1"
+          >
+            {t('hass.oauthDone')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   // HA reports form-level errors under the magic key "base" (everything else
   // is keyed by field name). Pull it out and surface it as a banner so the
   // user knows *why* the same form reappeared after submit instead of
@@ -649,4 +687,17 @@ function SchemaFieldInput({
       required={field.required}
     />
   );
+}
+
+// HA's OAuth progress step delivers the authorize URL as an <a> fragment
+// split across two placeholders (`link_left` = "<a href=...>", `link_right` =
+// "</a>"). Pull the href out so we can render a single button instead of
+// relying on translation-string interpolation we don't load.
+function extractOAuthHref(placeholders?: Record<string, string>): string | null {
+  if (!placeholders) return null;
+  for (const v of Object.values(placeholders)) {
+    const m = /href\s*=\s*["']([^"']+)["']/i.exec(v);
+    if (m) return m[1];
+  }
+  return null;
 }

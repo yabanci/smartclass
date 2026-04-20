@@ -94,7 +94,10 @@
     "cloudHint": "Before you start: install the manufacturer's app, create an account, and add the device there. We'll reuse the same login and password.",
     "lanHint": "Before you start: make sure the device is on the same Wi-Fi as the server. You'll find its IP address in your router's admin panel.",
     "verifyOk": "Device responded. Current state: {{state}}",
-    "verifyOffline": "Device added, but it's offline right now. Check power and network."
+    "verifyOffline": "Device added, but it's offline right now. Check power and network.",
+    "oauthHint": "Open the link in a new tab, sign in to the vendor account, and approve access. Then come back here and hit \"I'm authorized\".",
+    "oauthOpen": "Open sign-in page",
+    "oauthDone": "I'm authorized"
   },
   "schedule": {
     "title": "Schedule",

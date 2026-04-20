@@ -60,7 +60,19 @@ client.interceptors.response.use(
   (r) => r,
   async (err: AxiosError<Envelope<unknown>>) => {
     const original = err.config as InternalAxiosRequestConfig & { _retry?: boolean };
-    if (err.response?.status === 401 && !original?._retry && refreshHandler) {
+    // Auth endpoints (/auth/login, /auth/register, /auth/refresh) must never
+    // trigger the refresh-and-retry path: a 401 from /auth/refresh means the
+    // refresh token itself is invalid, so retrying would call refresh again
+    // and await the same in-flight promise — a deadlock that freezes the app
+    // on the splash screen. Fail fast for anything under /auth.
+    const url = original?.url ?? '';
+    const isAuthEndpoint = url.startsWith('/auth/') || url.startsWith('auth/');
+    if (
+      err.response?.status === 401 &&
+      !original?._retry &&
+      !isAuthEndpoint &&
+      refreshHandler
+    ) {
       original._retry = true;
       const fresh = await sharedRefresh();
       if (fresh) {

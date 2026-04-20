@@ -67,12 +67,14 @@ services:
         else
           echo "xiaomi_home already present, skipping"
         fi
-        # Pin HA internal_url to localhost so OAuth callbacks (xiaomi_home)
-        # don't emit 'homeassistant.local' — that mDNS name doesn't resolve
-        # on Windows clients.
-        if [ -f /config/configuration.yaml ] && ! grep -q 'internal_url' /config/configuration.yaml; then
-          printf '%s\n' '' 'homeassistant:' '  internal_url: http://localhost:8123' '  external_url: http://localhost:8123' >> /config/configuration.yaml
-          echo "internal_url pinned to localhost"
+        # xiaomi_home hardcodes OAUTH_REDIRECT_URL=http://homeassistant.local:8123
+        # (see miot/const.py) and locks the form field to that single value.
+        # `homeassistant.local` doesn't resolve on Windows / non-mDNS clients, so
+        # the Mi OAuth callback breaks. Patch in-place to localhost — idempotent.
+        if [ -f /config/custom_components/xiaomi_home/miot/const.py ]; then
+          sed -i 's|http://homeassistant.local:8123|http://localhost:8123|g' \
+            /config/custom_components/xiaomi_home/miot/const.py
+          echo "xiaomi_home OAUTH_REDIRECT_URL pinned to localhost"
         fi
     restart: "no"
 

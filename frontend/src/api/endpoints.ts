@@ -119,6 +119,7 @@ export type HassFlowStep = {
   data_schema?: HassSchemaField[];
   errors?: Record<string, string>;
   description?: string;
+  description_placeholders?: Record<string, string>;
   reason?: string;
   title?: string;
   result?: Record<string, unknown>;
