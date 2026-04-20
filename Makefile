@@ -1,4 +1,4 @@
-.PHONY: up down logs ps restart rebuild clean test e2e seed
+.PHONY: up down logs ps restart rebuild clean test e2e seed verify wait
 
 up:
 	docker compose up --build -d
@@ -36,3 +36,15 @@ seed:
 # End-to-end test — stack must be running (make up). Requires Python 3 + websockets.
 e2e:
 	python3 scripts/e2e.py
+
+# Wait for backend to report healthy + HA self-check to pass. Idempotent —
+# polls every 5s for up to 5 minutes. Use this after `make up` so you don't
+# have to click around the HA welcome wizard or guess when the stack is
+# usable. Exits 0 when the integration stack is green, non-zero otherwise.
+wait:
+	@python3 scripts/wait_ready.py
+
+# One-shot readiness report: prints the live self-check result from the
+# backend and exits non-zero if anything is red. Safe to run repeatedly.
+verify:
+	@python3 scripts/verify.py

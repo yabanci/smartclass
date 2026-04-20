@@ -262,26 +262,74 @@ func (c *Client) tokenRequest(ctx context.Context, form url.Values) (*TokenSet, 
 	return &TokenSet{AccessToken: out.AccessToken, RefreshToken: out.RefreshToken, ExpiresAt: expires}, nil
 }
 
-// FinishOnboarding fires the remaining onboarding steps that HA expects before
-// it considers itself fully set up (core_config, analytics, integration). We
-// ignore errors because some steps may already be done or require values we
-// don't have — they don't block REST usage, only affect the HA UI badge.
-func (c *Client) FinishOnboarding(ctx context.Context, accessToken string) {
-	_ = c.postOnboardingStep(ctx, accessToken, "/api/onboarding/core_config", nil)
-	_ = c.postOnboardingStep(ctx, accessToken, "/api/onboarding/analytics", map[string]any{})
-	_ = c.postOnboardingStep(ctx, accessToken, "/api/onboarding/integration", map[string]any{
-		"client_id":    oauthClientID,
-		"redirect_uri": oauthClientID,
-	})
+// FinishOnboarding completes every remaining HA onboarding step
+// (core_config, integration, analytics) — NOT best-effort anymore. Without
+// this the HA UI stays stuck on the "Welcome" wizard and, critically,
+// /api/config/config_entries/flow_handlers returns empty/errors so our own
+// "Найти IoT" wizard shows all brand tiles greyed out. Loops with status
+// re-checks because HA marks each step done only when the POST succeeds, and
+// occasionally returns transient 4xx right after onboarding/users completes
+// (race with translation loading).
+func (c *Client) FinishOnboarding(ctx context.Context, accessToken string) error {
+	const maxAttempts = 5
+	var lastErr error
+	for attempt := 0; attempt < maxAttempts; attempt++ {
+		status, err := c.OnboardingStatus(ctx)
+		if err != nil {
+			lastErr = err
+		} else if status.CoreConfigDone && status.IntegrationDone && status.AnalyticsDone {
+			return nil
+		} else {
+			lastErr = nil
+			if !status.CoreConfigDone {
+				if err := c.postOnboardingStep(ctx, accessToken, "/api/onboarding/core_config", map[string]any{}); err != nil {
+					lastErr = err
+				}
+			}
+			if !status.IntegrationDone {
+				// HA's /integration endpoint expects the client_id we used for
+				// the user step and a redirect_uri inside that client_id's
+				// origin — it returns an auth_code that we ignore (our own
+				// long-lived token from ExchangeCode is enough).
+				if err := c.postOnboardingStep(ctx, accessToken, "/api/onboarding/integration", map[string]any{
+					"client_id":    oauthClientID,
+					"redirect_uri": oauthClientID + "auth_callback.html",
+				}); err != nil {
+					lastErr = err
+				}
+			}
+			if !status.AnalyticsDone {
+				// Explicit opt-out of all analytics — harmless, keeps the badge
+				// off the HA dashboard. Some HA versions want just {}; sending
+				// explicit preferences works on every version.
+				if err := c.postOnboardingStep(ctx, accessToken, "/api/onboarding/analytics", map[string]any{
+					"preferences": map[string]bool{
+						"base":        false,
+						"diagnostics": false,
+						"usage":       false,
+						"statistics":  false,
+					},
+				}); err != nil {
+					lastErr = err
+				}
+			}
+		}
+		// Backoff between passes — HA needs a moment to register each step.
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(time.Duration(attempt+1) * 500 * time.Millisecond):
+		}
+	}
+	if lastErr != nil {
+		return fmt.Errorf("%w: %v", ErrOnboardingFailed, lastErr)
+	}
+	return fmt.Errorf("%w: onboarding did not complete after %d attempts", ErrOnboardingFailed, maxAttempts)
 }
 
 func (c *Client) postOnboardingStep(ctx context.Context, token, path string, body any) error {
-	var r io.Reader
-	if body != nil {
-		b, _ := json.Marshal(body)
-		r = bytes.NewReader(b)
-	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, r)
+	b, _ := json.Marshal(body)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bytes.NewReader(b))
 	if err != nil {
 		return err
 	}
@@ -291,9 +339,16 @@ func (c *Client) postOnboardingStep(ctx context.Context, token, path string, bod
 	if err != nil {
 		return err
 	}
-	_ = resp.Body.Close()
-	if resp.StatusCode >= 500 {
-		return fmt.Errorf("onboarding step %s: %d", path, resp.StatusCode)
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<14))
+	// 403 with body "unknown_step" means HA already marked this step done —
+	// success from our perspective. Any other 4xx/5xx is surfaced so the
+	// FinishOnboarding loop can decide to retry.
+	if resp.StatusCode == http.StatusForbidden && strings.Contains(string(raw), "unknown") {
+		return nil
+	}
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("onboarding %s: %d %s", path, resp.StatusCode, truncate(string(raw), 160))
 	}
 	return nil
 }

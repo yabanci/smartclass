@@ -13,7 +13,11 @@ Backend for smart-classroom management: auth, devices (Tuya/Shelly/Sonoff/Aqara/
 ```bash
 make up         # boots all 5 services, waits for healthy
 make seed       # creates demo users + classroom + 3 devices + weekly schedule (idempotent)
+make wait       # polls the stack until backend + HA self-check are green (up to 5 min)
+make verify     # one-shot readiness report (exit 0 = OK, 1 = something's red)
 ```
+
+`make verify` hits `GET /api/v1/hass/selftest` (admin-auth) and prints a per-check table. Every failing check has a short message telling you where to look (credentials, onboarding, flow_handlers, xiaomi_home install, xiaomi_home startflow decode). The backend also logs one `hass: READY — …` or `hass: DEGRADED — …` banner automatically on every bootstrap so `docker logs smartclass-backend | grep hass:` answers the same question without curl.
 
 Open **http://localhost:3000** and sign in:
 

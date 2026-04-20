@@ -70,6 +70,17 @@ func (s *Service) Bootstrap(ctx context.Context) (*Credentials, error) {
 	// 1. try to load a previously-stored token
 	if stored, err := s.repo.Load(ctx); err == nil {
 		s.creds = stored
+		// Re-run FinishOnboarding when HA reports steps still pending — covers
+		// the case where a previous backend crashed between user-create and the
+		// later steps, leaving a valid token in Postgres but HA stuck on its
+		// welcome wizard (then every brand in our UI comes back greyed because
+		// /api/config/config_entries/flow_handlers 404s).
+		if st, err := s.client.OnboardingStatus(ctx); err == nil &&
+			!(st.CoreConfigDone && st.IntegrationDone && st.AnalyticsDone) {
+			if err := s.client.FinishOnboarding(ctx, stored.Token); err != nil && s.logger != nil {
+				s.logger.Warn("hass: resume finish onboarding failed", zap.Error(err))
+			}
+		}
 		return stored, nil
 	} else if !errors.Is(err, errNoRow) {
 		return nil, err
@@ -105,8 +116,15 @@ func (s *Service) Bootstrap(ctx context.Context) (*Credentials, error) {
 		}
 		tokens = t
 	}
-	// best-effort — drives the HA UI out of onboarding mode but not required for REST access
-	s.client.FinishOnboarding(ctx, tokens.AccessToken)
+	// Drive HA out of onboarding mode — REQUIRED, not best-effort. Without all
+	// four steps (user/core_config/integration/analytics) done, HA's config-
+	// flow endpoints (`/api/config/config_entries/flow_handlers`) are missing,
+	// which makes our "Найти IoT" wizard show every brand tile greyed out.
+	// We don't fail the bootstrap if finish errors — the token is still valid
+	// and REST reads work — but we log it loudly so retries surface the issue.
+	if err := s.client.FinishOnboarding(ctx, tokens.AccessToken); err != nil && s.logger != nil {
+		s.logger.Warn("hass: finish onboarding failed; UI may stay on welcome wizard", zap.Error(err))
+	}
 	c := &Credentials{
 		BaseURL:      s.client.BaseURL(),
 		Token:        tokens.AccessToken,
@@ -128,11 +146,15 @@ func (s *Service) Bootstrap(ctx context.Context) (*Credentials, error) {
 // BootstrapWithRetry is intended to run in the background from main. Tries
 // Bootstrap on a growing backoff until it succeeds or ctx is cancelled — HA
 // takes 30-60s to become reachable on a cold boot so we can't block startup.
+// After a successful bootstrap it runs the end-to-end SelfCheck and logs a
+// clear banner so operators know at a glance whether the whole HA integration
+// stack is healthy without needing to click through the UI.
 func (s *Service) BootstrapWithRetry(ctx context.Context) {
 	delay := 3 * time.Second
 	const maxDelay = 60 * time.Second
 	for {
 		if _, err := s.Bootstrap(ctx); err == nil {
+			s.logSelfCheck(ctx)
 			return
 		} else if s.logger != nil {
 			s.logger.Warn("hass: bootstrap attempt failed; will retry", zap.Error(err), zap.Duration("in", delay))
@@ -219,6 +241,120 @@ type Status struct {
 	Configured bool   `json:"configured"`
 	Onboarded  bool   `json:"onboarded"`
 	Reason     string `json:"reason,omitempty"`
+}
+
+// SelfCheck is a per-subsystem readiness snapshot. Each check has a pass/fail
+// and a short diagnostic so one curl call tells a user whether the whole
+// integration stack is healthy without needing to click through the UI. We
+// run this automatically at the end of BootstrapWithRetry and expose it at
+// GET /api/v1/hass/selftest.
+type SelfCheck struct {
+	OK     bool              `json:"ok"`
+	Checks []SelfCheckResult `json:"checks"`
+}
+
+type SelfCheckResult struct {
+	Name    string `json:"name"`
+	OK      bool   `json:"ok"`
+	Message string `json:"message,omitempty"`
+}
+
+// RunSelfCheck verifies the end-to-end HA integration: credentials, onboarding
+// state, flow_handlers discovery, xiaomi_home installed, and that a StartFlow
+// for xiaomi_home decodes (catches regressions like the dict-shaped options
+// bug we just fixed). Does not require a real Mi account — it aborts the
+// probe flow right after the first form is returned.
+func (s *Service) RunSelfCheck(ctx context.Context) SelfCheck {
+	out := SelfCheck{OK: true}
+	add := func(name, msg string, ok bool) {
+		out.Checks = append(out.Checks, SelfCheckResult{Name: name, OK: ok, Message: msg})
+		if !ok {
+			out.OK = false
+		}
+	}
+
+	creds, err := s.Credentials(ctx)
+	if err != nil {
+		add("credentials", err.Error(), false)
+		return out
+	}
+	add("credentials", "token "+trimToken(creds.Token)+" @ "+creds.BaseURL, true)
+
+	st, err := s.client.OnboardingStatus(ctx)
+	if err != nil {
+		add("onboarding", err.Error(), false)
+	} else {
+		allDone := st.OwnerDone && st.CoreConfigDone && st.IntegrationDone && st.AnalyticsDone
+		msg := fmt.Sprintf("user=%v core=%v integration=%v analytics=%v",
+			st.OwnerDone, st.CoreConfigDone, st.IntegrationDone, st.AnalyticsDone)
+		add("onboarding", msg, allDone)
+	}
+
+	handlers, err := s.client.ListFlowHandlers(ctx, creds.Token)
+	if err != nil {
+		add("flow_handlers", err.Error(), false)
+	} else {
+		add("flow_handlers", fmt.Sprintf("%d integrations discoverable", len(handlers)), len(handlers) > 0)
+	}
+
+	hasXiaomi := false
+	for _, h := range handlers {
+		if h.Domain == "xiaomi_home" {
+			hasXiaomi = true
+			break
+		}
+	}
+	add("xiaomi_home", "custom_components/xiaomi_home present in HA", hasXiaomi)
+
+	if hasXiaomi {
+		step, err := s.client.StartFlow(ctx, creds.Token, "xiaomi_home")
+		if err != nil {
+			add("xiaomi_home.startflow", err.Error(), false)
+		} else {
+			add("xiaomi_home.startflow",
+				fmt.Sprintf("step_id=%s type=%s fields=%d", step.StepID, step.Type, len(step.DataSchema)),
+				step.FlowID != "" && step.Type != "abort")
+			if step.FlowID != "" {
+				_ = s.client.AbortFlow(ctx, creds.Token, step.FlowID)
+			}
+		}
+	}
+
+	return out
+}
+
+func trimToken(t string) string {
+	if len(t) < 12 {
+		return "(short)"
+	}
+	return t[:6] + "..." + t[len(t)-4:]
+}
+
+// logSelfCheck runs the full HA readiness probe after bootstrap and prints a
+// single-line banner. Green path: INFO "hass: READY (credentials=ok ...)".
+// Red path: WARN "hass: DEGRADED (<first failing check>)" with per-check
+// details at DEBUG level. Never blocks — if the probe itself errors we just
+// log the failure.
+func (s *Service) logSelfCheck(ctx context.Context) {
+	if s.logger == nil {
+		return
+	}
+	probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	result := s.RunSelfCheck(probeCtx)
+	fields := make([]zap.Field, 0, len(result.Checks))
+	for _, c := range result.Checks {
+		status := "ok"
+		if !c.OK {
+			status = "FAIL"
+		}
+		fields = append(fields, zap.String(c.Name, status+": "+c.Message))
+	}
+	if result.OK {
+		s.logger.Info("hass: READY — smart-classroom integration stack is healthy", fields...)
+		return
+	}
+	s.logger.Warn("hass: DEGRADED — run `curl http://localhost:8080/api/v1/hass/selftest` for full report", fields...)
 }
 
 func (s *Service) Status(ctx context.Context) Status {

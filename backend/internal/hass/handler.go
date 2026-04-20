@@ -27,6 +27,7 @@ func NewHandler(svc *Service, valid *validation.Validator, bundle *i18n.Bundle) 
 
 func (h *Handler) Routes(r chi.Router) {
 	r.Get("/status", h.status)
+	r.Get("/selftest", h.selftest)
 	r.Post("/token", h.setToken)
 	r.Get("/integrations", h.integrations)
 	r.Post("/flows", h.startFlow)
@@ -34,6 +35,10 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Delete("/flows/{id}", h.abortFlow)
 	r.Get("/entities", h.entities)
 	r.Post("/adopt", h.adopt)
+}
+
+func (h *Handler) selftest(w http.ResponseWriter, r *http.Request) {
+	httpx.JSON(w, http.StatusOK, h.svc.RunSelfCheck(r.Context()))
 }
 
 func (h *Handler) status(w http.ResponseWriter, r *http.Request) {
