@@ -24,7 +24,12 @@ type Client struct {
 
 func NewClient(baseURL string, httpClient *http.Client) *Client {
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: 20 * time.Second}
+		// 120s accounts for slow multi-call flow steps — xiaomi_home's OAuth
+		// step, for instance, chains a Xiaomi token exchange, a device-list
+		// fetch and a cert provisioning call, each with its own MiHome API
+		// round-trip. 20s used to time out mid-flow with "Home Assistant did
+		// not answer" even though HA was still working.
+		httpClient = &http.Client{Timeout: 120 * time.Second}
 	}
 	return &Client{http: httpClient, baseURL: strings.TrimRight(baseURL, "/")}
 }
