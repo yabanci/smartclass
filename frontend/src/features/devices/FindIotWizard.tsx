@@ -615,22 +615,8 @@ function SchemaFieldInput({
   onChange: (v: unknown) => void;
 }) {
   const label = `${field.name}${field.required ? ' *' : ''}`;
-  if (field.options && field.options.length > 0) {
-    // HA sends options in two shapes depending on the integration:
-    // 1. Flat scalars ["cn", "sg", "ru"] — value === label
-    // 2. [value, label] pairs like ["sg", "Singapore"] — common for selectors
-    // 3. {value, label} objects — used by some newer integrations
-    // Normalize all three to {v, l} so the dropdown shows a human label but
-    // submits the machine value (fixes HA "invalid option" when the pair's
-    // label gets stringified and posted back as the value).
-    const opts = field.options.map((o) => {
-      if (Array.isArray(o) && o.length >= 2) return { v: String(o[0]), l: String(o[1]) };
-      if (o && typeof o === 'object') {
-        const obj = o as { value?: unknown; label?: unknown };
-        return { v: String(obj.value ?? ''), l: String(obj.label ?? obj.value ?? '') };
-      }
-      return { v: String(o), l: String(o) };
-    });
+  const opts = normalizeOptions(field.options);
+  if (opts.length > 0) {
     return (
       <label className="block">
         <span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span>
@@ -687,6 +673,35 @@ function SchemaFieldInput({
       required={field.required}
     />
   );
+}
+
+// HA serializes voluptuous enum schemas in four different shapes depending on
+// how the integration wrote them:
+//   1. Flat array of scalars         ["cn", "sg"]                       value === label
+//   2. Array of [value, label] pairs [["cn","China"], ["sg","Singapore"]]
+//   3. Array of {value,label} objects [{"value":"cn","label":"China"}, ...]
+//   4. Object/dict                   {"cn":"China","sg":"Singapore"}    xiaomi_home's cloud_server
+// Normalize all of them to {v, l} pairs so the <select> shows human labels and
+// submits the machine value (otherwise HA rejects the step with "invalid option").
+function normalizeOptions(raw: unknown): { v: string; l: string }[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map((o) => {
+      if (Array.isArray(o) && o.length >= 2) return { v: String(o[0]), l: String(o[1]) };
+      if (o && typeof o === 'object') {
+        const obj = o as { value?: unknown; label?: unknown };
+        return { v: String(obj.value ?? ''), l: String(obj.label ?? obj.value ?? '') };
+      }
+      return { v: String(o), l: String(o) };
+    });
+  }
+  if (typeof raw === 'object') {
+    return Object.entries(raw as Record<string, unknown>).map(([k, v]) => ({
+      v: String(k),
+      l: String(v ?? k),
+    }));
+  }
+  return [];
 }
 
 // HA's OAuth progress step delivers the authorize URL as an <a> fragment

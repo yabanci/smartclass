@@ -108,7 +108,12 @@ export type HassSchemaField = {
   required?: boolean;
   optional?: boolean;
   default?: unknown;
-  options?: unknown[];
+  // HA serializes enum options three ways depending on how the integration
+  // built the voluptuous schema — flat array (["cn", "sg"]), array of pairs
+  // ([["cn", "China"]]), or a dict ({"cn": "China"}). xiaomi_home uses the
+  // dict form for `cloud_server`, so we keep this `unknown` and normalize
+  // in the SchemaFieldInput renderer.
+  options?: unknown;
 };
 
 export type HassFlowStep = {

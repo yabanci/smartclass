@@ -91,13 +91,22 @@ type FlowStep struct {
 // delivered over REST. HA returns each field like
 // {"type":"string","name":"host","required":true} — we keep that shape and
 // expose it to the frontend 1:1 so the form renderer stays dumb.
+//
+// `Options` is deliberately typed `any` because HA's selector encoding varies:
+// voluptuous.In(["cn","sg"]) serializes as `["cn","sg"]` (flat array),
+// voluptuous.In({"cn":"China","sg":"Singapore"}) serializes as a dict, and
+// selector({"options":[{"value":"cn","label":"China"}]}) serializes as an
+// array of objects. xiaomi_home uses the dict form for `cloud_server`, so
+// pinning Options to `[]any` made decoding the whole step fail with
+// `cannot unmarshal object into Go struct field ... of type []interface {}`.
+// The frontend normalizes all three shapes in SchemaFieldInput.
 type SchemaField struct {
 	Name     string `json:"name"`
 	Type     string `json:"type"`
 	Required bool   `json:"required,omitempty"`
 	Optional bool   `json:"optional,omitempty"`
 	Default  any    `json:"default,omitempty"`
-	Options  []any  `json:"options,omitempty"`
+	Options  any    `json:"options,omitempty"`
 }
 
 type Entity struct {
