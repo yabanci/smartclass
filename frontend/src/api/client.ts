@@ -110,12 +110,19 @@ export class ApiErrorObj extends Error {
 }
 
 export function errorMessage(err: unknown): string {
-  if (err instanceof ApiErrorObj) return err.message;
-  if (axios.isAxiosError(err)) {
-    const e = err.response?.data?.error;
-    if (e?.message) return e.message;
-    return err.message;
-  }
-  if (err instanceof Error) return err.message;
-  return 'Unexpected error';
+  const base = (() => {
+    if (err instanceof ApiErrorObj) return { msg: err.message, details: err.details };
+    if (axios.isAxiosError(err)) {
+      const e = err.response?.data?.error;
+      return { msg: e?.message ?? err.message, details: e?.details };
+    }
+    if (err instanceof Error) return { msg: err.message, details: undefined };
+    return { msg: 'Unexpected error', details: undefined };
+  })();
+  // When the backend gives us upstream context (hass_upstream etc. carry the
+  // raw HA response body in details.upstream), append it — the plain localized
+  // string "Home Assistant не ответил" is useless for debugging without it.
+  const up = (base.details as { upstream?: unknown } | undefined)?.upstream;
+  if (typeof up === 'string' && up) return `${base.msg}: ${up}`;
+  return base.msg;
 }

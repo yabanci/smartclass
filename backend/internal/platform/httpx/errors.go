@@ -3,6 +3,7 @@ package httpx
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"smartclass/internal/platform/i18n"
 	"smartclass/internal/platform/validation"
@@ -25,7 +26,19 @@ func WriteError(w http.ResponseWriter, r *http.Request, bundle *i18n.Bundle, err
 
 	var de *DomainError
 	if errors.As(err, &de) {
-		Fail(w, de.HTTPStatus, de.Code, bundle.T(lang, de.MessageKey), nil)
+		// fmt.Errorf("%w: <raw upstream body>", de) is common for ErrUpstream —
+		// the extra context is priceless for debugging (HA's actual response
+		// body, network-error text, etc.) but WriteError used to drop it on
+		// the floor. Surface it as `details` so the UI can show "Home Assistant
+		// не ответил: login_flow 500: {…}" instead of a bare translated string.
+		full := err.Error()
+		var details any
+		if idx := strings.Index(full, ": "); idx > 0 && full[:idx] == de.Code {
+			if extra := strings.TrimSpace(full[idx+2:]); extra != "" {
+				details = map[string]string{"upstream": extra}
+			}
+		}
+		Fail(w, de.HTTPStatus, de.Code, bundle.T(lang, de.MessageKey), details)
 		return
 	}
 
