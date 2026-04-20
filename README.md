@@ -166,7 +166,11 @@ By default the driver maps `ON/OFF → switch`, `OPEN/CLOSE → windowShade`, `S
 
 ### Notes on specific vendors
 
-- **Xiaomi / Mi Home / Aqara** — no stable public API. Go through Home Assistant (integrations: `xiaomi_miio`, `aqara`, `xiaomi_aqara`).
+- **Xiaomi / Mi Home / Aqara** — no stable public API. Go through Home Assistant. We ship Xiaomi's official `xiaomi_home` integration pre-installed (OAuth via Mi account), plus legacy fallbacks (`xiaomi_miio`, `aqara`, `xiaomi_aqara`).
+    - **One-time host-file entry required.** Xiaomi's OAuth only accepts `http://homeassistant.local:8123` as a redirect target. If HA is running inside Docker on your workstation, point that hostname at 127.0.0.1:
+        - **Windows:** open `C:\Windows\System32\drivers\etc\hosts` in Notepad as Administrator → add line `127.0.0.1 homeassistant.local` → save.
+        - **macOS / Linux:** `echo "127.0.0.1 homeassistant.local" | sudo tee -a /etc/hosts`.
+    - After adding the entry, open HA at `http://homeassistant.local:8123` in the same browser you'll use for the OAuth wizard — if that page loads, the redirect will work.
 - **Huawei (HarmonyOS / HiLink)** — no public API. The only reliable path is buying Matter-certified Huawei devices and pairing them via Home Assistant's Matter integration, then using the `homeassistant` driver.
 - **Samsung** — either `smartthings` directly, or via Home Assistant.
 - **Tuya / Smart Life** — Home Assistant has an official Tuya integration (cloud).

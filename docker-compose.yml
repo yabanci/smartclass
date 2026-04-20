@@ -67,24 +67,31 @@ services:
         else
           echo "xiaomi_home already present, skipping"
         fi
-        # xiaomi_home hardcodes OAUTH_REDIRECT_URL=http://homeassistant.local:8123
-        # in miot/const.py, AND locks the form field in config_flow.py to that
-        # single value via `vol.In([OAUTH_REDIRECT_URL])`. `homeassistant.local`
-        # doesn't resolve on Windows/Docker Desktop (no mDNS), and what value
-        # actually reaches HA depends on the user's setup (localhost vs LAN IP
-        # vs host.docker.internal). Two idempotent patches:
-        #   1. Const default → http://localhost:8123 (works on Docker Desktop)
-        #   2. Form field → free-text (`str`) so the user can override without
-        #      re-patching for non-default setups.
-        if [ -f /config/custom_components/xiaomi_home/miot/const.py ]; then
-          sed -i 's|http://homeassistant.local:8123|http://localhost:8123|g' \
-            /config/custom_components/xiaomi_home/miot/const.py
-          echo "xiaomi_home OAUTH_REDIRECT_URL default pinned to localhost"
-        fi
+        # Xiaomi's OAuth client (client_id=2882303761520251711) whitelists ONLY
+        # `http://homeassistant.local:8123` as a valid redirect_uri. Any other
+        # host (localhost, 127.0.0.1, LAN IP) returns `invalid redirect uri` on
+        # account.xiaomi.com. We keep the const.py default unchanged, but
+        # unlock the form field in config_flow.py (the stock integration pins
+        # it to `vol.In([OAUTH_REDIRECT_URL])`, a single-value dropdown with no
+        # way to override). After this patch the user can type a custom URL if
+        # they've pointed a whitelisted hostname at their HA.
+        # On Docker Desktop (Windows/macOS) the fix is a hosts-file entry:
+        #   127.0.0.1 homeassistant.local
+        # so the browser resolves the default redirect back to the local HA.
+        # See README for platform-specific steps.
         if [ -f /config/custom_components/xiaomi_home/config_flow.py ]; then
           sed -i 's|vol.In(\[OAUTH_REDIRECT_URL\])|str|g' \
             /config/custom_components/xiaomi_home/config_flow.py
           echo "xiaomi_home oauth_redirect_url field unlocked (free text)"
+        fi
+        # Undo any earlier (failed) attempt that pinned the const default to
+        # localhost — Xiaomi's OAuth only whitelists homeassistant.local, so
+        # leaving the patched value in place would show an invalid-redirect
+        # error page on first open.
+        if [ -f /config/custom_components/xiaomi_home/miot/const.py ]; then
+          sed -i 's|http://localhost:8123|http://homeassistant.local:8123|g' \
+            /config/custom_components/xiaomi_home/miot/const.py
+          echo "xiaomi_home OAUTH_REDIRECT_URL reverted to homeassistant.local"
         fi
     restart: "no"
 
