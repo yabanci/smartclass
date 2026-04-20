@@ -57,41 +57,43 @@ services:
         set -e
         apk add --no-cache curl tar >/dev/null
         mkdir -p /config/custom_components
-        if [ ! -d /config/custom_components/xiaomi_home ]; then
-          echo "Installing xiaomi_home custom component..."
+        # Pin to a known-stable tag (v0.4.4) instead of main — main has had
+        # intermittent regressions in OAuth/webhook handling. A version sentinel
+        # lets us force-reinstall on bumps without nuking the whole volume, and
+        # also wipes the stale .storage/xiaomi_home state that accumulates from
+        # failed OAuth attempts (corruption there is a common root cause of
+        # `task_oauth exception, invalid params` on retries).
+        XH_VERSION="v0.4.4"
+        SENTINEL="/config/custom_components/xiaomi_home/.installed_version"
+        CURRENT="$$(cat "$$SENTINEL" 2>/dev/null || true)"
+        if [ "$$CURRENT" != "$$XH_VERSION" ]; then
+          echo "Installing xiaomi_home $$XH_VERSION (was: $${CURRENT:-none})..."
+          rm -rf /config/custom_components/xiaomi_home
+          rm -f /config/.storage/xiaomi_home* 2>/dev/null || true
           cd /tmp
-          curl -sL https://github.com/XiaoMi/ha_xiaomi_home/archive/refs/heads/main.tar.gz | tar xz
-          mv ha_xiaomi_home-main/custom_components/xiaomi_home /config/custom_components/
-          rm -rf ha_xiaomi_home-main
-          echo "xiaomi_home installed"
+          rm -rf ha_xiaomi_home-*
+          curl -sL "https://github.com/XiaoMi/ha_xiaomi_home/archive/refs/tags/$${XH_VERSION}.tar.gz" | tar xz
+          SRC_DIR="ha_xiaomi_home-$${XH_VERSION#v}"
+          mv "$${SRC_DIR}/custom_components/xiaomi_home" /config/custom_components/
+          rm -rf "$${SRC_DIR}"
+          echo "$$XH_VERSION" > "$$SENTINEL"
+          echo "xiaomi_home $$XH_VERSION installed (stale .storage purged)"
         else
-          echo "xiaomi_home already present, skipping"
+          echo "xiaomi_home $$XH_VERSION already present, skipping"
         fi
-        # Xiaomi's OAuth client (client_id=2882303761520251711) whitelists ONLY
-        # `http://homeassistant.local:8123` as a valid redirect_uri. Any other
-        # host (localhost, 127.0.0.1, LAN IP) returns `invalid redirect uri` on
-        # account.xiaomi.com. We keep the const.py default unchanged, but
-        # unlock the form field in config_flow.py (the stock integration pins
-        # it to `vol.In([OAUTH_REDIRECT_URL])`, a single-value dropdown with no
-        # way to override). After this patch the user can type a custom URL if
-        # they've pointed a whitelisted hostname at their HA.
-        # On Docker Desktop (Windows/macOS) the fix is a hosts-file entry:
-        #   127.0.0.1 homeassistant.local
-        # so the browser resolves the default redirect back to the local HA.
-        # See README for platform-specific steps.
-        if [ -f /config/custom_components/xiaomi_home/config_flow.py ]; then
-          sed -i 's|vol.In(\[OAUTH_REDIRECT_URL\])|str|g' \
-            /config/custom_components/xiaomi_home/config_flow.py
-          echo "xiaomi_home oauth_redirect_url field unlocked (free text)"
-        fi
-        # Undo any earlier (failed) attempt that pinned the const default to
-        # localhost — Xiaomi's OAuth only whitelists homeassistant.local, so
-        # leaving the patched value in place would show an invalid-redirect
-        # error page on first open.
+        # Xiaomi's OAuth client whitelists ONLY `http://homeassistant.local:8123`
+        # as redirect_uri. const.py ships with that value; if an older version
+        # of this script mutated it to `localhost`, restore it — otherwise the
+        # authorize step shows "invalid redirect uri" and the token-exchange
+        # step sends a mismatched redirect_uri back to Xiaomi's `/get_token`,
+        # which answers `code != 0` → surfaces to us as "invalid params".
+        # On Docker Desktop (Windows/macOS) the user still needs the hosts
+        # entry `127.0.0.1 homeassistant.local` so the browser can follow the
+        # redirect back to this container. See README for platform-specific
+        # steps.
         if [ -f /config/custom_components/xiaomi_home/miot/const.py ]; then
           sed -i 's|http://localhost:8123|http://homeassistant.local:8123|g' \
             /config/custom_components/xiaomi_home/miot/const.py
-          echo "xiaomi_home OAUTH_REDIRECT_URL reverted to homeassistant.local"
         fi
     restart: "no"
 
@@ -105,6 +107,13 @@ services:
       TZ: ${TZ:-UTC}
     ports:
       - "${HA_PORT:-8123}:8123"
+    # Explicit DNS — on Docker Desktop (Windows/macOS) the embedded resolver is
+    # occasionally flaky for Xiaomi's OAuth host (`*.ha.api.io.mi.com`). Failed
+    # DNS lookups there surface as `task_oauth exception, invalid params` because
+    # `get_access_token_async` catches the aiohttp error and stringifies it.
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     depends_on:
       mosquitto:
         condition: service_healthy
