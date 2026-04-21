@@ -58,11 +58,13 @@ def login() -> str:
 def main() -> int:
     token = login()
     try:
-        result = get_json("/hass/selftest", token)
+        envelope = get_json("/hass/selftest", token)
     except urllib.error.HTTPError as e:
         sys.stderr.write(f"/hass/selftest HTTP {e.code}: {e.read().decode()}\n")
         return 2
 
+    # Backend wraps every response as {"data": {...}, "error": null}.
+    result = envelope.get("data") or envelope
     overall = "OK " if result.get("ok") else "FAIL"
     print(f"smart-classroom self-check: {overall}")
     print("-" * 72)

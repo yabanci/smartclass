@@ -57,7 +57,8 @@ def selftest(token: str) -> dict | None:
             headers={"Authorization": f"Bearer {token}"},
         )
         with urllib.request.urlopen(req, timeout=30) as r:
-            return json.loads(r.read())
+            envelope = json.loads(r.read())
+            return envelope.get("data") or envelope
     except Exception:
         return None
 
