@@ -10,6 +10,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/gorilla/websocket"
 )
 
 // clientID used for HA's OAuth2 indieauth flow during onboarding. HA validates
@@ -371,20 +373,62 @@ func (c *Client) ListFlowHandlers(ctx context.Context, token string) ([]FlowHand
 }
 
 // ListInProgressFlows returns every config flow HA currently has open across
-// all integrations. HA's handler field arrives as either a bare string or a
-// [domain, context] tuple depending on the source; we coerce both to a string
-// so the caller can filter by domain without caring which shape HA used.
+// all integrations. HA exposes this only over its WebSocket API
+// (`config_entries/flow/progress`) — the REST endpoint `GET /config_entries/flow`
+// returns 405. We open a short-lived WS, do the auth dance, issue one
+// command, and close. Handler comes back as either a bare string or a
+// [domain, context] tuple depending on the source; coerce both to a string
+// so the caller can filter by domain.
 func (c *Client) ListInProgressFlows(ctx context.Context, token string) ([]FlowProgress, error) {
-	var raw []struct {
-		FlowID  string `json:"flow_id"`
-		Handler any    `json:"handler"`
-		StepID  string `json:"step_id"`
+	wsURL := strings.Replace(c.baseURL, "http://", "ws://", 1)
+	wsURL = strings.Replace(wsURL, "https://", "wss://", 1) + "/api/websocket"
+	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
+	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: ws dial: %v", ErrUpstream, err)
 	}
-	if err := c.getJSON(ctx, token, "/api/config/config_entries/flow", &raw); err != nil {
-		return nil, err
+	defer conn.Close()
+	deadline, _ := ctx.Deadline()
+	if deadline.IsZero() {
+		deadline = time.Now().Add(10 * time.Second)
 	}
-	out := make([]FlowProgress, 0, len(raw))
-	for _, r := range raw {
+	_ = conn.SetReadDeadline(deadline)
+	_ = conn.SetWriteDeadline(deadline)
+	// auth_required → auth → auth_ok
+	var hello map[string]any
+	if err := conn.ReadJSON(&hello); err != nil {
+		return nil, fmt.Errorf("%w: ws hello: %v", ErrUpstream, err)
+	}
+	if err := conn.WriteJSON(map[string]any{"type": "auth", "access_token": token}); err != nil {
+		return nil, fmt.Errorf("%w: ws auth send: %v", ErrUpstream, err)
+	}
+	var authResp map[string]any
+	if err := conn.ReadJSON(&authResp); err != nil {
+		return nil, fmt.Errorf("%w: ws auth read: %v", ErrUpstream, err)
+	}
+	if authResp["type"] != "auth_ok" {
+		return nil, fmt.Errorf("%w: ws auth rejected: %v", ErrUpstream, authResp["message"])
+	}
+	if err := conn.WriteJSON(map[string]any{"id": 1, "type": "config_entries/flow/progress"}); err != nil {
+		return nil, fmt.Errorf("%w: ws progress send: %v", ErrUpstream, err)
+	}
+	var resp struct {
+		Success bool `json:"success"`
+		Result  []struct {
+			FlowID  string `json:"flow_id"`
+			Handler any    `json:"handler"`
+			StepID  string `json:"step_id"`
+		} `json:"result"`
+		Error map[string]any `json:"error"`
+	}
+	if err := conn.ReadJSON(&resp); err != nil {
+		return nil, fmt.Errorf("%w: ws progress read: %v", ErrUpstream, err)
+	}
+	if !resp.Success {
+		return nil, fmt.Errorf("%w: ws progress failed: %v", ErrUpstream, resp.Error)
+	}
+	out := make([]FlowProgress, 0, len(resp.Result))
+	for _, r := range resp.Result {
 		h := ""
 		switch v := r.Handler.(type) {
 		case string:
