@@ -46,7 +46,7 @@ def login() -> str:
             "/auth/login",
             {"email": "admin@smartclass.kz", "password": "admin1234"},
         )
-        return data["data"]["accessToken"]
+        return data["data"]["tokens"]["accessToken"]
     except urllib.error.URLError as e:
         sys.stderr.write(
             f"cannot reach backend at {API}: {e}\n"

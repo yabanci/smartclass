@@ -45,7 +45,7 @@ def login() -> str | None:
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=10) as r:
-            return json.loads(r.read())["data"]["accessToken"]
+            return json.loads(r.read())["data"]["tokens"]["accessToken"]
     except Exception:
         return None
 
