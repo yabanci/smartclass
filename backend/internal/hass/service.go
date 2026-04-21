@@ -41,6 +41,14 @@ type Service struct {
 	// (and the next request racing to find which one landed in s.creds).
 	// Under refreshMu we double-check and refresh at most once.
 	refreshMu sync.Mutex
+
+	// flowMu guards lastFlowByHandler. Every StartFlow records the flow_id
+	// it received so the next StartFlow for the same handler can abort it
+	// first — HA core raises `already_in_progress` when any flow with the
+	// same unique_id is still pending, and its WS `flow/progress` channel
+	// hides USER-source flows so we can't discover them any other way.
+	flowMu             sync.Mutex
+	lastFlowByHandler  map[string]string
 }
 
 func NewService(cfg Config, repo Repository, client *Client, devices *device.Service, logger *zap.Logger) *Service {
@@ -412,12 +420,15 @@ func (s *Service) ListIntegrations(ctx context.Context) ([]FlowHandler, error) {
 }
 
 // StartFlow scrubs any in-progress flow for the same handler before starting a
-// new one. xiaomi_home (and other OAuth integrations) often leaves a secondary
-// flow behind when the user abandons or retries the OAuth dance, and HA then
-// refuses the next attempt with `already_in_progress`. Purging first removes
-// that footgun — the user never has to think about timing or restart HA.
+// new one. Two sources of stale flows exist:
+//   1. The flow we ourselves started last time and never finished — HA keeps
+//      it alive with source=USER, which `flow/progress` hides, so we track
+//      its id in `lastFlowByHandler` and DELETE it directly.
+//   2. Secondary non-user flows xiaomi_home (and similar OAuth integrations)
+//      spawn from their callback — those DO show up in `flow/progress`, so
+//      we list them over the WS and abort everything matching the handler.
 // If the new flow still comes back as abort/already_in_progress (e.g. race
-// with a callback that's in-flight), retry once more after another scrub.
+// with an in-flight callback), we scrub once more and retry the start.
 func (s *Service) StartFlow(ctx context.Context, handler string) (*FlowStep, error) {
 	c, err := s.Credentials(ctx)
 	if err != nil {
@@ -429,13 +440,47 @@ func (s *Service) StartFlow(ctx context.Context, handler string) (*FlowStep, err
 		s.scrubFlows(ctx, c.Token, handler)
 		step, err = s.client.StartFlow(ctx, c.Token, handler)
 	}
+	if err == nil && step != nil && step.FlowID != "" {
+		s.rememberFlow(handler, step.FlowID)
+	}
 	return step, err
 }
 
+func (s *Service) rememberFlow(handler, flowID string) {
+	s.flowMu.Lock()
+	defer s.flowMu.Unlock()
+	if s.lastFlowByHandler == nil {
+		s.lastFlowByHandler = make(map[string]string)
+	}
+	s.lastFlowByHandler[handler] = flowID
+}
+
+func (s *Service) popLastFlow(handler string) string {
+	s.flowMu.Lock()
+	defer s.flowMu.Unlock()
+	if s.lastFlowByHandler == nil {
+		return ""
+	}
+	id := s.lastFlowByHandler[handler]
+	delete(s.lastFlowByHandler, handler)
+	return id
+}
+
 // scrubFlows aborts every in-progress flow whose handler matches the given
-// domain. Errors are logged but not fatal: a 404 means the flow already
-// disappeared, anything else we'd rather ignore than block the happy path.
+// domain. First we DELETE the last flow_id we know about (covers USER-source
+// flows HA refuses to list), then we walk `flow/progress` for any remaining
+// non-user orphans. All errors are logged but never fatal: a 404 means the
+// flow already disappeared, anything else we'd rather ignore than block.
 func (s *Service) scrubFlows(ctx context.Context, token, handler string) {
+	if prev := s.popLastFlow(handler); prev != "" {
+		if err := s.client.AbortFlow(ctx, token, prev); err != nil && !errors.Is(err, ErrFlowNotFound) && s.logger != nil {
+			s.logger.Warn("hass: scrub prev flow failed",
+				zap.Error(err),
+				zap.String("flow_id", prev),
+				zap.String("handler", handler),
+			)
+		}
+	}
 	flows, err := s.client.ListInProgressFlows(ctx, token)
 	if err != nil {
 		if s.logger != nil {
@@ -447,7 +492,7 @@ func (s *Service) scrubFlows(ctx context.Context, token, handler string) {
 		if f.Handler != handler {
 			continue
 		}
-		if err := s.client.AbortFlow(ctx, token, f.FlowID); err != nil && s.logger != nil {
+		if err := s.client.AbortFlow(ctx, token, f.FlowID); err != nil && !errors.Is(err, ErrFlowNotFound) && s.logger != nil {
 			s.logger.Warn("hass: scrub abort failed",
 				zap.Error(err),
 				zap.String("flow_id", f.FlowID),
