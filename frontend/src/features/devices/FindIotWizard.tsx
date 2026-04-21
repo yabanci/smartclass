@@ -506,7 +506,12 @@ function WizardStep({
   useEffect(() => {
     const init: Record<string, unknown> = {};
     (step.data_schema ?? []).forEach((f) => {
-      if (f.default !== undefined) init[f.name] = f.default;
+      const isMulti = f.type === 'multi_select' || f.multiple === true;
+      if (f.default !== undefined) {
+        init[f.name] = isMulti && !Array.isArray(f.default) ? [f.default] : f.default;
+      } else if (isMulti) {
+        init[f.name] = [];
+      }
     });
     setValues(init);
   }, [step.flow_id, step.step_id]);
@@ -616,6 +621,30 @@ function SchemaFieldInput({
 }) {
   const label = `${field.name}${field.required ? ' *' : ''}`;
   const opts = normalizeOptions(field.options);
+  const isMulti = field.type === 'multi_select' || field.multiple === true;
+  if (opts.length > 0 && isMulti) {
+    const selected = Array.isArray(value) ? value.map(String) : [];
+    const toggle = (v: string) =>
+      onChange(selected.includes(v) ? selected.filter((s) => s !== v) : [...selected, v]);
+    return (
+      <div className="block">
+        <span className="mb-1 block text-xs font-semibold text-slate-600">{label}</span>
+        <div className="flex flex-col gap-1 rounded-xl border border-slate-200 bg-white/60 p-2 max-h-48 overflow-y-auto">
+          {opts.map((o) => (
+            <label key={o.v} className="flex items-center gap-2 text-sm py-0.5">
+              <input
+                type="checkbox"
+                checked={selected.includes(o.v)}
+                onChange={() => toggle(o.v)}
+              />
+              <span>{o.l === o.v ? o.v : `${o.l} (${o.v})`}</span>
+            </label>
+          ))}
+        </div>
+        {fieldError && <span className="mt-1 block text-xs text-danger">{fieldError}</span>}
+      </div>
+    );
+  }
   if (opts.length > 0) {
     return (
       <label className="block">

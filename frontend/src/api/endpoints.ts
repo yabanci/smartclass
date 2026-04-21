@@ -114,6 +114,11 @@ export type HassSchemaField = {
   // dict form for `cloud_server`, so we keep this `unknown` and normalize
   // in the SchemaFieldInput renderer.
   options?: unknown;
+  // Voluptuous-serialize emits type:"multi_select" for cv.multi_select, and
+  // selector-based fields surface `multiple: true`. Either means HA expects
+  // a JSON list back on submit (xiaomi_home's `home_infos` is the canonical
+  // case — submitting a scalar fails with "Not a list").
+  multiple?: boolean;
 };
 
 export type HassFlowStep = {
