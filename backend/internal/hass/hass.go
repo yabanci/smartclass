@@ -109,6 +109,18 @@ type SchemaField struct {
 	Options  any    `json:"options,omitempty"`
 }
 
+// FlowProgress is HA's summary of one in-progress config flow returned from
+// GET /api/config/config_entries/flow. We only care about flow_id + handler:
+// on a fresh StartFlow we scrub any stuck flow for the target handler so a
+// crashed/abandoned OAuth session doesn't block the next attempt with
+// `already_in_progress` (happens constantly with xiaomi_home because its
+// OAuth callback spawns a secondary flow HA then refuses to close).
+type FlowProgress struct {
+	FlowID  string `json:"flow_id"`
+	Handler string `json:"handler"`
+	StepID  string `json:"step_id"`
+}
+
 type Entity struct {
 	EntityID     string         `json:"entity_id"`
 	State        string         `json:"state"`

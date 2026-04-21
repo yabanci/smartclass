@@ -411,12 +411,50 @@ func (s *Service) ListIntegrations(ctx context.Context) ([]FlowHandler, error) {
 	return out, err
 }
 
+// StartFlow scrubs any in-progress flow for the same handler before starting a
+// new one. xiaomi_home (and other OAuth integrations) often leaves a secondary
+// flow behind when the user abandons or retries the OAuth dance, and HA then
+// refuses the next attempt with `already_in_progress`. Purging first removes
+// that footgun — the user never has to think about timing or restart HA.
+// If the new flow still comes back as abort/already_in_progress (e.g. race
+// with a callback that's in-flight), retry once more after another scrub.
 func (s *Service) StartFlow(ctx context.Context, handler string) (*FlowStep, error) {
 	c, err := s.Credentials(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return s.client.StartFlow(ctx, c.Token, handler)
+	s.scrubFlows(ctx, c.Token, handler)
+	step, err := s.client.StartFlow(ctx, c.Token, handler)
+	if err == nil && step != nil && step.Type == "abort" && step.Reason == "already_in_progress" {
+		s.scrubFlows(ctx, c.Token, handler)
+		step, err = s.client.StartFlow(ctx, c.Token, handler)
+	}
+	return step, err
+}
+
+// scrubFlows aborts every in-progress flow whose handler matches the given
+// domain. Errors are logged but not fatal: a 404 means the flow already
+// disappeared, anything else we'd rather ignore than block the happy path.
+func (s *Service) scrubFlows(ctx context.Context, token, handler string) {
+	flows, err := s.client.ListInProgressFlows(ctx, token)
+	if err != nil {
+		if s.logger != nil {
+			s.logger.Warn("hass: scrub list failed", zap.Error(err), zap.String("handler", handler))
+		}
+		return
+	}
+	for _, f := range flows {
+		if f.Handler != handler {
+			continue
+		}
+		if err := s.client.AbortFlow(ctx, token, f.FlowID); err != nil && s.logger != nil {
+			s.logger.Warn("hass: scrub abort failed",
+				zap.Error(err),
+				zap.String("flow_id", f.FlowID),
+				zap.String("handler", handler),
+			)
+		}
+	}
 }
 
 func (s *Service) StepFlow(ctx context.Context, flowID string, data map[string]any) (*FlowStep, error) {

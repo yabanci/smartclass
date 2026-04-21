@@ -370,6 +370,37 @@ func (c *Client) ListFlowHandlers(ctx context.Context, token string) ([]FlowHand
 	return out, nil
 }
 
+// ListInProgressFlows returns every config flow HA currently has open across
+// all integrations. HA's handler field arrives as either a bare string or a
+// [domain, context] tuple depending on the source; we coerce both to a string
+// so the caller can filter by domain without caring which shape HA used.
+func (c *Client) ListInProgressFlows(ctx context.Context, token string) ([]FlowProgress, error) {
+	var raw []struct {
+		FlowID  string `json:"flow_id"`
+		Handler any    `json:"handler"`
+		StepID  string `json:"step_id"`
+	}
+	if err := c.getJSON(ctx, token, "/api/config/config_entries/flow", &raw); err != nil {
+		return nil, err
+	}
+	out := make([]FlowProgress, 0, len(raw))
+	for _, r := range raw {
+		h := ""
+		switch v := r.Handler.(type) {
+		case string:
+			h = v
+		case []any:
+			if len(v) > 0 {
+				if s, ok := v[0].(string); ok {
+					h = s
+				}
+			}
+		}
+		out = append(out, FlowProgress{FlowID: r.FlowID, Handler: h, StepID: r.StepID})
+	}
+	return out, nil
+}
+
 func (c *Client) StartFlow(ctx context.Context, token, handler string) (*FlowStep, error) {
 	body, _ := json.Marshal(map[string]any{
 		"handler":      handler,
