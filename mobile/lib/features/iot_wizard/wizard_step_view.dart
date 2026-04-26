@@ -1,6 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../shared/models/hass_models.dart';
+
+/// HA sends OAuth URL wrapped in HTML inside description_placeholders,
+/// e.g. {"link_left": "<a href='https://...'>", "link_right": "</a>"}.
+/// Parse any href attribute out of all placeholder values.
+String? _extractOAuthHref(Map<String, String>? placeholders) {
+  if (placeholders == null) return null;
+  // Also check direct 'url' key first
+  if (placeholders['url'] != null) return placeholders['url'];
+  final hrefRe = RegExp(r'''href\s*=\s*["']([^"']+)["']''', caseSensitive: false);
+  for (final v in placeholders.values) {
+    final m = hrefRe.firstMatch(v);
+    if (m != null) return m.group(1);
+  }
+  return null;
+}
 
 /// Dynamic form renderer for HassFlowStep data_schema.
 class WizardStepView extends StatefulWidget {
@@ -58,41 +74,76 @@ class _WizardStepViewState extends State<WizardStepView> {
   Widget build(BuildContext context) {
     final step = widget.step;
 
-    // progress / external_step
+    // progress / external_step — OAuth or async HA operation
     if (step.type == 'progress' || step.type == 'external_step') {
-      final url = step.url ?? step.descriptionPlaceholders?['url'];
+      final url = step.url ?? _extractOAuthHref(step.descriptionPlaceholders);
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (step.description != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(step.description!),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.2)),
             ),
-          const Text(
-            'Open the link in a new tab, sign in, and come back.',
-            style: TextStyle(color: Colors.grey),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline, color: Colors.blue, size: 18),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    step.description ??
+                        'Open the manufacturer\'s sign-in page, authorize access, then tap "I\'m authorized".',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
           ),
+          const SizedBox(height: 16),
           if (url != null) ...[
-            const SizedBox(height: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.open_in_new),
+            FilledButton.icon(
+              icon: const Icon(Icons.open_in_new, size: 18),
               label: const Text('Open sign-in page'),
-              onPressed: () {
-                // In a real app: launch_url package would open the browser
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Open: $url')),
-                );
-              },
+              onPressed: () => launchUrl(
+                Uri.parse(url),
+                mode: LaunchMode.externalApplication,
+              ),
             ),
+            const SizedBox(height: 8),
+          ] else ...[
+            // No URL from HA — show manual instruction
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Text(
+                'Home Assistant is processing the request. If you need to authorise manually, open Home Assistant at http://localhost:8123 and complete the setup there.',
+                style: TextStyle(fontSize: 12, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.open_in_browser, size: 16),
+              label: const Text('Open Home Assistant'),
+              onPressed: () => launchUrl(
+                Uri.parse('http://localhost:8123'),
+                mode: LaunchMode.externalApplication,
+              ),
+            ),
+            const SizedBox(height: 8),
           ],
-          const SizedBox(height: 12),
           FilledButton(
-            onPressed: widget.loading
-                ? null
-                : () => widget.onOauthDone?.call(),
+            onPressed: widget.loading ? null : () => widget.onOauthDone?.call(),
             child: widget.loading
-                ? const CircularProgressIndicator(strokeWidth: 2)
+                ? const SizedBox(
+                    width: 20, height: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
                 : const Text("I'm authorized"),
           ),
         ],
