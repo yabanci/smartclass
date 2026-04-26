@@ -1,4 +1,5 @@
-.PHONY: up down logs ps restart rebuild clean test e2e seed verify wait
+.PHONY: up down logs ps restart rebuild clean test e2e seed verify wait \
+        mobile-test mobile-analyze mobile-build
 
 up:
 	docker compose up --build -d
@@ -48,3 +49,14 @@ wait:
 # backend and exits non-zero if anything is red. Safe to run repeatedly.
 verify:
 	@python3 scripts/verify.py
+
+# ── Flutter mobile ─────────────────────────────────────────────────────────
+
+mobile-test:
+	cd mobile && flutter test --reporter expanded
+
+mobile-analyze:
+	cd mobile && flutter analyze --fatal-infos
+
+mobile-build:
+	cd mobile && flutter build apk --release --no-pub

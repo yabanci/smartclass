@@ -5,8 +5,9 @@ Backend for smart-classroom management: auth, devices (Tuya/Shelly/Sonoff/Aqara/
 ## Stack
 
 - **Backend:** Go 1.25, chi, pgx, goose, JWT, zap, gorilla/websocket
-- **Frontend (planned):** React 18 + Vite + TypeScript + Tailwind + shadcn/ui
-- **Infra:** PostgreSQL 16, Docker Compose
+- **Frontend:** React 18 + Vite + TypeScript + Tailwind + shadcn/ui (served via nginx)
+- **Mobile:** Flutter 3.41.7 — Android + iOS, Riverpod, go_router, flutter_secure_storage
+- **Infra:** PostgreSQL 16, Docker Compose, MQTT (Mosquitto), Home Assistant
 
 ## Quickstart
 
@@ -71,6 +72,23 @@ You **do not need to open `http://localhost:8123` anymore**. On a fresh `make up
 
 If your `hass-config` volume already contains a manually-onboarded HA install (returns `409 hass_already_onboarded`), open `http://localhost:8123 → Profile → Security → Long-Lived Access Tokens → Create Token` once, paste it into the wizard's "Save token" form, and from then on everything stays in our UI. To re-trigger auto-onboarding from scratch run `make clean && make up`.
 
+## Dev (Flutter mobile)
+
+```bash
+cd mobile
+flutter pub get
+flutter run                        # dev flavor — connects to localhost:8080
+# or
+flutter run -t lib/main_dev.dart   # explicit dev entry
+flutter run -t lib/main_prod.dart  # prod entry (api.smartclass.kz)
+
+flutter test                       # unit tests
+flutter analyze                    # static analysis
+flutter build apk --release        # release APK (debug-signed)
+```
+
+> iOS build requires Xcode + Apple Developer account. Run `flutter run` on a connected iPhone or `flutter build ipa --release` with a valid signing identity.
+
 ## Dev (local Go)
 
 ```bash
@@ -93,7 +111,17 @@ backend/
     server/                 http server wiring + routes
   migrations/               SQL migrations (goose)
   locales/                  i18n bundles
+frontend/                   React 18 + Vite SPA
+mobile/                     Flutter 3.41.7 — Android/iOS
+  lib/
+    config/                 AppConfig (dev/prod flavors)
+    core/                   api client, router, storage, i18n, WS, push
+    features/               auth, home, devices, schedule, scenes, analytics, …
+    shared/                 models, providers (Riverpod), widgets
+  test/                     unit tests (59+)
+  integration_test/         end-to-end flow
 docker-compose.yml
+Makefile
 ```
 
 ## Phases
@@ -103,6 +131,7 @@ docker-compose.yml
 - [x] **Phase 3** — schedule (weekly lessons + overlap + current), scenes (command sequences), sensors (ingestion + history + latest)
 - [x] **Phase 4** — notifications (warning triggers: high/low temp, humidity, device offline), audit log (admin-only), analytics (sensor series, device usage, energy)
 - [x] **Phase 5** — React 18 + Vite + TS + Tailwind + TanStack Query + Zustand + react-i18next (EN/RU/KZ). Mobile-width PWA shell with all screens wired to the backend. Served by nginx in Docker.
+- [x] **Phase 6** — Flutter 3.41.7 native mobile app (Android/iOS). Riverpod state management, go_router navigation, flutter_secure_storage (Keychain/EncryptedSharedPreferences), WebSocket real-time updates, offline banner, i18n EN/RU/KK, dev/prod flavors, FCM stub. GitHub Actions CI: analyze + test + release APK.
 
 ## Device drivers
 
