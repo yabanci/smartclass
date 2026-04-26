@@ -33,8 +33,11 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
     );
     if (picked != null) {
       setState(() {
-        if (isStart) _startTime = picked;
-        else _endTime = picked;
+        if (isStart) {
+          _startTime = picked;
+        } else {
+          _endTime = picked;
+        }
       });
     }
   }
