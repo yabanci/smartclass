@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/device.dart';
 import '../../shared/models/scene.dart';
 import '../../shared/providers/classroom_provider.dart';
@@ -14,12 +15,13 @@ class ScenesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final classroom = ref.watch(activeClassroomProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Scenes')),
+      appBar: AppBar(title: Text(l.scenesTitle)),
       body: classroom == null
-          ? const Center(child: Text('Select a classroom first'))
+          ? Center(child: Text(l.homeNoClassroom))
           : _SceneList(classroomId: classroom.id),
       floatingActionButton: classroom == null
           ? null
@@ -47,6 +49,7 @@ class _SceneList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final scenesAsync = ref.watch(sceneListProvider(classroomId));
 
     return scenesAsync.when(
@@ -57,14 +60,14 @@ class _SceneList extends ConsumerWidget {
       ),
       data: (scenes) {
         if (scenes.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.auto_awesome, size: 64, color: Colors.grey),
-                SizedBox(height: 16),
-                Text('No scenes yet',
-                    style: TextStyle(fontSize: 16, color: Colors.grey)),
+                const Icon(Icons.auto_awesome, size: 64, color: Colors.grey),
+                const SizedBox(height: 16),
+                Text(l.scenesEmpty,
+                    style: const TextStyle(fontSize: 16, color: Colors.grey)),
               ],
             ),
           );
@@ -91,6 +94,7 @@ class _SceneCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -132,13 +136,13 @@ class _SceneCard extends ConsumerWidget {
             IconButton(
               icon: const Icon(Icons.play_arrow),
               onPressed: () => _runScene(context, ref),
-              tooltip: 'Run',
+              tooltip: l.scenesRun,
             ),
             IconButton(
               icon: Icon(Icons.delete_outlined,
                   color: Theme.of(context).colorScheme.error),
               onPressed: () => _confirmDelete(context, ref),
-              tooltip: 'Delete',
+              tooltip: l.commonDelete,
             ),
           ],
         ),
@@ -172,19 +176,20 @@ class _SceneCard extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete scene?'),
+        title: Text(l.commonDelete),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.commonCancel)),
           FilledButton(
               style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(ctx).colorScheme.error),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+              child: Text(l.commonDelete)),
         ],
       ),
     );
@@ -259,6 +264,7 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final devicesAsync =
         ref.watch(deviceListProvider(widget.classroomId));
     final devices = devicesAsync.valueOrNull ?? [];
@@ -277,36 +283,36 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('New Scene',
+              Text(l.scenesAdd,
                   style:
-                      TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Scene name',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.scenesName,
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? 'Name is required' : null,
+                    v == null || v.isEmpty ? '${l.scenesName} is required' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _descCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Description (optional)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: '${l.scenesDescription} (optional)',
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Steps',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Steps',
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Add step'),
+                    label: Text(l.scenesAddStep),
                     onPressed: () => _addStep(devices),
                   ),
                 ],
@@ -382,7 +388,7 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Create Scene'),
+                    : Text(l.commonCreate),
               ),
             ],
           ),

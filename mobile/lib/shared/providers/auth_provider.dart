@@ -125,6 +125,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
   void updateUser(User user) {
     state = state.copyWith(user: user);
   }
+
+  // Called by ApiClient when refresh token is expired/invalid
+  void forceLogout() {
+    state = const AuthState();
+  }
 }
 
 final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
@@ -133,5 +138,9 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
     ref.read(userEndpointsProvider),
     ref.read(tokenStorageProvider),
   );
+  // Wire logout so expired tokens redirect to login
+  ref.read(apiClientProvider).setLogoutCallback(() async {
+    notifier.forceLogout();
+  });
   return notifier;
 });

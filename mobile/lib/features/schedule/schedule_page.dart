@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/lesson.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/schedule_provider.dart';
@@ -13,12 +14,13 @@ class SchedulePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final classroom = ref.watch(activeClassroomProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Schedule')),
+      appBar: AppBar(title: Text(l.scheduleTitle)),
       body: classroom == null
-          ? const Center(child: Text('Select a classroom first'))
+          ? Center(child: Text(l.homeNoClassroom))
           : _WeekView(classroomId: classroom.id),
       floatingActionButton: classroom == null
           ? null
@@ -34,16 +36,6 @@ class SchedulePage extends ConsumerWidget {
   }
 }
 
-const _dayNames = {
-  1: 'Monday',
-  2: 'Tuesday',
-  3: 'Wednesday',
-  4: 'Thursday',
-  5: 'Friday',
-  6: 'Saturday',
-  7: 'Sunday',
-};
-
 class _WeekView extends ConsumerWidget {
   final String classroomId;
 
@@ -51,6 +43,14 @@ class _WeekView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
+    final dayNames = {
+      1: l.scheduleDayMon,
+      2: l.scheduleDayTue,
+      3: l.scheduleDayWed,
+      4: l.scheduleDayThu,
+      5: l.scheduleDayFri,
+    };
     final scheduleAsync = ref.watch(scheduleProvider(classroomId));
 
     return scheduleAsync.when(
@@ -75,16 +75,17 @@ class _WeekView extends ConsumerWidget {
                     schedule[day.toString()]!.isNotEmpty)
                   _DaySection(
                     day: day,
+                    dayName: dayNames[day] ?? 'Day $day',
                     lessons: schedule[day.toString()] ?? [],
                     isToday: day.toString() == todayKey,
                     classroomId: classroomId,
                   ),
               if (schedule.values.every((l) => l.isEmpty))
-                const Center(
+                Center(
                   child: Padding(
-                    padding: EdgeInsets.all(32),
-                    child: Text('No lessons scheduled',
-                        style: TextStyle(color: Colors.grey)),
+                    padding: const EdgeInsets.all(32),
+                    child: Text(l.commonEmpty,
+                        style: const TextStyle(color: Colors.grey)),
                   ),
                 ),
             ],
@@ -97,12 +98,14 @@ class _WeekView extends ConsumerWidget {
 
 class _DaySection extends ConsumerWidget {
   final int day;
+  final String dayName;
   final List<Lesson> lessons;
   final bool isToday;
   final String classroomId;
 
   const _DaySection({
     required this.day,
+    required this.dayName,
     required this.lessons,
     required this.isToday,
     required this.classroomId,
@@ -110,6 +113,7 @@ class _DaySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final theme = Theme.of(context);
 
     return Column(
@@ -120,7 +124,7 @@ class _DaySection extends ConsumerWidget {
           child: Row(
             children: [
               Text(
-                _dayNames[day] ?? 'Day $day',
+                dayName,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                   color: isToday ? theme.colorScheme.primary : null,
@@ -135,7 +139,7 @@ class _DaySection extends ConsumerWidget {
                     color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text('Today',
+                  child: Text(l.scheduleDay,
                       style: TextStyle(
                           fontSize: 11,
                           color: theme.colorScheme.onPrimaryContainer)),
@@ -162,6 +166,7 @@ class _LessonTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -181,19 +186,20 @@ class _LessonTile extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context)!;
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete lesson?'),
+        title: Text(l.commonDelete),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(l.commonCancel)),
           FilledButton(
               style: FilledButton.styleFrom(
                   backgroundColor: Theme.of(ctx).colorScheme.error),
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Delete')),
+              child: Text(l.commonDelete)),
         ],
       ),
     );

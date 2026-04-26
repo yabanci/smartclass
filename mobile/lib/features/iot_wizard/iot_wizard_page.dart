@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/hass_models.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/hass_provider.dart';
@@ -122,10 +123,11 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   }
 
   Future<void> _adoptEntity(HassEntity entity) async {
+    final l = AppLocalizations.of(context)!;
     final classroom = ref.read(activeClassroomProvider);
     if (classroom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Select a classroom first')),
+        SnackBar(content: Text(l.homeNoClassroom)),
       );
       return;
     }
@@ -142,8 +144,8 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
           SnackBar(
             content: Text(
               entity.online
-                  ? 'Device added. Current state: ${entity.state}'
-                  : 'Device added, but it\'s offline right now.',
+                  ? l.hassVerifyOk(entity.state)
+                  : l.hassVerifyOffline,
             ),
             backgroundColor:
                 entity.online ? Colors.green : Colors.orange,
@@ -162,13 +164,16 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Find IoT'),
+        title: Text(l.hassTitle),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (_state == _WizardState.home || _state == _WizardState.done) {
+            if (_state == _WizardState.home ||
+                _state == _WizardState.pickBrand ||
+                _state == _WizardState.done) {
               Navigator.of(context).pop();
             } else if (_state == _WizardState.wizard) {
               _abortFlow();
@@ -196,6 +201,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   }
 
   Widget _buildTokenSetup(HassStatus status) {
+    final l = AppLocalizations.of(context)!;
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -203,9 +209,9 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
         children: [
           const Icon(Icons.home, size: 64, color: Colors.blue),
           const SizedBox(height: 16),
-          const Text(
-            'Connect Home Assistant',
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          Text(
+            l.hassTitle,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
@@ -218,19 +224,19 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
                 textAlign: TextAlign.center,
               ),
             ),
-          const Text(
-            'Paste a long-lived access token from your Home Assistant profile:',
+          Text(
+            l.hassAlreadySetup,
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.grey),
+            style: const TextStyle(color: Colors.grey),
           ),
           const SizedBox(height: 16),
           TextField(
             controller: _tokenCtrl,
             obscureText: true,
-            decoration: const InputDecoration(
-              labelText: 'Long-lived access token',
-              border: OutlineInputBorder(),
-              prefixIcon: Icon(Icons.key_outlined),
+            decoration: InputDecoration(
+              labelText: l.hassSaveToken,
+              border: const OutlineInputBorder(),
+              prefixIcon: const Icon(Icons.key_outlined),
             ),
           ),
           const SizedBox(height: 16),
@@ -244,7 +250,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
             onPressed: _loading ? null : _saveToken,
             child: _loading
                 ? const CircularProgressIndicator(strokeWidth: 2)
-                : const Text('Save token'),
+                : Text(l.hassSaveToken),
           ),
         ],
       ),
@@ -252,6 +258,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   }
 
   Widget _buildWizardContent() {
+    final l = AppLocalizations.of(context)!;
     switch (_state) {
       case _WizardState.home:
       case _WizardState.pickBrand:
@@ -290,8 +297,8 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
                   padding: const EdgeInsets.all(16),
                   child: Text(
                     brand.pairing == 'cloud'
-                        ? 'Before you start: install the manufacturer\'s app, create an account, and add the device there.'
-                        : 'Before you start: make sure the device is on the same Wi-Fi as the server.',
+                        ? l.hassCloudHint
+                        : l.hassLanHint,
                   ),
                 ),
               ),
@@ -310,7 +317,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
               const SizedBox(height: 8),
               TextButton(
                 onPressed: () => setState(() => _state = _WizardState.pickBrand),
-                child: const Text('Pick another brand'),
+                child: Text(l.hassPickBrand),
               ),
             ],
           ),
@@ -352,7 +359,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
               const SizedBox(height: 12),
               TextButton(
                 onPressed: _abortFlow,
-                child: const Text('Cancel'),
+                child: Text(l.hassAbort),
               ),
             ],
           ),
@@ -366,14 +373,14 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
         );
 
       case _WizardState.done:
-        return const Center(
+        return Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.check_circle, color: Colors.green, size: 64),
-              SizedBox(height: 16),
-              Text('Done!',
-                  style: TextStyle(
+              const Icon(Icons.check_circle, color: Colors.green, size: 64),
+              const SizedBox(height: 16),
+              Text(l.hassCreated,
+                  style: const TextStyle(
                       fontSize: 20, fontWeight: FontWeight.bold)),
             ],
           ),
@@ -395,6 +402,7 @@ class _IntegrationPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     return ref.watch(hassIntegrationsProvider).when(
       loading: () => const LoadingIndicator(),
       error: (e, _) => ErrorView(message: e.toString()),
@@ -407,7 +415,7 @@ class _IntegrationPicker extends ConsumerWidget {
           return Column(
             children: [
               Text(
-                'No integrations loaded for ${brand.name} yet.',
+                l.hassBrandNotAvailable,
                 style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 8),
@@ -466,15 +474,16 @@ class _AllIntegrationsPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
           child: TextField(
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.search),
-              hintText: 'Search integrations...',
-              border: OutlineInputBorder(),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.search),
+              hintText: l.hassSearchIntegration,
+              border: const OutlineInputBorder(),
               isDense: true,
             ),
             onChanged: onSearchChanged,
@@ -539,13 +548,14 @@ class _EntitiesView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
           padding: const EdgeInsets.all(16),
           child: Text(
-            'Discovered devices',
+            l.hassDiscoveredEntities,
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -557,12 +567,12 @@ class _EntitiesView extends ConsumerWidget {
             error: (e, _) => ErrorView(message: e.toString()),
             data: (entities) {
               if (entities.isEmpty) {
-                return const Center(
+                return Center(
                   child: Padding(
-                    padding: EdgeInsets.all(32),
+                    padding: const EdgeInsets.all(32),
                     child: Text(
-                      'Nothing yet. Pair an integration first.',
-                      style: TextStyle(color: Colors.grey),
+                      l.hassNoEntities,
+                      style: const TextStyle(color: Colors.grey),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -615,8 +625,8 @@ class _EntitiesView extends ConsumerWidget {
                             )
                           : FilledButton.tonal(
                               onPressed: () => onAdopt(entity),
-                              child: const Text('Add',
-                                  style: TextStyle(fontSize: 12)),
+                              child: Text(l.hassAddToClassroom,
+                                  style: const TextStyle(fontSize: 12)),
                             ),
                       isThreeLine: true,
                     ),

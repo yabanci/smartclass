@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app.dart';
 import '../../core/connection/resolver.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/auth_provider.dart';
 import '../../shared/widgets/app_button.dart';
 
@@ -58,12 +59,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final user = ref.watch(authProvider).user;
     if (user == null) return const SizedBox.shrink();
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Profile'),
+        title: Text(l.profileTitle),
         actions: [
           if (!_editMode)
             IconButton(
@@ -102,17 +104,17 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           if (_editMode) ...[
             TextFormField(
               controller: _nameCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Full name',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.authFullName,
+                border: const OutlineInputBorder(),
               ),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _phoneCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Phone',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.profilePhone,
+                border: const OutlineInputBorder(),
               ),
               keyboardType: TextInputType.phone,
             ),
@@ -121,7 +123,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
               children: [
                 Expanded(
                   child: AppButton(
-                    label: 'Save',
+                    label: l.commonSave,
                     loading: _saving,
                     onPressed: _saveProfile,
                   ),
@@ -129,7 +131,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: AppButton(
-                    label: 'Cancel',
+                    label: l.commonCancel,
                     outlined: true,
                     onPressed: () => setState(() => _editMode = false),
                   ),
@@ -139,13 +141,13 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ] else ...[
             ListTile(
               leading: const Icon(Icons.person_outlined),
-              title: const Text('Full name'),
+              title: Text(l.authFullName),
               subtitle: Text(user.fullName),
             ),
             if (user.phone != null)
               ListTile(
                 leading: const Icon(Icons.phone_outlined),
-                title: const Text('Phone'),
+                title: Text(l.profilePhone),
                 subtitle: Text(user.phone!),
               ),
           ],
@@ -155,7 +157,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           // Language
           ListTile(
             leading: const Icon(Icons.language),
-            title: const Text('Language'),
+            title: Text(l.profileLanguage),
             trailing: DropdownButton<Locale>(
               value: ref.watch(localeProvider),
               underline: const SizedBox(),
@@ -176,7 +178,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           // Change password
           ListTile(
             leading: const Icon(Icons.lock_outlined),
-            title: const Text('Change password'),
+            title: Text(l.profileChangePassword),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => _showChangePassword(context),
           ),
@@ -184,7 +186,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           // Analytics
           ListTile(
             leading: const Icon(Icons.analytics_outlined),
-            title: const Text('Analytics'),
+            title: Text(l.analyticsTitle),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/analytics'),
           ),
@@ -195,7 +197,7 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           ListTile(
             leading: Icon(Icons.logout,
                 color: Theme.of(context).colorScheme.error),
-            title: Text('Log out',
+            title: Text(l.authLogout,
                 style:
                     TextStyle(color: Theme.of(context).colorScheme.error)),
             onTap: () async {
@@ -241,6 +243,7 @@ class _ServerUrlTileState extends ConsumerState<_ServerUrlTile> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     if (_editing) {
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -249,10 +252,10 @@ class _ServerUrlTileState extends ConsumerState<_ServerUrlTile> {
             Expanded(
               child: TextFormField(
                 controller: _ctrl,
-                decoration: const InputDecoration(
-                  labelText: 'Local server URL',
-                  hintText: 'http://192.168.1.100:8080',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.profileLocalUrl,
+                  hintText: l.profileLocalUrlHint,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 keyboardType: TextInputType.url,
@@ -277,7 +280,7 @@ class _ServerUrlTileState extends ConsumerState<_ServerUrlTile> {
 
     return ListTile(
       leading: const Icon(Icons.dns_outlined),
-      title: const Text('Local server URL'),
+      title: Text(l.profileLocalUrl),
       subtitle: Text(
         _ctrl.text.isNotEmpty ? _ctrl.text : 'Not set',
         style: const TextStyle(fontSize: 12),
@@ -336,6 +339,7 @@ class _ChangePasswordSheetState
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -349,15 +353,15 @@ class _ChangePasswordSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Change Password',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(l.profileChangePassword,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             TextFormField(
               controller: _currentCtrl,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'Current password',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.profileCurrentPassword,
+                border: const OutlineInputBorder(),
               ),
               validator: (v) =>
                   v == null || v.isEmpty ? 'Required' : null,
@@ -366,9 +370,9 @@ class _ChangePasswordSheetState
             TextFormField(
               controller: _newCtrl,
               obscureText: true,
-              decoration: const InputDecoration(
-                labelText: 'New password',
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                labelText: l.profileNewPassword,
+                border: const OutlineInputBorder(),
               ),
               validator: (v) =>
                   v == null || v.length < 6 ? 'Min 6 characters' : null,
@@ -382,7 +386,7 @@ class _ChangePasswordSheetState
                       height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Text('Change Password'),
+                  : Text(l.profileChangePassword),
             ),
           ],
         ),

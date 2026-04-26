@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/device.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../shared/widgets/app_card.dart';
@@ -78,6 +79,7 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final device = widget.device;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOn = device.isOn;
@@ -163,30 +165,32 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
                 onPressed: widget.onEdit,
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(6),
+                tooltip: l.commonEdit,
               ),
               IconButton(
                 icon: const Icon(Icons.delete_outlined, size: 16, color: kDanger),
                 onPressed: widget.onDelete,
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(6),
+                tooltip: l.commonDelete,
               ),
             ],
           ),
 
           // Inline controls when ON
-          if (isOn) _buildControls(device),
+          if (isOn) _buildControls(device, l),
         ],
       ),
     );
   }
 
-  Widget _buildControls(Device device) {
+  Widget _buildControls(Device device, AppLocalizations l) {
     final t = device.type.toLowerCase();
     final configVal = (device.config['lastValue'] as num?)?.toDouble();
 
     if (t.contains('light')) {
       return _SliderControl(
-        label: 'Brightness', unit: '%', min: 0, max: 100,
+        label: l.devicesBrightness, unit: '%', min: 0, max: 100,
         value: configVal ?? 75,
         color: kPrimary,
         onCommit: (v) => _sendCommand('SET_VALUE', value: v.round()),
@@ -194,7 +198,7 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
     }
     if (t.contains('climat') || t.contains('ac') || t.contains('thermo')) {
       return _SliderControl(
-        label: 'Temperature', unit: '°C', min: 16, max: 30,
+        label: l.devicesTemperature, unit: '°C', min: 16, max: 30,
         value: configVal ?? 22,
         color: Colors.blue,
         onCommit: (v) => _sendCommand('SET_VALUE', value: v.round()),
@@ -204,11 +208,14 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
       return _FanControl(
         value: configVal?.toInt() ?? 33,
         onChanged: (v) => _sendCommand('SET_VALUE', value: v),
+        labelLow: l.devicesLevelLow,
+        labelMid: l.devicesLevelMid,
+        labelHigh: l.devicesLevelHigh,
       );
     }
     if (t.contains('cover') || t.contains('blind') || t.contains('curtain')) {
       return _SliderControl(
-        label: 'Level', unit: '%', min: 0, max: 100,
+        label: l.devicesLevel, unit: '%', min: 0, max: 100,
         value: configVal ?? 50,
         color: Colors.purple,
         onCommit: (v) => _sendCommand('SET_VALUE', value: v.round()),
@@ -334,8 +341,17 @@ class _SliderControlState extends State<_SliderControl> {
 class _FanControl extends StatelessWidget {
   final int value;
   final ValueChanged<int> onChanged;
+  final String labelLow;
+  final String labelMid;
+  final String labelHigh;
 
-  const _FanControl({required this.value, required this.onChanged});
+  const _FanControl({
+    required this.value,
+    required this.onChanged,
+    required this.labelLow,
+    required this.labelMid,
+    required this.labelHigh,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -343,11 +359,11 @@ class _FanControl extends StatelessWidget {
       padding: const EdgeInsets.only(top: 12),
       child: Row(
         children: [
-          _FanBtn(label: 'Low', level: 33, current: value, onTap: onChanged),
+          _FanBtn(label: labelLow, level: 33, current: value, onTap: onChanged),
           const SizedBox(width: 6),
-          _FanBtn(label: 'Medium', level: 66, current: value, onTap: onChanged),
+          _FanBtn(label: labelMid, level: 66, current: value, onTap: onChanged),
           const SizedBox(width: 6),
-          _FanBtn(label: 'High', level: 100, current: value, onTap: onChanged),
+          _FanBtn(label: labelHigh, level: 100, current: value, onTap: onChanged),
         ],
       ),
     );

@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/analytics_provider.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
@@ -24,12 +25,13 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final classroom = ref.watch(activeClassroomProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Analytics')),
+      appBar: AppBar(title: Text(l.analyticsTitle)),
       body: classroom == null
-          ? const Center(child: Text('Select a classroom first'))
+          ? Center(child: Text(l.homeNoClassroom))
           : _AnalyticsBody(
               classroomId: classroom.id,
               metric: _metric,
@@ -64,6 +66,7 @@ class _AnalyticsBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final from =
         DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
     final query = AnalyticsQuery(
@@ -86,9 +89,9 @@ class _AnalyticsBody extends ConsumerWidget {
             Expanded(
               child: DropdownButtonFormField<String>(
                 value: metric,
-                decoration: const InputDecoration(
-                  labelText: 'Metric',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.analyticsMetric,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 items: metrics
@@ -101,9 +104,9 @@ class _AnalyticsBody extends ConsumerWidget {
             Expanded(
               child: DropdownButtonFormField<String>(
                 value: bucket,
-                decoration: const InputDecoration(
-                  labelText: 'Bucket',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.analyticsBucket,
+                  border: const OutlineInputBorder(),
                   isDense: true,
                 ),
                 items: buckets
@@ -115,8 +118,8 @@ class _AnalyticsBody extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: 16),
-        const Text('Sensor series',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        Text(l.analyticsSensorsSeries,
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         seriesAsync.when(
           loading: () => const LoadingIndicator(),
@@ -171,8 +174,8 @@ class _AnalyticsBody extends ConsumerWidget {
           },
         ),
         const SizedBox(height: 24),
-        const Text('Device usage (last 7 days)',
-            style: TextStyle(fontWeight: FontWeight.bold)),
+        Text('${l.analyticsDeviceUsage} (${l.analyticsLastWeek})',
+            style: const TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         usageAsync.when(
           loading: () => const LoadingIndicator(),
@@ -254,7 +257,7 @@ class _AnalyticsBody extends ConsumerWidget {
           data: (total) => Card(
             child: ListTile(
               leading: const Icon(Icons.bolt, color: Colors.amber),
-              title: const Text('Energy (last 7 days)'),
+              title: Text('${l.analyticsEnergy} (${l.analyticsLastWeek})'),
               trailing: Text(
                 '${total.toStringAsFixed(2)} kWh',
                 style: const TextStyle(

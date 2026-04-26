@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/auth_provider.dart';
 import '../../shared/widgets/app_button.dart';
 
@@ -39,6 +40,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final loading = ref.watch(authProvider).loading;
     final theme = Theme.of(context);
 
@@ -62,7 +64,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Smart Classroom',
+                      l.homeTitle,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
@@ -70,7 +72,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Sign in to continue',
+                      l.authLogin,
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
@@ -80,15 +82,15 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     TextFormField(
                       key: const Key('email_field'),
                       controller: _emailCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.authEmail,
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       autocorrect: false,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Email is required';
+                        if (v == null || v.isEmpty) return '${l.authEmail} is required';
                         if (!RegExp(r'^[\w.+-]+@[\w-]+\.\w+$').hasMatch(v)) {
                           return 'Enter a valid email';
                         }
@@ -101,7 +103,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       controller: _passwordCtrl,
                       obscureText: _obscure,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: l.authPassword,
                         prefixIcon: const Icon(Icons.lock_outlined),
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
@@ -114,7 +116,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) {
-                          return 'Password is required';
+                          return '${l.authPassword} is required';
                         }
                         return null;
                       },
@@ -122,7 +124,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                     ),
                     const SizedBox(height: 24),
                     AppButton(
-                      label: 'Sign in',
+                      label: l.authLogin,
                       loading: loading,
                       onPressed: _submit,
                     ),
@@ -131,10 +133,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text("Don't have an account?"),
+                        Text(l.authNoAccount),
                         TextButton(
                           onPressed: () => context.push('/register'),
-                          child: const Text('Register'),
+                          child: Text(l.authRegister),
                         ),
                       ],
                     ),

@@ -14,6 +14,7 @@ import '../../features/scenes/scenes_page.dart';
 import '../../features/schedule/schedule_page.dart';
 import '../../shared/providers/auth_provider.dart';
 import '../../shared/providers/notification_provider.dart';
+import '../i18n/app_localizations.dart';
 
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
 final _shellNavigatorKey = GlobalKey<NavigatorState>();
@@ -106,6 +107,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
 class _BottomNav extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final location = GoRouterState.of(context).matchedLocation;
     final unreadAsync = ref.watch(unreadCountProvider);
     final unread = unreadAsync.valueOrNull ?? 0;
@@ -138,25 +140,25 @@ class _BottomNav extends ConsumerWidget {
         }
       },
       destinations: [
-        const NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Home',
+        NavigationDestination(
+          icon: const Icon(Icons.home_outlined),
+          selectedIcon: const Icon(Icons.home),
+          label: l.navHome,
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.devices_outlined),
-          selectedIcon: Icon(Icons.devices),
-          label: 'Devices',
+        NavigationDestination(
+          icon: const Icon(Icons.devices_outlined),
+          selectedIcon: const Icon(Icons.devices),
+          label: l.navDevices,
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.calendar_today_outlined),
-          selectedIcon: Icon(Icons.calendar_today),
-          label: 'Schedule',
+        NavigationDestination(
+          icon: const Icon(Icons.calendar_today_outlined),
+          selectedIcon: const Icon(Icons.calendar_today),
+          label: l.navSchedule,
         ),
-        const NavigationDestination(
-          icon: Icon(Icons.auto_awesome_outlined),
-          selectedIcon: Icon(Icons.auto_awesome),
-          label: 'Scenes',
+        NavigationDestination(
+          icon: const Icon(Icons.auto_awesome_outlined),
+          selectedIcon: const Icon(Icons.auto_awesome),
+          label: l.navScenes,
         ),
         NavigationDestination(
           icon: Badge(
@@ -165,10 +167,9 @@ class _BottomNav extends ConsumerWidget {
             child: const Icon(Icons.person_outlined),
           ),
           selectedIcon: const Icon(Icons.person),
-          label: 'Profile',
+          label: l.navProfile,
         ),
       ],
     );
   }
 }
-

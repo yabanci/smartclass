@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app.dart';
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/classroom.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
@@ -17,6 +18,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final classroomsAsync = ref.watch(classroomListProvider);
     final classroom = ref.watch(activeClassroomProvider);
 
@@ -45,14 +47,14 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Smart Classroom',
-            style: TextStyle(fontWeight: FontWeight.w800)),
+        title: Text(l.homeTitle,
+            style: const TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           // Connection mode chip
           Padding(
             padding: const EdgeInsets.only(right: 4),
             child: ActionChip(
-              label: const Text('Remote', style: TextStyle(fontSize: 11)),
+              label: Text(l.commonOnline, style: const TextStyle(fontSize: 11)),
               avatar: const Icon(Icons.cloud_outlined, size: 14),
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
@@ -90,7 +92,7 @@ class HomePage extends ConsumerWidget {
                 ),
                 IconButton(
                   icon: const Icon(Icons.add_circle_outline, color: kPrimary),
-                  tooltip: 'New classroom',
+                  tooltip: l.homeCreateClassroom,
                   onPressed: () => _showCreateDialog(context, ref),
                 ),
               ],
@@ -108,15 +110,16 @@ class HomePage extends ConsumerWidget {
   }
 
   Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
+    final l = AppLocalizations.of(context)!;
     final ctrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('New classroom'),
+        title: Text(l.homeCreateClassroom),
         content: TextField(
           controller: ctrl,
-          decoration: const InputDecoration(
-            labelText: 'Classroom name',
+          decoration: InputDecoration(
+            labelText: l.homeClassroomName,
           ),
           autofocus: true,
           onSubmitted: (_) => Navigator.pop(ctx, true),
@@ -124,11 +127,11 @@ class HomePage extends ConsumerWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l.commonCancel),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Create'),
+            child: Text(l.commonCreate),
           ),
         ],
       ),
@@ -159,6 +162,7 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -166,16 +170,16 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.meeting_room_outlined, size: 72,
               color: kPrimary.withOpacity(0.3)),
           const SizedBox(height: 16),
-          const Text('No classroom selected',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          Text(l.homeNoClassroom,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          Text('Create or select a classroom above',
+          Text(l.homeCreateClassroom,
               style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: onCreateTap,
             icon: const Icon(Icons.add),
-            label: const Text('New classroom'),
+            label: Text(l.homeCreateClassroom),
           ),
         ],
       ),
@@ -189,6 +193,7 @@ class _ClassroomBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final devicesAsync = ref.watch(deviceListProvider(classroom.id));
     final currentLessonAsync = ref.watch(currentLessonProvider(classroom.id));
     final sensorState = ref.watch(sensorNotifierProvider(classroom.id));
@@ -223,8 +228,8 @@ class _ClassroomBody extends ConsumerWidget {
                                 color: kPrimary, size: 18),
                           ),
                           const SizedBox(width: 8),
-                          const Text('Active',
-                              style: TextStyle(
+                          Text(l.homeActiveDevices,
+                              style: const TextStyle(
                                   fontSize: 12, color: Colors.grey)),
                         ],
                       ),
@@ -268,8 +273,8 @@ class _ClassroomBody extends ConsumerWidget {
                                 color: kAccent, size: 18),
                           ),
                           const SizedBox(width: 8),
-                          const Text('Energy',
-                              style: TextStyle(
+                          Text(l.analyticsEnergy,
+                              style: const TextStyle(
                                   fontSize: 12, color: Colors.grey)),
                         ],
                       ),
@@ -302,7 +307,7 @@ class _ClassroomBody extends ConsumerWidget {
               Expanded(
                 child: _SensorCard(
                   icon: Icons.thermostat,
-                  label: 'Temperature',
+                  label: l.homeTemperature,
                   value: sensorState.readings
                       .where((r) => r.metric == 'temperature')
                       .fold<double?>(null, (_, r) => r.value),
@@ -314,7 +319,7 @@ class _ClassroomBody extends ConsumerWidget {
               Expanded(
                 child: _SensorCard(
                   icon: Icons.water_drop_outlined,
-                  label: 'Humidity',
+                  label: l.homeHumidity,
                   value: sensorState.readings
                       .where((r) => r.metric == 'humidity')
                       .fold<double?>(null, (_, r) => r.value),
@@ -334,15 +339,15 @@ class _ClassroomBody extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Quick controls',
-                            style: TextStyle(
+                        Text(l.devicesQuickControls,
+                            style: const TextStyle(
                                 fontSize: 12, color: Colors.grey)),
                         const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
                               child: _QuickBtn(
-                                label: 'All ON',
+                                label: l.devicesAllOn,
                                 color: kAccent,
                                 classroomId: classroom.id,
                                 command: 'ON',
@@ -352,7 +357,7 @@ class _ClassroomBody extends ConsumerWidget {
                             const SizedBox(width: 8),
                             Expanded(
                               child: _QuickBtn(
-                                label: 'All OFF',
+                                label: l.devicesAllOff,
                                 color: Colors.grey,
                                 classroomId: classroom.id,
                                 command: 'OFF',
@@ -379,8 +384,8 @@ class _ClassroomBody extends ConsumerWidget {
                     Icon(Icons.calendar_today,
                         color: kPrimary, size: 16),
                     const SizedBox(width: 8),
-                    const Text('Current lesson',
-                        style: TextStyle(
+                    Text(l.homeCurrentLesson,
+                        style: const TextStyle(
                             fontWeight: FontWeight.w700)),
                   ],
                 ),
@@ -418,12 +423,12 @@ class _ClassroomBody extends ConsumerWidget {
                           ),
                         )
                       : Text(
-                          'No lesson in progress',
+                          l.homeNoLesson,
                           style: TextStyle(color: Colors.grey.shade500),
                         ),
                   loading: () =>
                       const CircularProgressIndicator(strokeWidth: 2),
-                  error: (_, __) => Text('No lesson in progress',
+                  error: (_, __) => Text(l.homeNoLesson,
                       style: TextStyle(color: Colors.grey.shade500)),
                 ),
               ],

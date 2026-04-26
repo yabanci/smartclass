@@ -144,7 +144,7 @@ class HassFlowStep {
         description: json['description'] as String?,
         descriptionPlaceholders:
             (json['description_placeholders'] as Map<String, dynamic>?)
-                ?.cast<String, String>(),
+                ?.map((k, v) => MapEntry(k, v?.toString() ?? '')),
         reason: json['reason'] as String?,
         title: json['title'] as String?,
         url: json['url'] as String?,

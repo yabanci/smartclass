@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/schedule_provider.dart';
 
 class AddLessonSheet extends ConsumerStatefulWidget {
@@ -20,16 +21,6 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
   TimeOfDay _startTime = const TimeOfDay(hour: 8, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 9, minute: 0);
   bool _saving = false;
-
-  static const _days = [
-    (1, 'Monday'),
-    (2, 'Tuesday'),
-    (3, 'Wednesday'),
-    (4, 'Thursday'),
-    (5, 'Friday'),
-    (6, 'Saturday'),
-    (7, 'Sunday'),
-  ];
 
   String _formatTime(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -71,6 +62,15 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
+    final days = [
+      (1, l.scheduleDayMon),
+      (2, l.scheduleDayTue),
+      (3, l.scheduleDayWed),
+      (4, l.scheduleDayThu),
+      (5, l.scheduleDayFri),
+    ];
+
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -85,26 +85,26 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Add Lesson',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(l.scheduleAddLesson,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _subjectCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Subject',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.scheduleSubject,
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? 'Subject is required' : null,
+                    v == null || v.isEmpty ? '${l.scheduleSubject} is required' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<int>(
                 value: _day,
-                decoration: const InputDecoration(
-                  labelText: 'Day',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.scheduleDay,
+                  border: const OutlineInputBorder(),
                 ),
-                items: _days
+                items: days
                     .map((d) =>
                         DropdownMenuItem(value: d.$1, child: Text(d.$2)))
                     .toList(),
@@ -116,7 +116,7 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.access_time),
-                      label: Text('Starts: ${_formatTime(_startTime)}'),
+                      label: Text('${l.scheduleStartsAt}: ${_formatTime(_startTime)}'),
                       onPressed: () => _pickTime(true),
                     ),
                   ),
@@ -124,7 +124,7 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.access_time),
-                      label: Text('Ends: ${_formatTime(_endTime)}'),
+                      label: Text('${l.scheduleEndsAt}: ${_formatTime(_endTime)}'),
                       onPressed: () => _pickTime(false),
                     ),
                   ),
@@ -133,9 +133,9 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _notesCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Notes (optional)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: '${l.scheduleNotes} (optional)',
+                  border: const OutlineInputBorder(),
                 ),
                 maxLines: 2,
               ),
@@ -148,7 +148,7 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Add Lesson'),
+                    : Text(l.scheduleAddLesson),
               ),
             ],
           ),

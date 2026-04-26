@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/auth_provider.dart';
 import '../../shared/widgets/app_button.dart';
 
@@ -47,10 +48,11 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     final loading = ref.watch(authProvider).loading;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Register')),
+      appBar: AppBar(title: Text(l.authRegister)),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -64,25 +66,25 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                   children: [
                     TextFormField(
                       controller: _nameCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Full name',
-                        prefixIcon: Icon(Icons.person_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.authFullName,
+                        prefixIcon: const Icon(Icons.person_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) =>
-                          v == null || v.isEmpty ? 'Name is required' : null,
+                          v == null || v.isEmpty ? '${l.authFullName} is required' : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
                       controller: _emailCtrl,
-                      decoration: const InputDecoration(
-                        labelText: 'Email',
-                        prefixIcon: Icon(Icons.email_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.authEmail,
+                        prefixIcon: const Icon(Icons.email_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return 'Email is required';
+                        if (v == null || v.isEmpty) return '${l.authEmail} is required';
                         if (!RegExp(r'^[\w.+-]+@[\w-]+\.\w+$').hasMatch(v)) {
                           return 'Enter a valid email';
                         }
@@ -92,18 +94,18 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                     const SizedBox(height: 16),
                     DropdownButtonFormField<String>(
                       value: _role,
-                      decoration: const InputDecoration(
-                        labelText: 'Role',
-                        prefixIcon: Icon(Icons.badge_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.authRole,
+                        prefixIcon: const Icon(Icons.badge_outlined),
+                        border: const OutlineInputBorder(),
                       ),
-                      items: const [
+                      items: [
                         DropdownMenuItem(
-                            value: 'teacher', child: Text('Teacher')),
+                            value: 'teacher', child: Text(l.authRoleTeacher)),
                         DropdownMenuItem(
-                            value: 'admin', child: Text('Admin')),
+                            value: 'admin', child: Text(l.authRoleAdmin)),
                         DropdownMenuItem(
-                            value: 'technician', child: Text('Technician')),
+                            value: 'technician', child: Text(l.authRoleTechnician)),
                       ],
                       onChanged: (v) => setState(() => _role = v ?? 'teacher'),
                     ),
@@ -112,7 +114,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       controller: _passwordCtrl,
                       obscureText: _obscure,
                       decoration: InputDecoration(
-                        labelText: 'Password',
+                        labelText: l.authPassword,
                         prefixIcon: const Icon(Icons.lock_outlined),
                         border: const OutlineInputBorder(),
                         suffixIcon: IconButton(
@@ -135,21 +137,21 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       key: const Key('confirm_password_field'),
                       controller: _confirmCtrl,
                       obscureText: _obscure,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirm password',
-                        prefixIcon: Icon(Icons.lock_outlined),
-                        border: OutlineInputBorder(),
+                      decoration: InputDecoration(
+                        labelText: l.authConfirmPassword,
+                        prefixIcon: const Icon(Icons.lock_outlined),
+                        border: const OutlineInputBorder(),
                       ),
                       validator: (v) {
                         if (v != _passwordCtrl.text) {
-                          return 'Passwords do not match';
+                          return l.authPasswordMismatch;
                         }
                         return null;
                       },
                     ),
                     const SizedBox(height: 24),
                     AppButton(
-                      label: 'Register',
+                      label: l.authRegister,
                       loading: loading,
                       onPressed: _submit,
                     ),
@@ -158,10 +160,10 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       alignment: WrapAlignment.center,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
-                        const Text('Already have an account?'),
+                        Text(l.authHaveAccount),
                         TextButton(
                           onPressed: () => context.pop(),
-                          child: const Text('Sign in'),
+                          child: Text(l.authLogin),
                         ),
                       ],
                     ),

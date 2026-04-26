@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/device_provider.dart';
 
 class DeviceFormSheet extends ConsumerStatefulWidget {
@@ -68,6 +69,7 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context)!;
     return Padding(
       padding: EdgeInsets.only(
         left: 16,
@@ -82,24 +84,24 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Add Device',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              Text(l.devicesAdd,
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _nameCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Name',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.devicesName,
+                  border: const OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? 'Name is required' : null,
+                    v == null || v.isEmpty ? '${l.devicesName} is required' : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(
                 value: _type,
-                decoration: const InputDecoration(
-                  labelText: 'Type',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.devicesType,
+                  border: const OutlineInputBorder(),
                 ),
                 items: _types
                     .map((t) => DropdownMenuItem(value: t, child: Text(t)))
@@ -109,25 +111,25 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _brandCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Brand',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.devicesBrand,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _driverCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Driver',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.devicesDriver,
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: _configCtrl,
-                decoration: const InputDecoration(
-                  labelText: 'Config (JSON)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: l.devicesConfig,
+                  border: const OutlineInputBorder(),
                 ),
                 maxLines: 3,
                 validator: (v) {
@@ -148,7 +150,7 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
                         height: 20,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Add Device'),
+                    : Text(l.devicesAdd),
               ),
             ],
           ),

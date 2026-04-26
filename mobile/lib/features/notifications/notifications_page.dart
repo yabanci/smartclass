@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/i18n/app_localizations.dart';
 import '../../shared/providers/notification_provider.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_indicator.dart';
@@ -10,17 +11,18 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final l = AppLocalizations.of(context)!;
     final notificationsAsync = ref.watch(notificationListProvider);
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: Text(l.notificationsTitle),
         actions: [
           TextButton(
             onPressed: () => ref
                 .read(notificationListProvider.notifier)
                 .markAllRead(),
-            child: const Text('Mark all read'),
+            child: Text(l.notificationsMarkAllRead),
           ),
         ],
       ),
@@ -33,15 +35,15 @@ class NotificationsPage extends ConsumerWidget {
         ),
         data: (notifications) {
           if (notifications.isEmpty) {
-            return const Center(
+            return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(Icons.notifications_off_outlined,
+                  const Icon(Icons.notifications_off_outlined,
                       size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('No notifications',
-                      style: TextStyle(color: Colors.grey)),
+                  const SizedBox(height: 16),
+                  Text(l.notificationsEmpty,
+                      style: const TextStyle(color: Colors.grey)),
                 ],
               ),
             );
