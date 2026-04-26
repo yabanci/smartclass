@@ -82,12 +82,10 @@ func clientIP(r *http.Request) string {
 	// source IPs and bypass per-IP rate limiting entirely.
 	if xff := r.Header.Get("X-Forwarded-For"); xff != "" && isTrustedProxy(r.RemoteAddr) {
 		// XFF may be a comma-separated list; the leftmost entry is the client.
-		if idx := len(xff); idx > 0 {
-			if comma := strings.IndexByte(xff, ','); comma > 0 {
-				return strings.TrimSpace(xff[:comma])
-			}
-			return strings.TrimSpace(xff)
+		if comma := strings.IndexByte(xff, ','); comma > 0 {
+			return strings.TrimSpace(xff[:comma])
 		}
+		return strings.TrimSpace(xff)
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
