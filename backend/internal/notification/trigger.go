@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 )
 
 // Engine is a simple rule engine that emits notifications on incoming domain
@@ -17,6 +18,7 @@ type Engine struct {
 	svc      *Service
 	rules    Rules
 	cooldown time.Duration
+	log      *zap.Logger
 
 	mu        sync.Mutex
 	lastAlert map[string]time.Time // key: classroomID:deviceID:rule
@@ -37,8 +39,16 @@ func NewEngine(svc *Service, rules Rules) *Engine {
 		svc:       svc,
 		rules:     rules,
 		cooldown:  5 * time.Minute,
+		log:       zap.NewNop(),
 		lastAlert: make(map[string]time.Time),
 	}
+}
+
+func (e *Engine) WithLogger(l *zap.Logger) *Engine {
+	if l != nil {
+		e.log = l
+	}
+	return e
 }
 
 // throttle returns true if an alert for this key should be suppressed because
@@ -62,7 +72,7 @@ func (e *Engine) OnDeviceStateChange(ctx context.Context, classroomID, deviceID 
 	if e.throttle(classroomID, deviceID, "device_offline") {
 		return
 	}
-	_, _ = e.svc.CreateForClassroom(ctx, classroomID, Input{
+	if _, err := e.svc.CreateForClassroom(ctx, classroomID, Input{
 		Type:    TypeWarning,
 		Title:   "Device offline",
 		Message: fmt.Sprintf("Device %q went offline.", name),
@@ -70,7 +80,9 @@ func (e *Engine) OnDeviceStateChange(ctx context.Context, classroomID, deviceID 
 			"deviceId": deviceID.String(),
 			"rule":     "device_offline",
 		},
-	})
+	}); err != nil {
+		e.log.Warn("trigger: failed to create device_offline notification", zap.Error(err))
+	}
 }
 
 func (e *Engine) OnSensorReading(ctx context.Context, classroomID, deviceID uuid.UUID, metric string, value float64, _ string) {
@@ -98,7 +110,7 @@ func (e *Engine) OnSensorReading(ctx context.Context, classroomID, deviceID uuid
 }
 
 func (e *Engine) warn(ctx context.Context, classroomID, deviceID uuid.UUID, metric string, value float64, message, rule string) {
-	_, _ = e.svc.CreateForClassroom(ctx, classroomID, Input{
+	if _, err := e.svc.CreateForClassroom(ctx, classroomID, Input{
 		Type:    TypeWarning,
 		Title:   "Environment alert",
 		Message: message,
@@ -108,5 +120,7 @@ func (e *Engine) warn(ctx context.Context, classroomID, deviceID uuid.UUID, metr
 			"value":    value,
 			"rule":     rule,
 		},
-	})
+	}); err != nil {
+		e.log.Warn("trigger: failed to create environment alert", zap.String("rule", rule), zap.Error(err))
+	}
 }

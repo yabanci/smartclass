@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"smartclass/internal/classroom"
 	"smartclass/internal/device"
@@ -25,13 +26,21 @@ type Service struct {
 	classroom *classroom.Service
 	devices   *device.Service
 	broker    realtime.Broker
+	log       *zap.Logger
 }
 
 func NewService(repo Repository, cls *classroom.Service, devices *device.Service, broker realtime.Broker) *Service {
 	if broker == nil {
 		broker = realtime.Noop{}
 	}
-	return &Service{repo: repo, classroom: cls, devices: devices, broker: broker}
+	return &Service{repo: repo, classroom: cls, devices: devices, broker: broker, log: zap.NewNop()}
+}
+
+func (s *Service) WithLogger(l *zap.Logger) *Service {
+	if l != nil {
+		s.log = l
+	}
+	return s
 }
 
 type CreateInput struct {
@@ -151,7 +160,7 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 		results = append(results, r)
 	}
 
-	_ = s.broker.Publish(ctx, realtime.Event{
+	if err := s.broker.Publish(ctx, realtime.Event{
 		Topic: fmt.Sprintf("classroom:%s:scenes", sc.ClassroomID.String()),
 		Type:  "scene.ran",
 		Payload: map[string]any{
@@ -159,7 +168,9 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 			"name":    sc.Name,
 			"steps":   results,
 		},
-	})
+	}); err != nil {
+		s.log.Warn("scene: broker publish failed", zap.Stringer("sceneID", sc.ID), zap.Error(err))
+	}
 
 	out := &RunResult{SceneID: sc.ID, Steps: results}
 	if firstErr != nil {

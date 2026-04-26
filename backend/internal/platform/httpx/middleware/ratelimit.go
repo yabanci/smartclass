@@ -3,6 +3,7 @@ package middleware
 import (
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -75,8 +76,18 @@ func (rl *RateLimiter) Middleware() func(http.Handler) http.Handler {
 }
 
 func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		return xff
+	// Only trust X-Forwarded-For when the direct connection comes from a
+	// loopback or private address — i.e., we're behind a trusted reverse proxy.
+	// Accepting XFF from any RemoteAddr lets a direct client spoof arbitrary
+	// source IPs and bypass per-IP rate limiting entirely.
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" && isTrustedProxy(r.RemoteAddr) {
+		// XFF may be a comma-separated list; the leftmost entry is the client.
+		if idx := len(xff); idx > 0 {
+			if comma := strings.IndexByte(xff, ','); comma > 0 {
+				return strings.TrimSpace(xff[:comma])
+			}
+			return strings.TrimSpace(xff)
+		}
 	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -84,3 +95,16 @@ func clientIP(r *http.Request) string {
 	}
 	return host
 }
+
+func isTrustedProxy(addr string) bool {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		host = addr
+	}
+	ip := net.ParseIP(host)
+	if ip == nil {
+		return false
+	}
+	return ip.IsLoopback() || ip.IsPrivate()
+}
+
