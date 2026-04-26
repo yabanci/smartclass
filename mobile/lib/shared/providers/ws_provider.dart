@@ -25,7 +25,7 @@ class WsConnectionNotifier extends StateNotifier<bool> {
 
     final baseWs = _resolver.wsBaseUrl;
     final url =
-        '$baseWs?topic=classroom:$classroomId:devices&topic=classroom:$classroomId:sensors&access_token=$token';
+        '$baseWs/ws?topic=classroom:$classroomId:devices&topic=classroom:$classroomId:sensors&access_token=$token';
     _ws.connect(url);
     state = true;
   }
