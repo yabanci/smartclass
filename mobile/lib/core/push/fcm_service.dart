@@ -12,8 +12,6 @@
 // 6. Uncomment the firebase imports and body below
 // 7. Call FCMService.instance.init(apiClient) from mainWithConfig()
 
-import 'package:flutter/foundation.dart' show kIsWeb;
-
 // import 'package:firebase_core/firebase_core.dart';
 // import 'package:firebase_messaging/firebase_messaging.dart';
 
@@ -32,7 +30,7 @@ class FCMService {
   /// [client] is unused until Firebase is wired in; keep the signature stable.
   // ignore: avoid_unused_constructor_parameters
   Future<void> init(ApiClient client) async {
-    if (_initialized || kIsWeb) return;
+    if (_initialized) return;
     _initialized = true;
 
     // Uncomment when Firebase project is ready:
