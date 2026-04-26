@@ -37,4 +37,9 @@ class UserEndpoints {
         }),
         (_) => null,
       );
+
+  Future<void> saveFcmToken(String token) => _client.unwrap(
+        _client.post('/users/me/fcm-token', data: {'token': token}),
+        (_) => null,
+      );
 }

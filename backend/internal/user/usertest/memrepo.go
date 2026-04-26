@@ -81,6 +81,17 @@ func (r *MemRepo) UpdatePassword(_ context.Context, id uuid.UUID, hash string) e
 	return nil
 }
 
+func (r *MemRepo) UpdateFCMToken(_ context.Context, id uuid.UUID, token string) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	u, ok := r.byID[id]
+	if !ok {
+		return user.ErrNotFound
+	}
+	u.FCMToken = token
+	return nil
+}
+
 func (r *MemRepo) Delete(id uuid.UUID) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

@@ -4,8 +4,10 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import 'config/app_config.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/router/router.dart';
+import 'shared/widgets/offline_banner.dart';
 
 final localeProvider = StateProvider<Locale>((ref) => const Locale('en'));
 
@@ -29,8 +31,8 @@ class SmartClassApp extends ConsumerWidget {
     final locale = ref.watch(localeProvider);
 
     return MaterialApp.router(
-      title: 'Smart Classroom',
-      debugShowCheckedModeBanner: false,
+      title: appConfig.appName,
+      debugShowCheckedModeBanner: appConfig.debugBanner,
       locale: locale,
       supportedLocales: const [
         Locale('en'),
@@ -46,6 +48,7 @@ class SmartClassApp extends ConsumerWidget {
       theme: _buildTheme(Brightness.light),
       darkTheme: _buildTheme(Brightness.dark),
       routerConfig: router,
+      builder: (context, child) => OfflineBanner(child: child ?? const SizedBox.shrink()),
     );
   }
 

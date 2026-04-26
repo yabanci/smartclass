@@ -25,6 +25,7 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Get("/me", h.me)
 	r.Patch("/me", h.updateMe)
 	r.Post("/me/password", h.changePassword)
+	r.Post("/me/fcm-token", h.saveFCMToken)
 }
 
 func (h *Handler) me(w http.ResponseWriter, r *http.Request) {
@@ -67,6 +68,30 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.JSON(w, http.StatusOK, ToDTO(u))
+}
+
+func (h *Handler) saveFCMToken(w http.ResponseWriter, r *http.Request) {
+	p, ok := middleware.PrincipalFrom(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, h.bundle, httpx.ErrUnauthorized)
+		return
+	}
+	var req struct {
+		Token string `json:"token" validate:"required"`
+	}
+	if err := httpx.DecodeJSON(r, &req); err != nil {
+		httpx.WriteError(w, r, h.bundle, httpx.ErrBadRequest)
+		return
+	}
+	if err := h.valid.Struct(&req); err != nil {
+		httpx.WriteError(w, r, h.bundle, err)
+		return
+	}
+	if err := h.svc.UpdateFCMToken(r.Context(), p.UserID, req.Token); err != nil {
+		httpx.WriteError(w, r, h.bundle, err)
+		return
+	}
+	httpx.Empty(w, http.StatusNoContent)
 }
 
 func (h *Handler) changePassword(w http.ResponseWriter, r *http.Request) {

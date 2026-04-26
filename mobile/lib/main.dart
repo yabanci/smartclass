@@ -1,17 +1,28 @@
 // IMPORTANT: Run `flutter pub get` before running this app.
 // The app uses flutter_gen for localizations (run: flutter gen-l10n or flutter pub get).
+//
+// Entry points:
+//   flutter run -t lib/main_dev.dart   → dev flavor (localhost)
+//   flutter run -t lib/main_prod.dart  → prod flavor (api.smartclass.kz)
+//   flutter run                        → defaults to dev
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
+import 'config/app_config.dart';
 import 'core/connection/resolver.dart';
 import 'shared/providers/auth_provider.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+/// Default entry point — dev flavor.
+void main() => mainWithConfig(AppConfig.dev);
 
-  // Resolve connection mode before starting
+/// Shared startup logic used by all flavor entry points.
+Future<void> mainWithConfig(AppConfig config) async {
+  WidgetsFlutterBinding.ensureInitialized();
+  setAppConfig(config);
+
+  // Resolve connection mode before starting (uses AppConfig fallback URL)
   await ConnectionResolver.instance.resolve();
 
   runApp(

@@ -54,13 +54,13 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 
 func (r *PostgresRepository) getOne(ctx context.Context, where string, arg any) (*User, error) {
 	q := `
-SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, created_at, updated_at
+SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
 FROM users WHERE ` + where + ` LIMIT 1`
 	u := &User{}
 	var roleStr string
 	err := r.pool.QueryRow(ctx, q, arg).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &roleStr,
-		&u.Language, &u.AvatarURL, &u.Phone, &u.BirthDate, &u.CreatedAt, &u.UpdatedAt,
+		&u.Language, &u.AvatarURL, &u.Phone, &u.BirthDate, &u.FCMToken, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -70,6 +70,18 @@ FROM users WHERE ` + where + ` LIMIT 1`
 	}
 	u.Role = Role(roleStr)
 	return u, nil
+}
+
+func (r *PostgresRepository) UpdateFCMToken(ctx context.Context, id uuid.UUID, token string) error {
+	const q = `UPDATE users SET fcm_token=$2, updated_at=$3 WHERE id=$1`
+	tag, err := r.pool.Exec(ctx, q, id, token, time.Now().UTC())
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 func (r *PostgresRepository) Update(ctx context.Context, u *User) error {

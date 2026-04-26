@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../config/app_config.dart';
 import 'connection_mode.dart';
 
 const _kLocalUrlKey = 'local_server_url';
-const _defaultRemoteUrl = 'http://localhost:8080/api/v1';
 
 class ConnectionResolver {
   ConnectionResolver._();
@@ -14,9 +15,9 @@ class ConnectionResolver {
 
   ConnectionState get current =>
       _current ??
-      const ConnectionState(
+      ConnectionState(
         mode: ConnectionMode.remote,
-        baseUrl: _defaultRemoteUrl,
+        baseUrl: appConfig.apiBaseUrl,
       );
 
   Future<ConnectionState> resolve() async {
@@ -34,9 +35,9 @@ class ConnectionResolver {
       }
     }
 
-    _current = const ConnectionState(
+    _current = ConnectionState(
       mode: ConnectionMode.remote,
-      baseUrl: _defaultRemoteUrl,
+      baseUrl: appConfig.apiBaseUrl,
     );
     return _current!;
   }
