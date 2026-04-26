@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"smartclass/internal/classroom"
 	"smartclass/internal/device"
@@ -31,13 +32,21 @@ type Service struct {
 	devices   *device.Service
 	broker    realtime.Broker
 	trigger   Trigger
+	log       *zap.Logger
 }
 
 func NewService(repo Repository, cls *classroom.Service, devices *device.Service, broker realtime.Broker) *Service {
 	if broker == nil {
 		broker = realtime.Noop{}
 	}
-	return &Service{repo: repo, classroom: cls, devices: devices, broker: broker, trigger: noopTrigger{}}
+	return &Service{repo: repo, classroom: cls, devices: devices, broker: broker, trigger: noopTrigger{}, log: zap.NewNop()}
+}
+
+func (s *Service) WithLogger(l *zap.Logger) *Service {
+	if l != nil {
+		s.log = l
+	}
+	return s
 }
 
 func (s *Service) WithTrigger(t Trigger) *Service {
@@ -111,7 +120,7 @@ func (s *Service) LatestForClassroom(ctx context.Context, p classroom.Principal,
 }
 
 func (s *Service) publish(ctx context.Context, classroomID, deviceID uuid.UUID, metric Metric, value float64, unit string, at time.Time) {
-	_ = s.broker.Publish(ctx, realtime.Event{
+	if err := s.broker.Publish(ctx, realtime.Event{
 		Topic: fmt.Sprintf("classroom:%s:sensors", classroomID.String()),
 		Type:  "sensor.reading",
 		Payload: map[string]any{
@@ -121,5 +130,7 @@ func (s *Service) publish(ctx context.Context, classroomID, deviceID uuid.UUID, 
 			"unit":       unit,
 			"recordedAt": at,
 		},
-	})
+	}); err != nil {
+		s.log.Warn("sensor: broker publish failed", zap.Error(err))
+	}
 }

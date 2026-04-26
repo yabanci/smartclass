@@ -32,6 +32,7 @@ export function useWebSocket(topics: string[], onEvent: (evt: RealtimeEvent) => 
 
     let ws: WebSocket | null = null;
     let retry: number | null = null;
+    let destroyed = false;
 
     const open = () => {
       const localWs = new WebSocket(url);
@@ -45,15 +46,20 @@ export function useWebSocket(topics: string[], onEvent: (evt: RealtimeEvent) => 
         }
       };
       localWs.onclose = () => {
+        if (destroyed) return;
         retry = window.setTimeout(() => {
-          if (ws === localWs) open();
+          if (!destroyed) open();
         }, 3000);
       };
     };
     open();
 
     return () => {
-      if (retry) window.clearTimeout(retry);
+      destroyed = true;
+      if (retry !== null) {
+        window.clearTimeout(retry);
+        retry = null;
+      }
       ws?.close();
       ws = null;
     };

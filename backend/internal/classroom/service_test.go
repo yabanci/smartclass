@@ -95,6 +95,38 @@ func TestService_Authorize(t *testing.T) {
 	}
 }
 
+// TestService_Create_CreatorIsAutoMember verifies atomicity fix: the classroom
+// creator must be a member immediately after Create without a separate Assign.
+func TestService_Create_CreatorIsAutoMember(t *testing.T) {
+	svc, repo := newSvc()
+	ctx := context.Background()
+	creatorID := uuid.New()
+
+	c, err := svc.Create(ctx, classroom.CreateInput{Name: "Lab", CreatedBy: creatorID})
+	require.NoError(t, err)
+
+	ok, err := repo.IsMember(ctx, c.ID, creatorID)
+	require.NoError(t, err)
+	assert.True(t, ok, "creator must be a member without a separate Assign call")
+}
+
+// TestService_Authorize_MemberCannotMutate is a regression test that a classroom
+// member who is not the creator is denied mutate access.
+func TestService_Authorize_MemberCannotMutate(t *testing.T) {
+	svc, _ := newSvc()
+	ctx := context.Background()
+
+	owner := uuid.New()
+	member := uuid.New()
+
+	c, err := svc.Create(ctx, classroom.CreateInput{Name: "X", CreatedBy: owner})
+	require.NoError(t, err)
+	require.NoError(t, svc.Assign(ctx, classroom.Principal{UserID: owner, Role: user.RoleTeacher}, c.ID, member))
+
+	err = svc.Authorize(ctx, classroom.Principal{UserID: member, Role: user.RoleTeacher}, c.ID, true)
+	require.ErrorIs(t, err, classroom.ErrForbidden)
+}
+
 func TestService_Update_Delete(t *testing.T) {
 	svc, _ := newSvc()
 	ctx := context.Background()

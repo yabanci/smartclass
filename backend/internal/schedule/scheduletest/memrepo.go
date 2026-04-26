@@ -19,9 +19,30 @@ func NewMemRepo() *MemRepo {
 	return &MemRepo{byID: map[uuid.UUID]*schedule.Lesson{}}
 }
 
-func (r *MemRepo) Create(_ context.Context, l *schedule.Lesson) error {
+func (r *MemRepo) CreateIfNoOverlap(_ context.Context, l *schedule.Lesson) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for _, e := range r.byID {
+		if e.ClassroomID == l.ClassroomID && e.DayOfWeek == l.DayOfWeek && e.Overlaps(*l) {
+			return schedule.ErrConflict
+		}
+	}
+	c := *l
+	r.byID[l.ID] = &c
+	return nil
+}
+
+func (r *MemRepo) UpdateIfNoOverlap(_ context.Context, l *schedule.Lesson) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.byID[l.ID]; !ok {
+		return schedule.ErrNotFound
+	}
+	for _, e := range r.byID {
+		if e.ID != l.ID && e.ClassroomID == l.ClassroomID && e.DayOfWeek == l.DayOfWeek && e.Overlaps(*l) {
+			return schedule.ErrConflict
+		}
+	}
 	c := *l
 	r.byID[l.ID] = &c
 	return nil
@@ -69,17 +90,6 @@ func (r *MemRepo) ListByClassroomAndDay(_ context.Context, classroomID uuid.UUID
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].StartsAt < out[j].StartsAt })
 	return out, nil
-}
-
-func (r *MemRepo) Update(_ context.Context, l *schedule.Lesson) error {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if _, ok := r.byID[l.ID]; !ok {
-		return schedule.ErrNotFound
-	}
-	c := *l
-	r.byID[l.ID] = &c
-	return nil
 }
 
 func (r *MemRepo) Delete(_ context.Context, id uuid.UUID) error {

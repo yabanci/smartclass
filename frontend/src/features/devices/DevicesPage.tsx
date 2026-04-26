@@ -31,12 +31,22 @@ export function DevicesPage() {
     () => (activeID ? [`classroom:${activeID}:devices`] : []),
     [activeID],
   );
-  useWebSocket(topics, () => qc.invalidateQueries({ queryKey: ['devices', activeID] }));
+  useWebSocket(topics, () => {
+    if (activeID) qc.invalidateQueries({ queryKey: ['devices', activeID] });
+  });
 
+  const [commandError, setCommandError] = useState<string | null>(null);
   const commandMut = useMutation({
     mutationFn: ({ id, type, value }: { id: string; type: CommandType; value?: unknown }) =>
       deviceApi.command(id, { type, value }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['devices', activeID] }),
+    onSuccess: () => {
+      setCommandError(null);
+      if (activeID) qc.invalidateQueries({ queryKey: ['devices', activeID] });
+    },
+    onError: (err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCommandError(msg);
+    },
   });
 
   const deleteMut = useMutation({
@@ -45,10 +55,10 @@ export function DevicesPage() {
   });
 
   const list = devicesQ.data ?? [];
-  const allOn = async () =>
-    Promise.all(list.filter((d) => d.status !== 'on').map((d) => commandMut.mutateAsync({ id: d.id, type: 'ON' })));
-  const allOff = async () =>
-    Promise.all(list.filter((d) => d.status === 'on' || d.status === 'open').map((d) => commandMut.mutateAsync({ id: d.id, type: 'OFF' })));
+  const allOn = () =>
+    Promise.allSettled(list.filter((d) => d.status !== 'on').map((d) => commandMut.mutateAsync({ id: d.id, type: 'ON' })));
+  const allOff = () =>
+    Promise.allSettled(list.filter((d) => d.status === 'on' || d.status === 'open').map((d) => commandMut.mutateAsync({ id: d.id, type: 'OFF' })));
 
   return (
     <div className="p-4 flex flex-col gap-4 animate-fadeIn">
@@ -94,6 +104,10 @@ export function DevicesPage() {
         <Card className="text-center text-slate-500">{t('devices.empty')}</Card>
       )}
 
+      {commandError && (
+        <p className="text-xs text-red-500 px-1">{commandError}</p>
+      )}
+
       <div className="flex flex-col gap-3">
         {list.map((d) => (
           <DeviceCard
@@ -102,6 +116,7 @@ export function DevicesPage() {
             onCommand={(type, value) => commandMut.mutate({ id: d.id, type, value })}
             onEdit={() => setEditing(d)}
             onDelete={() => deleteMut.mutate(d.id)}
+            commandPending={commandMut.isPending}
           />
         ))}
       </div>
@@ -195,11 +210,13 @@ function DeviceCard({
   onCommand,
   onEdit,
   onDelete,
+  commandPending,
 }: {
   device: Device;
   onCommand: (type: CommandType, value?: unknown) => void;
   onEdit: () => void;
   onDelete: () => void;
+  commandPending?: boolean;
 }) {
   const { t } = useTranslation();
   const kind = kindOf(device);
@@ -246,11 +263,18 @@ function DeviceCard({
         <div className="flex items-center gap-2 flex-shrink-0">
           {kind !== 'sensor' && (
             <div
-              className={`toggle ${on ? 'on' : ''}`}
+              className={`toggle ${on ? 'on' : ''} ${commandPending ? 'opacity-50 cursor-wait' : ''}`}
               role="switch"
               aria-checked={on}
               aria-label={on ? t('devices.off') : t('devices.on')}
-              onClick={() => onCommand(on ? 'OFF' : 'ON')}
+              tabIndex={0}
+              onClick={() => !commandPending && onCommand(on ? 'OFF' : 'ON')}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && !commandPending) {
+                  e.preventDefault();
+                  onCommand(on ? 'OFF' : 'ON');
+                }
+              }}
             />
           )}
           <button

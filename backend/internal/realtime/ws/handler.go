@@ -1,6 +1,7 @@
 package ws
 
 import (
+	"context"
 	"net/http"
 	"strings"
 	"time"
@@ -57,8 +58,10 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	client := newClient(uuid.NewString(), topics)
 	h.hub.Register(client)
 
+	// Pass the server shutdown context so writePump can exit cleanly when the
+	// server is shutting down, rather than waiting for the 60s pong timeout.
 	go h.readPump(conn, client)
-	go h.writePump(conn, client)
+	go h.writePump(conn, client, r.Context())
 }
 
 func parseTopics(r *http.Request, userID uuid.UUID) []string {
@@ -92,7 +95,7 @@ func (h *Handler) readPump(conn *websocket.Conn, c *Client) {
 	}
 }
 
-func (h *Handler) writePump(conn *websocket.Conn, c *Client) {
+func (h *Handler) writePump(conn *websocket.Conn, c *Client, ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
@@ -100,6 +103,10 @@ func (h *Handler) writePump(conn *websocket.Conn, c *Client) {
 	}()
 	for {
 		select {
+		case <-ctx.Done():
+			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
+			_ = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseGoingAway, "server shutdown"))
+			return
 		case <-c.closed:
 			_ = conn.SetWriteDeadline(time.Now().Add(writeWait))
 			_ = conn.WriteMessage(websocket.CloseMessage, []byte{})

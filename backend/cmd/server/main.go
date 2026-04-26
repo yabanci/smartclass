@@ -90,17 +90,19 @@ func main() {
 	auditSvc := auditlog.NewService(auditRepo, logger)
 
 	classroomSvc := classroom.NewService(classroomRepo)
-	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker)
+	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker).WithLogger(logger)
 	triggerEngine := notification.NewEngine(notificationSvc, notification.DefaultRules())
 
 	authSvc := auth.NewService(userRepo, hash, issuer)
 	userSvc := user.NewService(userRepo, hash)
 	deviceSvc := device.NewService(deviceRepo, classroomSvc, factory, broker).
+		WithLogger(logger).
 		WithTrigger(triggerEngine).
 		WithRecorder(auditSvc)
 	scheduleSvc := schedule.NewService(scheduleRepo, classroomSvc)
 	sceneSvc := scene.NewService(sceneRepo, classroomSvc, deviceSvc, broker)
 	sensorSvc := sensor.NewService(sensorRepo, classroomSvc, deviceSvc, broker).
+		WithLogger(logger).
 		WithTrigger(triggerEngine)
 	analyticsSvc := analytics.NewService(analyticsRepo, classroomSvc)
 

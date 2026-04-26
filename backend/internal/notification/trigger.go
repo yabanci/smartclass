@@ -3,6 +3,8 @@ package notification
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -12,8 +14,12 @@ import (
 // (device.Service, sensor.Service) depend only on small interfaces, not on
 // this package's types.
 type Engine struct {
-	svc   *Service
-	rules Rules
+	svc      *Service
+	rules    Rules
+	cooldown time.Duration
+
+	mu        sync.Mutex
+	lastAlert map[string]time.Time // key: classroomID:deviceID:rule
 }
 
 type Rules struct {
@@ -27,11 +33,33 @@ func DefaultRules() Rules {
 }
 
 func NewEngine(svc *Service, rules Rules) *Engine {
-	return &Engine{svc: svc, rules: rules}
+	return &Engine{
+		svc:       svc,
+		rules:     rules,
+		cooldown:  5 * time.Minute,
+		lastAlert: make(map[string]time.Time),
+	}
+}
+
+// throttle returns true if an alert for this key should be suppressed because
+// one was already fired within the cooldown window. Safe for concurrent use.
+func (e *Engine) throttle(classroomID, deviceID uuid.UUID, rule string) bool {
+	key := classroomID.String() + ":" + deviceID.String() + ":" + rule
+	now := time.Now()
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	if last, ok := e.lastAlert[key]; ok && now.Sub(last) < e.cooldown {
+		return true
+	}
+	e.lastAlert[key] = now
+	return false
 }
 
 func (e *Engine) OnDeviceStateChange(ctx context.Context, classroomID, deviceID uuid.UUID, name string, online bool, _ string) {
 	if e == nil || e.svc == nil || online {
+		return
+	}
+	if e.throttle(classroomID, deviceID, "device_offline") {
 		return
 	}
 	_, _ = e.svc.CreateForClassroom(ctx, classroomID, Input{
@@ -52,13 +80,19 @@ func (e *Engine) OnSensorReading(ctx context.Context, classroomID, deviceID uuid
 	switch metric {
 	case "temperature":
 		if value > e.rules.TemperatureHighC {
-			e.warn(ctx, classroomID, deviceID, metric, value, fmt.Sprintf("High temperature: %.1f°C (threshold %.1f)", value, e.rules.TemperatureHighC), "temperature_high")
+			if !e.throttle(classroomID, deviceID, "temperature_high") {
+				e.warn(ctx, classroomID, deviceID, metric, value, fmt.Sprintf("High temperature: %.1f°C (threshold %.1f)", value, e.rules.TemperatureHighC), "temperature_high")
+			}
 		} else if value < e.rules.TemperatureLowC {
-			e.warn(ctx, classroomID, deviceID, metric, value, fmt.Sprintf("Low temperature: %.1f°C (threshold %.1f)", value, e.rules.TemperatureLowC), "temperature_low")
+			if !e.throttle(classroomID, deviceID, "temperature_low") {
+				e.warn(ctx, classroomID, deviceID, metric, value, fmt.Sprintf("Low temperature: %.1f°C (threshold %.1f)", value, e.rules.TemperatureLowC), "temperature_low")
+			}
 		}
 	case "humidity":
 		if value > e.rules.HumidityHigh {
-			e.warn(ctx, classroomID, deviceID, metric, value, fmt.Sprintf("High humidity: %.0f%% (threshold %.0f%%)", value, e.rules.HumidityHigh), "humidity_high")
+			if !e.throttle(classroomID, deviceID, "humidity_high") {
+				e.warn(ctx, classroomID, deviceID, metric, value, fmt.Sprintf("High humidity: %.0f%% (threshold %.0f%%)", value, e.rules.HumidityHigh), "humidity_high")
+			}
 		}
 	}
 }

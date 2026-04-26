@@ -58,9 +58,6 @@ func NewService(cfg Config, repo Repository, client *Client, devices *device.Ser
 	if cfg.OwnerUsername == "" {
 		cfg.OwnerUsername = "smartclass"
 	}
-	if cfg.OwnerPassword == "" {
-		cfg.OwnerPassword = "smartclass1234"
-	}
 	if cfg.Language == "" {
 		cfg.Language = "en"
 	}

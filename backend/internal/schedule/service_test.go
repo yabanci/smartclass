@@ -2,6 +2,7 @@ package schedule_test
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -100,6 +101,45 @@ func TestService_Current(t *testing.T) {
 	l, err = svc.Current(ctx, p, cid)
 	require.NoError(t, err)
 	assert.Nil(t, l)
+}
+
+// TestService_ConcurrentCreate verifies the TOCTOU fix: two goroutines racing
+// to create overlapping lessons should result in exactly one success and one
+// ErrOverlap. The MemRepo mutex provides the same serialization guarantee that
+// the Postgres FOR UPDATE transaction provides in production.
+func TestService_ConcurrentCreate(t *testing.T) {
+	svc, _, p, cid := newSvc(t)
+	ctx := context.Background()
+	s, _ := schedule.ParseTimeOfDay("10:00")
+	e, _ := schedule.ParseTimeOfDay("11:00")
+	inp := schedule.CreateInput{
+		ClassroomID: cid, Subject: "Math", DayOfWeek: schedule.Monday,
+		StartsAt: s, EndsAt: e,
+	}
+
+	const N = 20
+	errs := make([]error, N)
+	var wg sync.WaitGroup
+	wg.Add(N)
+	for i := 0; i < N; i++ {
+		i := i
+		go func() {
+			defer wg.Done()
+			_, err := svc.Create(ctx, p, inp)
+			errs[i] = err
+		}()
+	}
+	wg.Wait()
+
+	successes := 0
+	for _, err := range errs {
+		if err == nil {
+			successes++
+		} else {
+			assert.ErrorIs(t, err, schedule.ErrOverlap, "unexpected error type: %v", err)
+		}
+	}
+	assert.Equal(t, 1, successes, "exactly one concurrent create should succeed")
 }
 
 func TestService_UpdateOverlap(t *testing.T) {

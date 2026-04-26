@@ -19,14 +19,28 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) Create(ctx context.Context, c *Classroom) error {
-	const q = `INSERT INTO classrooms (id, name, description, created_by, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)`
 	if c.ID == uuid.Nil {
 		c.ID = uuid.New()
 	}
 	now := time.Now().UTC()
 	c.CreatedAt, c.UpdatedAt = now, now
-	_, err := r.pool.Exec(ctx, q, c.ID, c.Name, c.Description, c.CreatedBy, c.CreatedAt, c.UpdatedAt)
-	return err
+
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	const insertClassroom = `INSERT INTO classrooms (id, name, description, created_by, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)`
+	if _, err := tx.Exec(ctx, insertClassroom, c.ID, c.Name, c.Description, c.CreatedBy, c.CreatedAt, c.UpdatedAt); err != nil {
+		return err
+	}
+	// Auto-assign the creator atomically so they always appear in Members().
+	const insertMember = `INSERT INTO classroom_users (classroom_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
+	if _, err := tx.Exec(ctx, insertMember, c.ID, c.CreatedBy); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Classroom, error) {

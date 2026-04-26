@@ -41,7 +41,6 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*Classroom, error
 	if err := s.repo.Create(ctx, c); err != nil {
 		return nil, err
 	}
-	_ = s.repo.Assign(ctx, c.ID, in.CreatedBy)
 	return c, nil
 }
 

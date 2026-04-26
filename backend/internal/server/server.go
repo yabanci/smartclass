@@ -55,6 +55,8 @@ func New(d Deps) *Server {
 	r := chi.NewRouter()
 
 	rl := mw.NewRateLimiter(d.Cfg.RateLimit.RPS, d.Cfg.RateLimit.Burst)
+	// Strict limiter for auth endpoints: 5 RPS burst 10 per IP prevents brute-force.
+	authRL := mw.NewRateLimiter(5, 10)
 
 	r.Use(mw.Recoverer(d.Logger))
 	r.Use(mw.RequestLogger(d.Logger))
@@ -66,7 +68,10 @@ func New(d Deps) *Server {
 	r.Get("/readyz", healthz)
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Route("/auth", d.AuthHandler.Routes)
+		r.Group(func(r chi.Router) {
+			r.Use(authRL.Middleware())
+			r.Route("/auth", d.AuthHandler.Routes)
+		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(mw.Authn(d.Issuer, d.Bundle))

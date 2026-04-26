@@ -28,7 +28,11 @@ func (r *MemRepo) Create(_ context.Context, c *classroom.Classroom) error {
 	defer r.mu.Unlock()
 	copy := *c
 	r.byID[c.ID] = &copy
-	r.members[c.ID] = map[uuid.UUID]struct{}{}
+	members := map[uuid.UUID]struct{}{}
+	if c.CreatedBy != uuid.Nil {
+		members[c.CreatedBy] = struct{}{}
+	}
+	r.members[c.ID] = members
 	return nil
 }
 

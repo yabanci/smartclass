@@ -55,14 +55,16 @@ type RateLimit struct {
 }
 
 type CORS struct {
-	Origins []string `env:"ORIGINS" envSeparator:"," envDefault:"*"`
+	// Default to localhost dev origins; production must set CORS_ORIGINS explicitly.
+	Origins []string `env:"ORIGINS" envSeparator:"," envDefault:"http://localhost:5173,http://localhost:3000,http://localhost:4200"`
 }
 
 type Hass struct {
 	URL           string `env:"URL" envDefault:"http://homeassistant:8123"`
 	OwnerName     string `env:"OWNER_NAME" envDefault:"Smart Classroom"`
 	OwnerUsername string `env:"OWNER_USERNAME" envDefault:"smartclass"`
-	OwnerPassword string `env:"OWNER_PASSWORD" envDefault:"smartclass1234"`
+	// No default — must be set explicitly to prevent accidental well-known credentials.
+	OwnerPassword string `env:"OWNER_PASSWORD"`
 	Language      string `env:"LANGUAGE" envDefault:"kz"`
 }
 
@@ -76,8 +78,8 @@ func Load() (Config, error) {
 	if err := env.Parse(&cfg); err != nil {
 		return Config{}, fmt.Errorf("config: %w", err)
 	}
-	if len(cfg.JWT.Secret) < 16 {
-		return Config{}, fmt.Errorf("config: JWT_SECRET must be at least 16 bytes")
+	if len(cfg.JWT.Secret) < 32 {
+		return Config{}, fmt.Errorf("config: JWT_SECRET must be at least 32 characters")
 	}
 	return cfg, nil
 }

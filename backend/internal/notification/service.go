@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"smartclass/internal/platform/httpx"
 	"smartclass/internal/realtime"
@@ -21,13 +22,21 @@ type Service struct {
 	repo    Repository
 	members MemberLookup
 	broker  realtime.Broker
+	log     *zap.Logger
 }
 
 func NewService(repo Repository, members MemberLookup, broker realtime.Broker) *Service {
 	if broker == nil {
 		broker = realtime.Noop{}
 	}
-	return &Service{repo: repo, members: members, broker: broker}
+	return &Service{repo: repo, members: members, broker: broker, log: zap.NewNop()}
+}
+
+func (s *Service) WithLogger(l *zap.Logger) *Service {
+	if l != nil {
+		s.log = l
+	}
+	return s
 }
 
 type Input struct {
@@ -111,7 +120,7 @@ func toNotification(in Input) *Notification {
 }
 
 func (s *Service) publish(ctx context.Context, n *Notification) {
-	_ = s.broker.Publish(ctx, realtime.Event{
+	if err := s.broker.Publish(ctx, realtime.Event{
 		Topic: fmt.Sprintf("user:%s:notifications", n.UserID.String()),
 		Type:  "notification.created",
 		Payload: map[string]any{
@@ -122,5 +131,8 @@ func (s *Service) publish(ctx context.Context, n *Notification) {
 			"metadata":  n.Metadata,
 			"createdAt": n.CreatedAt,
 		},
-	})
+	}); err != nil {
+		s.log.Warn("notification: broker publish failed",
+			zap.Stringer("userID", n.UserID), zap.Error(err))
+	}
 }

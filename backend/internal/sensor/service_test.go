@@ -80,6 +80,54 @@ func TestService_Ingest(t *testing.T) {
 	})
 }
 
+// TestIngest_BatchWithUnauthorizedDevice verifies that a batch containing a
+// device from a classroom the caller doesn't belong to is rejected entirely.
+// This tests the all-or-nothing semantics: the authorized device's readings
+// must also not be persisted when the batch fails.
+func TestIngest_BatchWithUnauthorizedDevice(t *testing.T) {
+	ctx := context.Background()
+
+	// Build shared classroom + device services so both classrooms are visible to devSvc.
+	clsRepo := classroomtest.NewMemRepo()
+	clsSvc := classroom.NewService(clsRepo)
+
+	ownerID := uuid.New()
+	otherOwnerID := uuid.New()
+	owner := classroom.Principal{UserID: ownerID, Role: user.RoleTeacher}
+	otherOwner := classroom.Principal{UserID: otherOwnerID, Role: user.RoleTeacher}
+
+	ownCls, _ := clsSvc.Create(ctx, classroom.CreateInput{Name: "Mine", CreatedBy: ownerID})
+	otherCls, _ := clsSvc.Create(ctx, classroom.CreateInput{Name: "Theirs", CreatedBy: otherOwnerID})
+
+	factory := devicectl.NewFactory()
+	factory.Register(stub.New())
+	devRepo := devicetest.NewMemRepo()
+	devSvc := device.NewService(devRepo, clsSvc, factory, realtime.Noop{})
+
+	ownDev, _ := devSvc.Create(ctx, owner, device.CreateInput{
+		ClassroomID: ownCls.ID, Name: "Mine", Type: "sensor", Brand: "x", Driver: stub.Name,
+	})
+	otherDev, _ := devSvc.Create(ctx, otherOwner, device.CreateInput{
+		ClassroomID: otherCls.ID, Name: "Theirs", Type: "sensor", Brand: "x", Driver: stub.Name,
+	})
+
+	sensorRepo := sensortest.NewMemRepo()
+	sensorRepo.SetDeviceClassroom(ownDev.ID, ownCls.ID)
+	svc := sensor.NewService(sensorRepo, clsSvc, devSvc, realtime.Noop{})
+
+	// Batch: one authorized device (own) + one unauthorized (other classroom).
+	_, err := svc.Ingest(ctx, owner, []sensor.IngestItem{
+		{DeviceID: ownDev.ID, Metric: sensor.MetricTemperature, Value: 22},
+		{DeviceID: otherDev.ID, Metric: sensor.MetricTemperature, Value: 25},
+	})
+	require.Error(t, err, "batch with unauthorized device must be rejected")
+
+	// The first (authorized) device's reading must not have been persisted.
+	list, err := svc.History(ctx, owner, ownDev.ID, sensor.MetricTemperature, nil, nil, 0)
+	require.NoError(t, err)
+	assert.Empty(t, list, "no readings should be saved when batch is rejected")
+}
+
 func TestService_History(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

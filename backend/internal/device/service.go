@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.uber.org/zap"
 
 	"smartclass/internal/classroom"
 	"smartclass/internal/devicectl"
@@ -47,13 +48,21 @@ type Service struct {
 	broker    realtime.Broker
 	trigger   Trigger
 	recorder  Recorder
+	log       *zap.Logger
 }
 
 func NewService(repo Repository, cls *classroom.Service, f *devicectl.Factory, broker realtime.Broker) *Service {
 	if broker == nil {
 		broker = realtime.Noop{}
 	}
-	return &Service{repo: repo, classroom: cls, factory: f, broker: broker, trigger: noopTrigger{}, recorder: noopRecorder{}}
+	return &Service{repo: repo, classroom: cls, factory: f, broker: broker, trigger: noopTrigger{}, recorder: noopRecorder{}, log: zap.NewNop()}
+}
+
+func (s *Service) WithLogger(l *zap.Logger) *Service {
+	if l != nil {
+		s.log = l
+	}
+	return s
 }
 
 func (s *Service) WithTrigger(t Trigger) *Service {
@@ -211,7 +220,10 @@ func (s *Service) Execute(ctx context.Context, p classroom.Principal, id uuid.UU
 			return nil, ErrUnsupportedCmd
 		}
 		prevOnline := d.Online
-		_ = s.repo.UpdateState(ctx, d.ID, d.Status, false, d.LastSeenAt)
+		if updateErr := s.repo.UpdateState(ctx, d.ID, d.Status, false, d.LastSeenAt); updateErr != nil {
+			s.log.Warn("device: failed to mark offline after command error",
+				zap.Stringer("deviceID", d.ID), zap.Error(updateErr))
+		}
 		d.Online = false
 		s.publish(ctx, d, "device.unavailable")
 		if prevOnline {
@@ -250,7 +262,7 @@ func (s *Service) load(ctx context.Context, id uuid.UUID) (*Device, error) {
 }
 
 func (s *Service) publish(ctx context.Context, d *Device, eventType string) {
-	_ = s.broker.Publish(ctx, realtime.Event{
+	if err := s.broker.Publish(ctx, realtime.Event{
 		Topic: fmt.Sprintf("classroom:%s:devices", d.ClassroomID.String()),
 		Type:  eventType,
 		Payload: map[string]any{
@@ -262,5 +274,7 @@ func (s *Service) publish(ctx context.Context, d *Device, eventType string) {
 			"lastSeenAt": d.LastSeenAt,
 			"updatedAt":  time.Now().UTC(),
 		},
-	})
+	}); err != nil {
+		s.log.Warn("device: broker publish failed", zap.String("event", eventType), zap.Error(err))
+	}
 }

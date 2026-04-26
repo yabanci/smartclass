@@ -68,6 +68,51 @@ func TestEngine_DeviceOffline_Notifies(t *testing.T) {
 	assert.Len(t, list, 1, "coming back online should not add another notif")
 }
 
+// TestEngine_Cooldown verifies that repeated alerts for the same device+rule
+// within the cooldown window are suppressed so users don't get flooded.
+func TestEngine_Cooldown_SuppressesDuplicates(t *testing.T) {
+	repo := notificationtest.NewMemRepo()
+	member := uuid.New()
+	svc := notification.NewService(repo, staticMembers{ids: []uuid.UUID{member}}, realtime.Noop{})
+	eng := notification.NewEngine(svc, notification.DefaultRules())
+
+	cid := uuid.New()
+	did := uuid.New()
+	ctx := context.Background()
+
+	// First reading above threshold — should fire.
+	eng.OnSensorReading(ctx, cid, did, "temperature", 35, "C")
+	// Second reading still above threshold within cooldown — must be suppressed.
+	eng.OnSensorReading(ctx, cid, did, "temperature", 36, "C")
+	// Third reading — still suppressed.
+	eng.OnSensorReading(ctx, cid, did, "temperature", 37, "C")
+
+	list, err := svc.List(ctx, member, false, 50, 0)
+	require.NoError(t, err)
+	assert.Len(t, list, 1, "only the first alert should fire; subsequent ones are in cooldown")
+}
+
+// TestEngine_Cooldown_DifferentDevicesFireIndependently verifies that the
+// cooldown is per-device: a second device above threshold still fires even if
+// the first device's cooldown is active.
+func TestEngine_Cooldown_DifferentDevicesFireIndependently(t *testing.T) {
+	repo := notificationtest.NewMemRepo()
+	member := uuid.New()
+	svc := notification.NewService(repo, staticMembers{ids: []uuid.UUID{member}}, realtime.Noop{})
+	eng := notification.NewEngine(svc, notification.DefaultRules())
+
+	cid := uuid.New()
+	dev1, dev2 := uuid.New(), uuid.New()
+	ctx := context.Background()
+
+	eng.OnSensorReading(ctx, cid, dev1, "temperature", 35, "C")
+	eng.OnSensorReading(ctx, cid, dev2, "temperature", 35, "C")
+
+	list, err := svc.List(ctx, member, false, 50, 0)
+	require.NoError(t, err)
+	assert.Len(t, list, 2, "each device should fire its own alert")
+}
+
 func TestService_MarkRead(t *testing.T) {
 	repo := notificationtest.NewMemRepo()
 	user := uuid.New()

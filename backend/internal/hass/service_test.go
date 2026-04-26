@@ -369,6 +369,69 @@ func TestCredentials_SerializesConcurrentRefresh(t *testing.T) {
 		"refresh_token grant should be exchanged exactly once for N parallel callers")
 }
 
+// TestCurrentToken_ReturnsBootstrappedToken verifies that CurrentToken (the
+// homeassistant.TokenProvider implementation) returns the same access token
+// that Bootstrap stored, without triggering another round-trip to HA.
+func TestCurrentToken_ReturnsBootstrappedToken(t *testing.T) {
+	ha, _ := newMockHA(t)
+	svc := newSvc(t, ha.URL)
+
+	_, err := svc.Bootstrap(context.Background())
+	require.NoError(t, err)
+
+	tok, err := svc.CurrentToken(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "access-1", tok)
+}
+
+// TestCurrentToken_RefreshesExpiredToken verifies that CurrentToken transparently
+// refreshes the access token when it is about to expire, so device drivers
+// always receive a usable token without manual intervention.
+func TestCurrentToken_RefreshesExpiredToken(t *testing.T) {
+	var authCodeUsed atomic.Bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/onboarding", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode([]map[string]any{{"step": "user", "done": false}})
+	})
+	mux.HandleFunc("/api/onboarding/users", func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{"auth_code": "c"})
+	})
+	mux.HandleFunc("/auth/token", func(w http.ResponseWriter, r *http.Request) {
+		_ = r.ParseForm()
+		switch r.FormValue("grant_type") {
+		case "authorization_code":
+			if !authCodeUsed.CompareAndSwap(false, true) {
+				w.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "expired-token", "refresh_token": "R",
+				"token_type": "Bearer", "expires_in": 1, // expire immediately
+			})
+		case "refresh_token":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"access_token": "fresh-token", "token_type": "Bearer", "expires_in": 3600,
+			})
+		}
+	})
+	for _, p := range []string{"/api/onboarding/core_config", "/api/onboarding/analytics", "/api/onboarding/integration"} {
+		mux.HandleFunc(p, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	}
+	srv := httptest.NewServer(mux)
+	defer srv.Close()
+
+	svc := newSvc(t, srv.URL)
+	_, err := svc.Bootstrap(context.Background())
+	require.NoError(t, err)
+
+	// Token has expires_in=1; sleep past NeedsRefresh threshold (< 60s remaining).
+	time.Sleep(2 * time.Second)
+
+	tok, err := svc.CurrentToken(context.Background())
+	require.NoError(t, err)
+	assert.Equal(t, "fresh-token", tok, "CurrentToken must trigger a refresh when token is expired")
+}
+
 func TestStatus_ReflectsConfiguredState(t *testing.T) {
 	ha, _ := newMockHA(t)
 	svc := newSvc(t, ha.URL)

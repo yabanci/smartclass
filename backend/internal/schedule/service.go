@@ -50,16 +50,6 @@ func (s *Service) Create(ctx context.Context, p classroom.Principal, in CreateIn
 	if !in.DayOfWeek.Valid() || !in.StartsAt.Valid() || !in.EndsAt.Valid() || in.EndsAt <= in.StartsAt {
 		return nil, ErrInvalidTime
 	}
-	existing, err := s.repo.ListByClassroomAndDay(ctx, in.ClassroomID, in.DayOfWeek)
-	if err != nil {
-		return nil, err
-	}
-	candidate := Lesson{DayOfWeek: in.DayOfWeek, StartsAt: in.StartsAt, EndsAt: in.EndsAt}
-	for _, e := range existing {
-		if e.Overlaps(candidate) {
-			return nil, ErrOverlap
-		}
-	}
 	l := &Lesson{
 		ID:          uuid.New(),
 		ClassroomID: in.ClassroomID,
@@ -70,7 +60,10 @@ func (s *Service) Create(ctx context.Context, p classroom.Principal, in CreateIn
 		EndsAt:      in.EndsAt,
 		Notes:       in.Notes,
 	}
-	if err := s.repo.Create(ctx, l); err != nil {
+	if err := s.repo.CreateIfNoOverlap(ctx, l); err != nil {
+		if errors.Is(err, ErrConflict) {
+			return nil, ErrOverlap
+		}
 		return nil, err
 	}
 	return l, nil
@@ -117,21 +110,12 @@ func (s *Service) Update(ctx context.Context, p classroom.Principal, id uuid.UUI
 	if !l.DayOfWeek.Valid() || !l.StartsAt.Valid() || !l.EndsAt.Valid() || l.EndsAt <= l.StartsAt {
 		return nil, ErrInvalidTime
 	}
-	peers, err := s.repo.ListByClassroomAndDay(ctx, l.ClassroomID, l.DayOfWeek)
-	if err != nil {
-		return nil, err
-	}
-	for _, e := range peers {
-		if e.ID == l.ID {
-			continue
-		}
-		if e.Overlaps(*l) {
-			return nil, ErrOverlap
-		}
-	}
-	if err := s.repo.Update(ctx, l); err != nil {
+	if err := s.repo.UpdateIfNoOverlap(ctx, l); err != nil {
 		if errors.Is(err, ErrNotFound) {
 			return nil, ErrDomainNotFound
+		}
+		if errors.Is(err, ErrConflict) {
+			return nil, ErrOverlap
 		}
 		return nil, err
 	}
