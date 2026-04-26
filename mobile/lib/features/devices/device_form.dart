@@ -1,0 +1,153 @@
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../shared/providers/device_provider.dart';
+
+class DeviceFormSheet extends ConsumerStatefulWidget {
+  final String classroomId;
+
+  const DeviceFormSheet({super.key, required this.classroomId});
+
+  @override
+  ConsumerState<DeviceFormSheet> createState() => _DeviceFormSheetState();
+}
+
+class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameCtrl = TextEditingController();
+  final _brandCtrl = TextEditingController(text: 'Generic');
+  final _driverCtrl = TextEditingController(text: 'generic');
+  final _configCtrl = TextEditingController(text: '{}');
+  String _type = 'switch';
+  bool _saving = false;
+
+  static const _types = [
+    'switch', 'light', 'climate', 'fan', 'cover', 'sensor'
+  ];
+
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _brandCtrl.dispose();
+    _driverCtrl.dispose();
+    _configCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _saving = true);
+    try {
+      Map<String, dynamic> config = {};
+      try {
+        config = jsonDecode(_configCtrl.text) as Map<String, dynamic>;
+      } catch (_) {}
+
+      final device = await ref
+          .read(deviceListProvider(widget.classroomId).notifier)
+          .create(
+            name: _nameCtrl.text.trim(),
+            type: _type,
+            brand: _brandCtrl.text.trim(),
+            driver: _driverCtrl.text.trim(),
+            config: config,
+          );
+      if (mounted) Navigator.of(context).pop(device);
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16,
+        right: 16,
+        top: 16,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+      ),
+      child: Form(
+        key: _formKey,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Add Device',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Name',
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    v == null || v.isEmpty ? 'Name is required' : null,
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: _type,
+                decoration: const InputDecoration(
+                  labelText: 'Type',
+                  border: OutlineInputBorder(),
+                ),
+                items: _types
+                    .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                    .toList(),
+                onChanged: (v) => setState(() => _type = v ?? 'switch'),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _brandCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Brand',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _driverCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Driver',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _configCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Config (JSON)',
+                  border: OutlineInputBorder(),
+                ),
+                maxLines: 3,
+                validator: (v) {
+                  try {
+                    if (v != null) jsonDecode(v);
+                    return null;
+                  } catch (_) {
+                    return 'Invalid JSON';
+                  }
+                },
+              ),
+              const SizedBox(height: 16),
+              FilledButton(
+                onPressed: _saving ? null : _submit,
+                child: _saving
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Add Device'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
