@@ -32,13 +32,9 @@ class SceneListNotifier extends StateNotifier<AsyncValue<List<Scene>>> {
     }
   }
 
-  Future<SceneRunResult?> run(String sceneId) async {
-    try {
-      return await _endpoints.run(sceneId);
-    } catch (_) {
-      return null;
-    }
-  }
+  // Throws on error — caller shows message to user
+  Future<SceneRunResult> run(String sceneId) =>
+      _endpoints.run(sceneId);
 
   Future<void> create({
     required String name,

@@ -177,7 +177,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   Widget _buildBody() {
     return ref.watch(hassStatusProvider).when(
       loading: () => const LoadingIndicator(),
-      error: (e, _) => ErrorView(message: e.toString()),
+      error: (e, _) => ErrorView(message: friendlyError(e)),
       data: (status) {
         if (!status.configured || !status.onboarded) {
           return _buildTokenSetup(status);
@@ -392,7 +392,7 @@ class _IntegrationPicker extends ConsumerWidget {
     final l = AppLocalizations.of(context)!;
     return ref.watch(hassIntegrationsProvider).when(
       loading: () => const LoadingIndicator(),
-      error: (e, _) => ErrorView(message: e.toString()),
+      error: (e, _) => ErrorView(message: friendlyError(e)),
       data: (handlers) {
         final matching = handlers
             .where((h) => brand.domains.contains(h.domain))
@@ -479,7 +479,7 @@ class _AllIntegrationsPicker extends ConsumerWidget {
         Expanded(
           child: ref.watch(hassIntegrationsProvider).when(
             loading: () => const LoadingIndicator(),
-            error: (e, _) => ErrorView(message: e.toString()),
+            error: (e, _) => ErrorView(message: friendlyError(e)),
             data: (handlers) {
               final filtered = searchQuery.isEmpty
                   ? handlers
@@ -551,7 +551,7 @@ class _EntitiesView extends ConsumerWidget {
         Expanded(
           child: ref.watch(hassEntitiesProvider).when(
             loading: () => const LoadingIndicator(),
-            error: (e, _) => ErrorView(message: e.toString()),
+            error: (e, _) => ErrorView(message: friendlyError(e)),
             data: (entities) {
               if (entities.isEmpty) {
                 return Center(

@@ -152,15 +152,11 @@ class _SceneCard extends ConsumerWidget {
   }
 
   Future<void> _runScene(BuildContext context, WidgetRef ref) async {
-    final result = await ref
-        .read(sceneListProvider(classroomId).notifier)
-        .run(scene.id);
-    if (context.mounted) {
-      if (result == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to run scene')),
-        );
-      } else {
+    try {
+      final result = await ref
+          .read(sceneListProvider(classroomId).notifier)
+          .run(scene.id);
+      if (context.mounted) {
         final msg = result.successCount == result.total
             ? '${result.total} steps completed'
             : '${result.successCount}/${result.total} steps OK';
@@ -170,6 +166,15 @@ class _SceneCard extends ConsumerWidget {
             backgroundColor: result.successCount == result.total
                 ? Colors.green
                 : Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(friendlyError(e)),
+            backgroundColor: Colors.red,
           ),
         );
       }

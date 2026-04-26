@@ -4,6 +4,7 @@ import '../../core/api/client.dart';
 import '../../core/api/endpoints/auth_endpoints.dart';
 import '../../core/api/endpoints/user_endpoints.dart';
 import '../../core/storage/token_storage.dart';
+import '../../core/utils/error_utils.dart';
 import '../models/user.dart';
 
 final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());
@@ -75,7 +76,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(user: response.user);
       return true;
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString());
+      state = state.copyWith(loading: false, error: friendlyError(e));
       return false;
     }
   }
@@ -105,7 +106,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       state = AuthState(user: response.user);
       return true;
     } catch (e) {
-      state = state.copyWith(loading: false, error: e.toString());
+      state = state.copyWith(loading: false, error: friendlyError(e));
       return false;
     }
   }
