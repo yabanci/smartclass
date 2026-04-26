@@ -5,14 +5,13 @@ Backend for smart-classroom management: auth, devices (Tuya/Shelly/Sonoff/Aqara/
 ## Stack
 
 - **Backend:** Go 1.25, chi, pgx, goose, JWT, zap, gorilla/websocket
-- **Frontend:** React 18 + Vite + TypeScript + Tailwind + shadcn/ui (served via nginx)
 - **Mobile:** Flutter 3.41.7 — Android + iOS, Riverpod, go_router, flutter_secure_storage
 - **Infra:** PostgreSQL 16, Docker Compose, MQTT (Mosquitto), Home Assistant
 
 ## Quickstart
 
 ```bash
-make up         # boots all 5 services, waits for healthy
+make up         # boots all services, waits for healthy
 make seed       # creates demo users + classroom + 3 devices + weekly schedule (idempotent)
 make wait       # polls the stack until backend + HA self-check are green (up to 5 min)
 make verify     # one-shot readiness report (exit 0 = OK, 1 = something's red)
@@ -20,18 +19,14 @@ make verify     # one-shot readiness report (exit 0 = OK, 1 = something's red)
 
 `make verify` hits `GET /api/v1/hass/selftest` (admin-auth) and prints a per-check table. Every failing check has a short message telling you where to look (credentials, onboarding, flow_handlers, xiaomi_home install, xiaomi_home startflow decode). The backend also logs one `hass: READY — …` or `hass: DEGRADED — …` banner automatically on every bootstrap so `docker logs smartclass-backend | grep hass:` answers the same question without curl.
 
-Open **http://localhost:3000** and sign in:
+Use the mobile app (or `curl`) to sign in with seeded credentials:
 
 | Role    | Email                   | Password      |
 |---------|-------------------------|---------------|
 | admin   | `admin@smartclass.kz`   | `admin1234`   |
 | teacher | `teacher@smartclass.kz` | `teacher1234` |
 
-The teacher lands on the pre-seeded **Kabinet 101** with three demo devices (one per driver: `generic_http`, `homeassistant`, `smartthings`) and a week of sample lessons. Only the admin can open `/logs`.
-
-To swap in real hardware, edit the device in the UI (or `PATCH /api/v1/devices/<id>`) and replace the placeholder `token`/`deviceId` in its config:
-- **Kitchen Light** — Long-Lived Access Token from Home Assistant at http://localhost:8123
-- **Samsung AC** — Personal Access Token from https://account.smartthings.com/tokens + device UUID from `GET /v1/devices`
+The teacher account has a pre-seeded **Kabinet 101** with three demo devices (one per driver: `generic_http`, `homeassistant`, `smartthings`) and a week of sample lessons.
 
 ### Day-to-day
 
@@ -46,17 +41,16 @@ make e2e        # live 32-step API/websocket test (stack must be running)
 
 ## What's running
 
-5 services, 1 network, 1 command:
+4 services, 1 network, 1 command:
 
 | Service | URL / port | Purpose |
 |---|---|---|
-| **frontend** | http://localhost:3000 | React UI (nginx, proxies `/api/*` and `/api/v1/ws` to backend) |
 | **backend**  | http://localhost:8080 | Go API + WebSocket hub |
 | **postgres** | localhost:5432 | App data + audit log |
 | **homeassistant** | http://localhost:8123 | Universal device translator (Xiaomi / Samsung / Tuya / Aqara / Zigbee / Matter / …) |
 | **mosquitto** | mqtt://localhost:1883 · ws://localhost:9001 | MQTT broker (Tasmota, Zigbee2MQTT, generic IoT) |
 
-Inside the docker network each service reaches the others by its name: backend talks to Home Assistant at `http://homeassistant:8123` and MQTT at `mosquitto:1883`. The frontend proxies `/api/*` and `/api/v1/ws` through nginx to the backend.
+The UI is the Flutter mobile app. Run it with `flutter run -t lib/main_dev.dart` from `mobile/` — it connects to `http://localhost:8080/api/v1` by default.
 
 ### Home Assistant: now driven from our UI
 
@@ -111,7 +105,6 @@ backend/
     server/                 http server wiring + routes
   migrations/               SQL migrations (goose)
   locales/                  i18n bundles
-frontend/                   React 18 + Vite SPA
 mobile/                     Flutter 3.41.7 — Android/iOS
   lib/
     config/                 AppConfig (dev/prod flavors)
@@ -130,7 +123,7 @@ Makefile
 - [x] **Phase 2** — classrooms, devices, devicectl Driver abstraction (generic HTTP), WebSocket hub/broker
 - [x] **Phase 3** — schedule (weekly lessons + overlap + current), scenes (command sequences), sensors (ingestion + history + latest)
 - [x] **Phase 4** — notifications (warning triggers: high/low temp, humidity, device offline), audit log (admin-only), analytics (sensor series, device usage, energy)
-- [x] **Phase 5** — React 18 + Vite + TS + Tailwind + TanStack Query + Zustand + react-i18next (EN/RU/KZ). Mobile-width PWA shell with all screens wired to the backend. Served by nginx in Docker.
+- [x] **Phase 5** — React 18 SPA (removed; superseded by Flutter mobile).
 - [x] **Phase 6** — Flutter 3.41.7 native mobile app (Android/iOS). Riverpod state management, go_router navigation, flutter_secure_storage (Keychain/EncryptedSharedPreferences), WebSocket real-time updates, offline banner, i18n EN/RU/KK, dev/prod flavors, FCM stub. GitHub Actions CI: analyze + test + release APK.
 
 ## Device drivers

@@ -5,7 +5,7 @@ up:
 	docker compose up --build -d
 	@echo ""
 	@echo "Stack starting. Tail logs with 'make logs', seed demo data with 'make seed'."
-	@echo "Frontend: http://localhost:3000   HA: http://localhost:8123   API: http://localhost:8080"
+	@echo "API: http://localhost:8080   HA: http://localhost:8123   MQTT: localhost:1883"
 
 down:
 	docker compose down
