@@ -18,4 +18,5 @@ type Repository interface {
 	GetByEmail(ctx context.Context, email string) (*User, error)
 	Update(ctx context.Context, u *User) error
 	UpdatePassword(ctx context.Context, id uuid.UUID, hash string) error
+	UpdateFCMToken(ctx context.Context, id uuid.UUID, token string) error
 }
