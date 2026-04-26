@@ -4,60 +4,50 @@ import 'package:smartclass/core/connection/connection_mode.dart';
 import 'package:smartclass/core/connection/resolver.dart';
 
 void main() {
-  setUp(() {
-    // Reset shared preferences for each test
-    SharedPreferences.setMockInitialValues({});
-  });
+  setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('ConnectionResolver', () {
-    test('returns remote mode when no localUrl is set', () async {
-      SharedPreferences.setMockInitialValues({});
-
-      final resolver = ConnectionResolver.instance;
-      final state = await resolver.resolve();
-
-      // Without a local URL, should fall back to remote
+    test('remote mode when no localUrl', () async {
+      final state = await ConnectionResolver.instance.resolve();
       expect(state.mode, ConnectionMode.remote);
-    });
-
-    test('returns remote mode when localUrl is set but unreachable', () async {
-      // Set a URL that definitely won't respond within 600ms
-      SharedPreferences.setMockInitialValues({
-        'local_server_url': 'http://192.168.99.99:9999',
-      });
-
-      final resolver = ConnectionResolver.instance;
-      final state = await resolver.resolve();
-
-      // The ping will fail (no server at that address), so remote mode
-      expect(state.mode, ConnectionMode.remote);
-    });
-
-    test('connection state isLocal is false for remote mode', () {
-      const state = ConnectionState(
-        mode: ConnectionMode.remote,
-        baseUrl: 'http://localhost:8080/api/v1',
-      );
       expect(state.isLocal, isFalse);
     });
 
-    test('connection state isLocal is true for local mode', () {
-      const state = ConnectionState(
-        mode: ConnectionMode.local,
-        baseUrl: 'http://192.168.1.100:8080/api/v1',
-      );
-      expect(state.isLocal, isTrue);
+    test('remote mode when localUrl is unreachable', () async {
+      SharedPreferences.setMockInitialValues({
+        'local_server_url': 'http://192.168.99.99:9999',
+      });
+      final state = await ConnectionResolver.instance.resolve();
+      expect(state.mode, ConnectionMode.remote);
     });
 
-    test('setLocalUrl stores the URL in SharedPreferences', () async {
+    test('setLocalUrl persists to SharedPreferences', () async {
+      await ConnectionResolver.instance
+          .setLocalUrl('http://192.168.1.100:8080');
+      final stored = await ConnectionResolver.instance.getLocalUrl();
+      expect(stored, 'http://192.168.1.100:8080');
+    });
+
+    test('ConnectionState.isLocal true for local mode', () {
+      const s = ConnectionState(
+          mode: ConnectionMode.local,
+          baseUrl: 'http://192.168.1.100:8080/api/v1');
+      expect(s.isLocal, isTrue);
+    });
+
+    test('ConnectionState.isLocal false for remote mode', () {
+      const s = ConnectionState(
+          mode: ConnectionMode.remote,
+          baseUrl: 'http://localhost:8080/api/v1');
+      expect(s.isLocal, isFalse);
+    });
+
+    test('wsBaseUrl converts http to ws', () {
       SharedPreferences.setMockInitialValues({});
-
       final resolver = ConnectionResolver.instance;
-      // Setting to a known-unreachable URL to avoid real network calls
-      await resolver.setLocalUrl('http://192.168.99.99:9999');
-
-      final stored = await resolver.getLocalUrl();
-      expect(stored, 'http://192.168.99.99:9999');
+      // default remote URL
+      expect(resolver.wsBaseUrl, contains('ws://'));
+      expect(resolver.wsBaseUrl, isNot(contains('http://')));
     });
   });
 }

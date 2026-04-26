@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app.dart';
 import '../../core/i18n/app_localizations.dart';
+import '../../core/utils/error_utils.dart';
 import '../../shared/models/device.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../shared/widgets/app_card.dart';
@@ -67,7 +68,7 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(e.toString().replaceFirst('ApiException', '').trim()),
+            content: Text(friendlyError(e)),
             backgroundColor: kDanger,
           ),
         );
