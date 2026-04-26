@@ -9,9 +9,15 @@ class ApiEnvelope<T> {
     Map<String, dynamic> json,
     T Function(dynamic) fromData,
   ) {
-    final ok = json['ok'] as bool? ?? false;
-    if (!ok) {
-      return ApiEnvelope(ok: false, error: json['error'] as String?);
+    final errorObj = json['error'];
+    if (errorObj != null) {
+      String? message;
+      if (errorObj is Map<String, dynamic>) {
+        message = errorObj['message'] as String?;
+      } else if (errorObj is String) {
+        message = errorObj;
+      }
+      return ApiEnvelope(ok: false, error: message ?? 'Unknown error');
     }
     return ApiEnvelope(ok: true, data: fromData(json['data']));
   }
