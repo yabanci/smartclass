@@ -31,15 +31,22 @@ import (
 
 const Name = "homeassistant"
 
-type Driver struct {
-	client *http.Client
+// TokenProvider supplies a fresh HA access token at call time so the driver
+// never uses a stale snapshot stored in the device config row.
+type TokenProvider interface {
+	CurrentToken(ctx context.Context) (string, error)
 }
 
-func New(client *http.Client) *Driver {
+type Driver struct {
+	client   *http.Client
+	provider TokenProvider
+}
+
+func New(client *http.Client, provider TokenProvider) *Driver {
 	if client == nil {
 		client = &http.Client{Timeout: 10 * time.Second}
 	}
-	return &Driver{client: client}
+	return &Driver{client: client, provider: provider}
 }
 
 func (d *Driver) Name() string { return Name }
@@ -59,13 +66,31 @@ func parseConfig(raw map[string]any) (*config, error) {
 	if err := json.Unmarshal(b, c); err != nil {
 		return nil, fmt.Errorf("%w: %v", devicectl.ErrInvalidConfig, err)
 	}
-	if c.BaseURL == "" || c.Token == "" || c.EntityID == "" {
-		return nil, fmt.Errorf("%w: baseUrl, token and entityId required", devicectl.ErrInvalidConfig)
+	if c.BaseURL == "" || c.EntityID == "" {
+		return nil, fmt.Errorf("%w: baseUrl and entityId required", devicectl.ErrInvalidConfig)
 	}
 	if !strings.Contains(c.EntityID, ".") {
 		return nil, fmt.Errorf("%w: entityId must be of the form <domain>.<object>", devicectl.ErrInvalidConfig)
 	}
 	return c, nil
+}
+
+// resolveToken returns a fresh token from the provider when available, falling
+// back to the token baked into the device config row. Returns ErrInvalidConfig
+// when neither source has a token (catches drivers registered without a
+// provider AND old config rows that predate the provider migration).
+func (d *Driver) resolveToken(ctx context.Context, cfg *config) (string, error) {
+	if d.provider != nil {
+		tok, err := d.provider.CurrentToken(ctx)
+		if err != nil {
+			return "", err
+		}
+		return tok, nil
+	}
+	if cfg.Token == "" {
+		return "", fmt.Errorf("%w: no token and no provider configured", devicectl.ErrInvalidConfig)
+	}
+	return cfg.Token, nil
 }
 
 type serviceCall struct {
@@ -127,6 +152,10 @@ func (d *Driver) Execute(ctx context.Context, t devicectl.Target, cmd devicectl.
 	if err != nil {
 		return devicectl.Result{}, err
 	}
+	token, err := d.resolveToken(ctx, cfg)
+	if err != nil {
+		return devicectl.Result{}, err
+	}
 	domain := entityDomain(cfg.EntityID)
 	sc, err := mapCommand(cmd, domain)
 	if err != nil {
@@ -136,7 +165,7 @@ func (d *Driver) Execute(ctx context.Context, t devicectl.Target, cmd devicectl.
 	for k, v := range sc.extra {
 		body[k] = v
 	}
-	if err := d.callService(ctx, cfg, sc.domain, sc.service, body); err != nil {
+	if err := d.callService(ctx, cfg.BaseURL, token, sc.domain, sc.service, body); err != nil {
 		return devicectl.Result{Online: false}, err
 	}
 	return devicectl.Result{
@@ -151,12 +180,16 @@ func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Resul
 	if err != nil {
 		return devicectl.Result{}, err
 	}
+	token, err := d.resolveToken(ctx, cfg)
+	if err != nil {
+		return devicectl.Result{Online: false}, err
+	}
 	url := strings.TrimRight(cfg.BaseURL, "/") + "/api/states/" + cfg.EntityID
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return devicectl.Result{Online: false}, fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := d.client.Do(req)
 	if err != nil {
 		return devicectl.Result{Online: false}, fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
@@ -181,17 +214,17 @@ func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Resul
 	}, nil
 }
 
-func (d *Driver) callService(ctx context.Context, cfg *config, domain, service string, body map[string]any) error {
+func (d *Driver) callService(ctx context.Context, baseURL, token, domain, service string, body map[string]any) error {
 	bodyJSON, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("%w: %v", devicectl.ErrInvalidConfig, err)
 	}
-	url := strings.TrimRight(cfg.BaseURL, "/") + "/api/services/" + domain + "/" + service
+	url := strings.TrimRight(baseURL, "/") + "/api/services/" + domain + "/" + service
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(bodyJSON))
 	if err != nil {
 		return fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
 	}
-	req.Header.Set("Authorization", "Bearer "+cfg.Token)
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := d.client.Do(req)
 	if err != nil {

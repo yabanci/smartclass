@@ -82,9 +82,7 @@ func main() {
 
 	factory := devicectl.NewFactory()
 	factory.Register(generic.New(nil))
-	factory.Register(homeassistant.New(nil))
 	factory.Register(smartthings.New(nil))
-	logger.Info("device drivers registered", zap.Strings("drivers", factory.Names()))
 
 	hub := ws.NewHub(logger)
 	var broker realtime.Broker = hub
@@ -114,6 +112,8 @@ func main() {
 		OwnerPassword: cfg.Hass.OwnerPassword,
 		Language:      cfg.Hass.Language,
 	}, hassRepo, hassClient, deviceSvc, logger)
+	factory.Register(homeassistant.New(nil, hassSvc))
+	logger.Info("device drivers registered", zap.Strings("drivers", factory.Names()))
 	go hassSvc.BootstrapWithRetry(ctx)
 
 	authH := auth.NewHandler(authSvc, valid, bundle)

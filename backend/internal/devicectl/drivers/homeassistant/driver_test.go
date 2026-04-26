@@ -51,7 +51,7 @@ func fakeHA(t *testing.T) (*httptest.Server, *struct {
 
 func TestExecute_Switch_On(t *testing.T) {
 	srv, rec := fakeHA(t)
-	d := homeassistant.New(srv.Client())
+	d := homeassistant.New(srv.Client(), nil)
 	target := devicectl.Target{Config: map[string]any{
 		"baseUrl":  srv.URL,
 		"token":    "xyz",
@@ -69,7 +69,7 @@ func TestExecute_Switch_On(t *testing.T) {
 
 func TestExecute_Cover_Open(t *testing.T) {
 	srv, rec := fakeHA(t)
-	d := homeassistant.New(srv.Client())
+	d := homeassistant.New(srv.Client(), nil)
 	_, err := d.Execute(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl":  srv.URL,
 		"token":    "xyz",
@@ -81,7 +81,7 @@ func TestExecute_Cover_Open(t *testing.T) {
 
 func TestExecute_Light_SetBrightness(t *testing.T) {
 	srv, rec := fakeHA(t)
-	d := homeassistant.New(srv.Client())
+	d := homeassistant.New(srv.Client(), nil)
 	_, err := d.Execute(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl":  srv.URL,
 		"token":    "xyz",
@@ -93,7 +93,7 @@ func TestExecute_Light_SetBrightness(t *testing.T) {
 }
 
 func TestExecute_InvalidConfig(t *testing.T) {
-	d := homeassistant.New(nil)
+	d := homeassistant.New(nil, nil)
 	_, err := d.Execute(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl": "http://x", "token": "", "entityId": "switch.x",
 	}}, devicectl.Command{Type: devicectl.CmdOn})
@@ -101,7 +101,7 @@ func TestExecute_InvalidConfig(t *testing.T) {
 }
 
 func TestExecute_EntityIdMustHaveDomain(t *testing.T) {
-	d := homeassistant.New(nil)
+	d := homeassistant.New(nil, nil)
 	_, err := d.Execute(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl": "http://x", "token": "t", "entityId": "no_domain",
 	}}, devicectl.Command{Type: devicectl.CmdOn})
@@ -110,7 +110,7 @@ func TestExecute_EntityIdMustHaveDomain(t *testing.T) {
 
 func TestExecute_Unsupported_SetValue_ForSwitch(t *testing.T) {
 	srv, _ := fakeHA(t)
-	d := homeassistant.New(srv.Client())
+	d := homeassistant.New(srv.Client(), nil)
 	_, err := d.Execute(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl": srv.URL, "token": "t", "entityId": "switch.x",
 	}}, devicectl.Command{Type: devicectl.CmdSetValue, Value: 50})
@@ -123,7 +123,7 @@ func TestExecute_5xxPropagatesUnavailable(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	d := homeassistant.New(srv.Client())
+	d := homeassistant.New(srv.Client(), nil)
 	_, err := d.Execute(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl": srv.URL, "token": "t", "entityId": "switch.x",
 	}}, devicectl.Command{Type: devicectl.CmdOn})
@@ -132,7 +132,7 @@ func TestExecute_5xxPropagatesUnavailable(t *testing.T) {
 
 func TestProbe(t *testing.T) {
 	srv, _ := fakeHA(t)
-	d := homeassistant.New(srv.Client())
+	d := homeassistant.New(srv.Client(), nil)
 	res, err := d.Probe(context.Background(), devicectl.Target{Config: map[string]any{
 		"baseUrl": srv.URL, "token": "t", "entityId": "switch.x",
 	}})

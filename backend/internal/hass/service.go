@@ -365,6 +365,16 @@ func (s *Service) logSelfCheck(ctx context.Context) {
 	s.logger.Warn("hass: DEGRADED — run `curl http://localhost:8080/api/v1/hass/selftest` for full report", fields...)
 }
 
+// CurrentToken implements homeassistant.TokenProvider. It returns a fresh,
+// auto-refreshed HA access token so device drivers never use a stale snapshot.
+func (s *Service) CurrentToken(ctx context.Context) (string, error) {
+	c, err := s.Credentials(ctx)
+	if err != nil {
+		return "", err
+	}
+	return c.Token, nil
+}
+
 func (s *Service) Status(ctx context.Context) Status {
 	c, err := s.Credentials(ctx)
 	if err != nil {
@@ -579,8 +589,10 @@ func (s *Service) Adopt(ctx context.Context, p classroom.Principal, in AdoptInpu
 		Driver:      homeassistant.Name,
 		Config: map[string]any{
 			"baseUrl":  c.BaseURL,
-			"token":    c.Token,
 			"entityId": in.EntityID,
+			// token intentionally omitted — driver fetches a fresh token via
+			// hass.Service.CurrentToken() at every Execute/Probe call, so stored
+			// device rows never hold a stale access token.
 		},
 	})
 }
