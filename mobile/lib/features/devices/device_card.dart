@@ -80,7 +80,7 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final device = widget.device;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOn = device.isOn;
@@ -98,7 +98,7 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: style.tint.withOpacity(isDark ? 0.2 : 0.1),
+                  color: style.tint.withValues(alpha: isDark ? 0.2 : 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
@@ -162,7 +162,7 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
               // Edit / delete
               IconButton(
                 icon: Icon(Icons.edit_outlined, size: 16,
-                    color: kPrimary.withOpacity(0.8)),
+                    color: kPrimary.withValues(alpha: 0.8)),
                 onPressed: widget.onEdit,
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.all(6),
@@ -320,9 +320,9 @@ class _SliderControlState extends State<_SliderControl> {
             data: SliderThemeData(
               trackHeight: 6,
               activeTrackColor: widget.color,
-              inactiveTrackColor: widget.color.withOpacity(0.2),
+              inactiveTrackColor: widget.color.withValues(alpha: 0.2),
               thumbColor: widget.color,
-              overlayColor: widget.color.withOpacity(0.1),
+              overlayColor: widget.color.withValues(alpha: 0.1),
               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 10),
             ),
             child: Slider(

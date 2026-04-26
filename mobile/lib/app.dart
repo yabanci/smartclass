@@ -59,24 +59,24 @@ class SmartClassApp extends ConsumerWidget {
       brightness: brightness,
       primary: kPrimary,
       onPrimary: Colors.white,
-      primaryContainer: kPrimary.withOpacity(0.12),
+      primaryContainer: kPrimary.withValues(alpha: 0.12),
       onPrimaryContainer: kPrimary,
       secondary: kAccent,
       onSecondary: Colors.white,
-      secondaryContainer: kAccent.withOpacity(0.12),
+      secondaryContainer: kAccent.withValues(alpha: 0.12),
       onSecondaryContainer: kAccent,
       tertiary: kSecondary,
       onTertiary: Colors.white,
-      tertiaryContainer: kSecondary.withOpacity(0.12),
+      tertiaryContainer: kSecondary.withValues(alpha: 0.12),
       onTertiaryContainer: kSecondary,
       error: kDanger,
       onError: Colors.white,
-      errorContainer: kDanger.withOpacity(0.12),
+      errorContainer: kDanger.withValues(alpha: 0.12),
       onErrorContainer: kDanger,
       surface: isDark ? kDarkCard : Colors.white,
       onSurface: isDark ? Colors.white : const Color(0xFF1e293b),
       surfaceContainerHighest: isDark ? kDarkSurface : kSurface,
-      outline: isDark ? Colors.white12 : const Color(0xFF1e3a8a).withOpacity(0.1),
+      outline: isDark ? Colors.white12 : const Color(0xFF1e3a8a).withValues(alpha: 0.1),
     );
 
     final textTheme = GoogleFonts.nunitoTextTheme(
@@ -110,29 +110,29 @@ class SmartClassApp extends ConsumerWidget {
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(
             color: isDark
-                ? Colors.white.withOpacity(0.08)
-                : const Color(0xFF1e3a8a).withOpacity(0.08),
+                ? Colors.white.withValues(alpha: 0.08)
+                : const Color(0xFF1e3a8a).withValues(alpha: 0.08),
           ),
         ),
-        shadowColor: kPrimary.withOpacity(0.08),
+        shadowColor: kPrimary.withValues(alpha: 0.08),
         surfaceTintColor: Colors.transparent,
         margin: EdgeInsets.zero,
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: isDark
-            ? const Color(0xFF0f3460).withOpacity(0.4)
-            : Colors.white.withOpacity(0.5),
+            ? const Color(0xFF0f3460).withValues(alpha: 0.4)
+            : Colors.white.withValues(alpha: 0.5),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: const Color(0xFF1e3a8a).withOpacity(0.1),
+            color: const Color(0xFF1e3a8a).withValues(alpha: 0.1),
           ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide: BorderSide(
-            color: const Color(0xFF1e3a8a).withOpacity(0.1),
+            color: const Color(0xFF1e3a8a).withValues(alpha: 0.1),
           ),
         ),
         focusedBorder: OutlineInputBorder(
@@ -229,7 +229,7 @@ class SmartClassApp extends ConsumerWidget {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: isDark ? kDarkCard : Colors.white,
-        indicatorColor: kPrimary.withOpacity(0.12),
+        indicatorColor: kPrimary.withValues(alpha: 0.12),
         iconTheme: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
             return const IconThemeData(color: kPrimary, size: 22);
@@ -259,7 +259,7 @@ class SmartClassApp extends ConsumerWidget {
         surfaceTintColor: Colors.transparent,
       ),
       dividerTheme: DividerThemeData(
-        color: isDark ? Colors.white12 : const Color(0xFF1e3a8a).withOpacity(0.08),
+        color: isDark ? Colors.white12 : const Color(0xFF1e3a8a).withValues(alpha: 0.08),
         thickness: 1,
         space: 1,
       ),

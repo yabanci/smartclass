@@ -76,7 +76,7 @@ class SceneEndpoints {
 
   Future<void> delete(String id) => _client.unwrap(
         _client.delete('/scenes/$id'),
-        (_) => null,
+        (_) {},
       );
 
   Future<SceneRunResult> run(String id) => _client.unwrap(

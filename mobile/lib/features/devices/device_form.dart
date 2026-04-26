@@ -70,7 +70,7 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 16,

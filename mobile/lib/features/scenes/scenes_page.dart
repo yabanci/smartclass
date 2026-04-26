@@ -16,7 +16,7 @@ class ScenesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final classroom = ref.watch(activeClassroomProvider);
 
     return Scaffold(
@@ -50,7 +50,7 @@ class _SceneList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final scenesAsync = ref.watch(sceneListProvider(classroomId));
 
     return scenesAsync.when(
@@ -95,7 +95,7 @@ class _SceneCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Card(
       elevation: 0,
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
@@ -182,7 +182,7 @@ class _SceneCard extends ConsumerWidget {
   }
 
   Future<void> _confirmDelete(BuildContext context, WidgetRef ref) async {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -270,7 +270,7 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final devicesAsync =
         ref.watch(deviceListProvider(widget.classroomId));
     final devices = devicesAsync.valueOrNull ?? [];
@@ -314,8 +314,8 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text('Steps',
-                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Steps',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     icon: const Icon(Icons.add, size: 16),
                     label: Text(l.scenesAddStep),

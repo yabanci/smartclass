@@ -19,7 +19,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final classroomsAsync = ref.watch(classroomListProvider);
     final classroom = ref.watch(activeClassroomProvider);
 
@@ -85,7 +85,7 @@ class HomePage extends ConsumerWidget {
               color: Theme.of(context).scaffoldBackgroundColor,
               border: Border(
                 bottom: BorderSide(
-                  color: kPrimary.withOpacity(0.08),
+                  color: kPrimary.withValues(alpha: 0.08),
                 ),
               ),
             ),
@@ -119,7 +119,7 @@ class HomePage extends ConsumerWidget {
   }
 
   Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final ctrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -171,13 +171,13 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.meeting_room_outlined, size: 72,
-              color: kPrimary.withOpacity(0.3)),
+              color: kPrimary.withValues(alpha: 0.3)),
           const SizedBox(height: 16),
           Text(l.homeNoClassroom,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -202,7 +202,7 @@ class _ClassroomBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final devicesAsync = ref.watch(deviceListProvider(classroom.id));
     final currentLessonAsync = ref.watch(currentLessonProvider(classroom.id));
     final sensorState = ref.watch(sensorNotifierProvider(classroom.id));
@@ -230,7 +230,7 @@ class _ClassroomBody extends ConsumerWidget {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: kPrimary.withOpacity(0.1),
+                              color: kPrimary.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(Icons.devices,
@@ -275,7 +275,7 @@ class _ClassroomBody extends ConsumerWidget {
                             width: 32,
                             height: 32,
                             decoration: BoxDecoration(
-                              color: kAccent.withOpacity(0.1),
+                              color: kAccent.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: const Icon(Icons.bolt,
@@ -390,7 +390,7 @@ class _ClassroomBody extends ConsumerWidget {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.calendar_today,
+                    const Icon(Icons.calendar_today,
                         color: kPrimary, size: 16),
                     const SizedBox(width: 8),
                     Text(l.homeCurrentLesson,
@@ -404,9 +404,9 @@ class _ClassroomBody extends ConsumerWidget {
                       ? Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: kAccent.withOpacity(0.08),
+                            color: kAccent.withValues(alpha: 0.08),
                             borderRadius: BorderRadius.circular(12),
-                            border: Border(
+                            border: const Border(
                               left: BorderSide(
                                   color: kAccent, width: 4),
                             ),
@@ -520,7 +520,7 @@ class _QuickBtn extends ConsumerWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.12),
+          color: color.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(

@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:smartclass/features/auth/login_page.dart';
-import 'package:smartclass/shared/providers/auth_provider.dart';
 
 /// Integration test: app starts → shows login → enter credentials → tap login.
 /// Uses mock providers, not a real backend.

@@ -107,7 +107,7 @@ class _ScaffoldWithNavBar extends ConsumerWidget {
 class _BottomNav extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final location = GoRouterState.of(context).matchedLocation;
     final unreadAsync = ref.watch(unreadCountProvider);
     final unread = unreadAsync.valueOrNull ?? 0;

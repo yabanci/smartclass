@@ -23,11 +23,11 @@ class NotificationEndpoints {
 
   Future<void> markRead(String id) => _client.unwrap(
         _client.post('/notifications/$id/read'),
-        (_) => null,
+        (_) {},
       );
 
   Future<void> markAllRead() => _client.unwrap(
         _client.post('/notifications/read-all'),
-        (_) => null,
+        (_) {},
       );
 }

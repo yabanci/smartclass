@@ -74,7 +74,7 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final days = [
       (1, l.scheduleDayMon),
       (2, l.scheduleDayTue),

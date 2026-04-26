@@ -12,7 +12,7 @@ class NotificationsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final notificationsAsync = ref.watch(notificationListProvider);
 
     return Scaffold(
@@ -81,7 +81,7 @@ class NotificationsPage extends ConsumerWidget {
                       : Theme.of(context)
                           .colorScheme
                           .primaryContainer
-                          .withOpacity(0.2),
+                          .withValues(alpha: 0.2),
                 );
               },
             ),

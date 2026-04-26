@@ -19,7 +19,7 @@ class DevicesPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final classroom = ref.watch(activeClassroomProvider);
 
     return Scaffold(
@@ -65,7 +65,7 @@ class _DeviceList extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final devicesAsync = ref.watch(deviceListProvider(classroomId));
 
     return devicesAsync.when(
@@ -139,7 +139,7 @@ class _DeviceList extends ConsumerWidget {
     WidgetRef ref,
     String deviceId,
   ) async {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -244,7 +244,7 @@ class _EditDeviceSheetState extends ConsumerState<_EditDeviceSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Padding(
       padding: EdgeInsets.only(
         left: 16,

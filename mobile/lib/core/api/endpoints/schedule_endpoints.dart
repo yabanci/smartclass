@@ -57,6 +57,6 @@ class ScheduleEndpoints {
 
   Future<void> delete(String id) => _client.unwrap(
         _client.delete('/schedule/$id'),
-        (_) => null,
+        (_) {},
       );
 }

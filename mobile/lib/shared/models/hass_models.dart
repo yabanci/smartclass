@@ -87,9 +87,10 @@ class HassSchemaField {
       if (list.isEmpty) return [];
       final first = list.first;
       if (first is List) {
-        return list
-            .map((e) => ((e as List)[0].toString(), (e as List)[1].toString()))
-            .toList();
+        return list.map((e) {
+          final pair = e as List;
+          return (pair[0].toString(), pair[1].toString());
+        }).toList();
       }
       if (first is Map) {
         return list.map((e) {

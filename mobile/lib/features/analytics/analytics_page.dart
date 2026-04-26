@@ -26,7 +26,7 @@ class _AnalyticsPageState extends ConsumerState<AnalyticsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final classroom = ref.watch(activeClassroomProvider);
 
     return Scaffold(
@@ -67,7 +67,7 @@ class _AnalyticsBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final from =
         DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
     final query = AnalyticsQuery(

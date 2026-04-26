@@ -24,25 +24,25 @@ class AppCard extends StatelessWidget {
 
     final bg = color ??
         (isDark
-            ? kDarkCard.withOpacity(glass ? 0.85 : 1.0)
-            : Colors.white.withOpacity(glass ? 0.75 : 1.0));
+            ? kDarkCard.withValues(alpha: glass ? 0.85 : 1.0)
+            : Colors.white.withValues(alpha: glass ? 0.75 : 1.0));
 
     final border = Border.all(
       color: isDark
-          ? Colors.white.withOpacity(0.08)
-          : const Color(0xFF1e3a8a).withOpacity(0.08),
+          ? Colors.white.withValues(alpha: 0.08)
+          : const Color(0xFF1e3a8a).withValues(alpha: 0.08),
       width: 1,
     );
 
     final shadow = [
       BoxShadow(
-        color: kPrimary.withOpacity(isDark ? 0.0 : 0.07),
+        color: kPrimary.withValues(alpha: isDark ? 0.0 : 0.07),
         blurRadius: 20,
         offset: const Offset(0, 4),
       ),
       if (isDark)
         BoxShadow(
-          color: Colors.black.withOpacity(0.3),
+          color: Colors.black.withValues(alpha: 0.3),
           blurRadius: 20,
           offset: const Offset(0, 4),
         ),
@@ -89,7 +89,7 @@ class TintCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: tint.withOpacity(0.1),
+        color: tint.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       padding: padding ?? const EdgeInsets.all(8),

@@ -35,11 +35,11 @@ class UserEndpoints {
           'currentPassword': currentPassword,
           'newPassword': newPassword,
         }),
-        (_) => null,
+        (_) {},
       );
 
   Future<void> saveFcmToken(String token) => _client.unwrap(
         _client.post('/users/me/fcm-token', data: {'token': token}),
-        (_) => null,
+        (_) {},
       );
 }

@@ -36,7 +36,7 @@ class HassEndpoints {
 
   Future<void> deleteFlow(String flowId) => _client.unwrap(
         _client.delete('/hass/flows/$flowId'),
-        (_) => null,
+        (_) {},
       );
 
   Future<List<HassEntity>> entities() => _client.unwrap(

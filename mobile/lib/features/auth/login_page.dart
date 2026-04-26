@@ -40,7 +40,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final loading = ref.watch(authProvider).loading;
     final theme = Theme.of(context);
 

@@ -42,7 +42,7 @@ class DeviceEndpoints {
 
   Future<void> delete(String id) => _client.unwrap(
         _client.delete('/devices/$id'),
-        (_) => null,
+        (_) {},
       );
 
   Future<Device> sendCommand(

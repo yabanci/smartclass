@@ -31,7 +31,6 @@ class IotWizardPage extends ConsumerStatefulWidget {
 class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   _WizardState _state = _WizardState.home;
   BrandInfo? _selectedBrand;
-  HassFlowHandler? _selectedHandler;
   HassFlowStep? _currentStep;
   String? _flowId;
   bool _loading = false;
@@ -112,7 +111,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
 
   Future<void> _adoptEntity(HassEntity entity) async {
     if (!mounted) return;
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     final classroom = ref.read(activeClassroomProvider);
     if (classroom == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -151,7 +150,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
 
   @override
   Widget build(BuildContext context) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Scaffold(
       appBar: AppBar(
         title: Text(l.hassTitle),
@@ -188,7 +187,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   }
 
   Widget _buildTokenSetup(HassStatus status) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
@@ -245,7 +244,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
   }
 
   Widget _buildWizardContent() {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     switch (_state) {
       case _WizardState.home:
       case _WizardState.pickBrand:
@@ -389,7 +388,7 @@ class _IntegrationPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return ref.watch(hassIntegrationsProvider).when(
       loading: () => const LoadingIndicator(),
       error: (e, _) => ErrorView(message: friendlyError(e)),
@@ -461,7 +460,7 @@ class _AllIntegrationsPicker extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Column(
       children: [
         Padding(
@@ -535,7 +534,7 @@ class _EntitiesView extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -577,8 +576,8 @@ class _EntitiesView extends ConsumerWidget {
                     child: ListTile(
                       leading: CircleAvatar(
                         backgroundColor: entity.online
-                            ? Colors.green.withOpacity(0.2)
-                            : Colors.grey.withOpacity(0.2),
+                            ? Colors.green.withValues(alpha: 0.2)
+                            : Colors.grey.withValues(alpha: 0.2),
                         child: Icon(
                           entity.online
                               ? Icons.check_circle_outline

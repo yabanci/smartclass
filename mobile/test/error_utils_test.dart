@@ -10,7 +10,6 @@ void main() {
     });
 
     test('returns server error with code for DioException', () {
-      final dio = Dio();
       final response = Response<dynamic>(
         requestOptions: RequestOptions(path: '/test'),
         statusCode: 502,

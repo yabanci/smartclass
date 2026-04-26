@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../core/api/endpoints/classroom_endpoints.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../core/utils/error_utils.dart';
-import '../providers/auth_provider.dart';
 import '../providers/classroom_provider.dart';
 
 class ClassroomPicker extends ConsumerWidget {
@@ -14,7 +12,7 @@ class ClassroomPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final classroomsAsync = ref.watch(classroomListProvider);
     final active = ref.watch(activeClassroomProvider);
-    final l = AppLocalizations.of(context)!;
+    final l = AppLocalizations.of(context);
 
     return classroomsAsync.when(
       loading: () => const SizedBox(

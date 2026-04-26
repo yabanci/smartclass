@@ -35,6 +35,6 @@ class ClassroomEndpoints {
 
   Future<void> delete(String id) => _client.unwrap(
         _client.delete('/classrooms/$id'),
-        (_) => null,
+        (_) {},
       );
 }
