@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/i18n/app_localizations.dart';
+import '../../core/utils/error_utils.dart';
 import '../../shared/models/hass_models.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/hass_provider.dart';
@@ -44,67 +45,57 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
     super.dispose();
   }
 
+  void _safeSetState(VoidCallback fn) {
+    if (mounted) setState(fn);
+  }
+
   Future<void> _saveToken() async {
     if (_tokenCtrl.text.isEmpty) return;
-    setState(() => _loading = true);
+    _safeSetState(() => _loading = true);
     try {
-      await ref
-          .read(hassEndpointsProvider)
-          .saveToken(_tokenCtrl.text.trim());
+      await ref.read(hassEndpointsProvider).saveToken(_tokenCtrl.text.trim());
       ref.invalidate(hassStatusProvider);
-      setState(() => _state = _WizardState.pickBrand);
+      _safeSetState(() => _state = _WizardState.pickBrand);
     } catch (e) {
-      setState(() => _error = e.toString());
+      _safeSetState(() => _error = friendlyError(e));
     } finally {
-      setState(() => _loading = false);
+      _safeSetState(() => _loading = false);
     }
   }
 
   Future<void> _startFlow(String handler) async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    _safeSetState(() { _loading = true; _error = null; });
     try {
-      final step =
-          await ref.read(hassEndpointsProvider).startFlow(handler);
+      final step = await ref.read(hassEndpointsProvider).startFlow(handler);
       _flowId = step.flowId;
-      setState(() {
-        _currentStep = step;
-        _state = _WizardState.wizard;
-      });
+      _safeSetState(() { _currentStep = step; _state = _WizardState.wizard; });
     } catch (e) {
-      setState(() => _error = e.toString());
+      _safeSetState(() => _error = friendlyError(e));
     } finally {
-      setState(() => _loading = false);
+      _safeSetState(() => _loading = false);
     }
   }
 
   Future<void> _submitStep(Map<String, dynamic> data) async {
     final flowId = _flowId;
     if (flowId == null) return;
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    _safeSetState(() { _loading = true; _error = null; });
     try {
-      final step =
-          await ref.read(hassEndpointsProvider).submitStep(flowId, data);
+      final step = await ref.read(hassEndpointsProvider).submitStep(flowId, data);
       if (step.type == 'create_entry') {
-        // Move to entities list
         ref.invalidate(hassEntitiesProvider);
-        setState(() {
+        _safeSetState(() {
           _state = _WizardState.entities;
           _currentStep = null;
           _flowId = null;
         });
       } else {
-        setState(() => _currentStep = step);
+        _safeSetState(() => _currentStep = step);
       }
     } catch (e) {
-      setState(() => _error = e.toString());
+      _safeSetState(() => _error = friendlyError(e));
     } finally {
-      setState(() => _loading = false);
+      _safeSetState(() => _loading = false);
     }
   }
 
@@ -116,13 +107,11 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
       } catch (_) {}
       _flowId = null;
     }
-    setState(() {
-      _currentStep = null;
-      _state = _WizardState.pickBrand;
-    });
+    _safeSetState(() { _currentStep = null; _state = _WizardState.pickBrand; });
   }
 
   Future<void> _adoptEntity(HassEntity entity) async {
+    if (!mounted) return;
     final l = AppLocalizations.of(context)!;
     final classroom = ref.read(activeClassroomProvider);
     if (classroom == null) {
@@ -131,7 +120,7 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
       );
       return;
     }
-    setState(() => _loading = true);
+    _safeSetState(() => _loading = true);
     try {
       await ref.read(hassEndpointsProvider).adopt(
             entityId: entity.entityId,
@@ -142,23 +131,21 @@ class _IotWizardPageState extends ConsumerState<IotWizardPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              entity.online
-                  ? l.hassVerifyOk(entity.state)
-                  : l.hassVerifyOffline,
-            ),
-            backgroundColor:
-                entity.online ? Colors.green : Colors.orange,
+            content: Text(entity.online
+                ? l.hassVerifyOk(entity.state)
+                : l.hassVerifyOffline),
+            backgroundColor: entity.online ? Colors.green : Colors.orange,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(friendlyError(e)), backgroundColor: Colors.red),
+        );
       }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      _safeSetState(() => _loading = false);
     }
   }
 

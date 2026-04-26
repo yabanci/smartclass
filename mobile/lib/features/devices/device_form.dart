@@ -1,3 +1,4 @@
+import '../../core/utils/error_utils.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -59,7 +60,7 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyError(e)), backgroundColor: Colors.red),
         );
       }
     } finally {

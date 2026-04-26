@@ -1,3 +1,4 @@
+import '../../core/utils/error_utils.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -70,7 +71,7 @@ class _DeviceList extends ConsumerWidget {
     return devicesAsync.when(
       loading: () => const LoadingIndicator(),
       error: (e, _) => ErrorView(
-        message: e.toString(),
+        message: friendlyError(e),
         onRetry: () =>
             ref.read(deviceListProvider(classroomId).notifier).load(),
         retryLabel: l.commonRetry,
@@ -233,7 +234,7 @@ class _EditDeviceSheetState extends ConsumerState<_EditDeviceSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+          SnackBar(content: Text(friendlyError(e)), backgroundColor: Colors.red),
         );
       }
     } finally {

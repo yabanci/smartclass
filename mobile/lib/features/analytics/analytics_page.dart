@@ -1,3 +1,4 @@
+import '../../core/utils/error_utils.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -124,7 +125,7 @@ class _AnalyticsBody extends ConsumerWidget {
         seriesAsync.when(
           loading: () => const LoadingIndicator(),
           error: (e, _) =>
-              ErrorView(message: e.toString()),
+              ErrorView(message: friendlyError(e)),
           data: (points) {
             if (points.isEmpty) {
               return const Center(
@@ -180,7 +181,7 @@ class _AnalyticsBody extends ConsumerWidget {
         usageAsync.when(
           loading: () => const LoadingIndicator(),
           error: (e, _) =>
-              ErrorView(message: e.toString()),
+              ErrorView(message: friendlyError(e)),
           data: (usages) {
             if (usages.isEmpty) {
               return const Center(

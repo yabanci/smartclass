@@ -1,3 +1,4 @@
+import '../../core/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -55,7 +56,7 @@ class _SceneList extends ConsumerWidget {
     return scenesAsync.when(
       loading: () => const LoadingIndicator(),
       error: (e, _) => ErrorView(
-        message: e.toString(),
+        message: friendlyError(e),
         onRetry: () => ref.read(sceneListProvider(classroomId).notifier).load(),
       ),
       data: (scenes) {
@@ -255,7 +256,7 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);

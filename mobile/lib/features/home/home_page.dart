@@ -1,3 +1,4 @@
+import '../../core/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -31,9 +32,17 @@ class HomePage extends ConsumerWidget {
       });
     });
 
-    // Connect WebSocket when classroom selected
+    // Connect WebSocket when classroom CHANGES (not on every rebuild)
+    ref.listen(activeClassroomProvider, (prev, next) {
+      if (next != null && next.id != prev?.id) {
+        ref.read(wsConnectionProvider.notifier).connectToClassroom(next.id);
+      } else if (next == null) {
+        ref.read(wsConnectionProvider.notifier).disconnect();
+      }
+    });
+
+    // React to real-time events
     if (classroom != null) {
-      ref.read(wsConnectionProvider.notifier).connectToClassroom(classroom.id);
       ref.listen(wsEventsProvider, (_, next) {
         next.whenData((event) {
           if (event.type.startsWith('device.')) {
@@ -146,7 +155,7 @@ class HomePage extends ConsumerWidget {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(e.toString()),
+              content: Text(friendlyError(e)),
               backgroundColor: kDanger,
             ),
           );

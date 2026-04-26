@@ -1,3 +1,4 @@
+import '../../core/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -38,8 +39,19 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
     }
   }
 
+  bool _endAfterStart() {
+    return (_endTime.hour * 60 + _endTime.minute) >
+        (_startTime.hour * 60 + _startTime.minute);
+  }
+
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_endAfterStart()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('End time must be after start time')),
+      );
+      return;
+    }
     setState(() => _saving = true);
     try {
       await ref.read(scheduleProvider(widget.classroomId).notifier).addLesson(
@@ -53,7 +65,7 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.toString())));
+            .showSnackBar(SnackBar(content: Text(friendlyError(e))));
       }
     } finally {
       if (mounted) setState(() => _saving = false);
