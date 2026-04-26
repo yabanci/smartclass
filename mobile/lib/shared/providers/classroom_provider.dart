@@ -32,24 +32,20 @@ class ClassroomListNotifier
     }
   }
 
-  Future<Classroom?> create(String name, {String? description}) async {
-    try {
-      final classroom =
-          await _endpoints.create(name: name, description: description);
-      load();
-      return classroom;
-    } catch (_) {
-      return null;
-    }
+  // Throws on error — callers must handle
+  Future<Classroom> create(String name, {String? description}) async {
+    final classroom =
+        await _endpoints.create(name: name, description: description);
+    await load();
+    return classroom;
   }
 
   Future<void> delete(String id) async {
     await _endpoints.delete(id);
-    load();
+    await load();
   }
 }
 
-// Active classroom selection
 final activeClassroomProvider =
     StateNotifierProvider<ActiveClassroomNotifier, Classroom?>((ref) {
   return ActiveClassroomNotifier();
@@ -57,7 +53,6 @@ final activeClassroomProvider =
 
 class ActiveClassroomNotifier extends StateNotifier<Classroom?> {
   ActiveClassroomNotifier() : super(null);
-
   void select(Classroom classroom) => state = classroom;
   void clear() => state = null;
 }

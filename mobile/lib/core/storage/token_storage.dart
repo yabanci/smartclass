@@ -1,15 +1,16 @@
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
+// shared_preferences used instead of flutter_secure_storage because
+// flutter_secure_storage's WebCrypto backend is unreliable in Flutter Web
+// (IndexedDB init race condition). Switch to platform-specific keychain
+// storage in Phase 5 for production native builds.
 class TokenStorage {
-  static const _keyAccess = 'access_token';
-  static const _keyRefresh = 'refresh_token';
-  static const _keyAccessExpiry = 'access_expiry';
-  static const _keyRefreshExpiry = 'refresh_expiry';
+  static const _keyAccess = 'sc_access_token';
+  static const _keyRefresh = 'sc_refresh_token';
+  static const _keyAccessExpiry = 'sc_access_expiry';
+  static const _keyRefreshExpiry = 'sc_refresh_expiry';
 
-  final FlutterSecureStorage _storage;
-
-  TokenStorage({FlutterSecureStorage? storage})
-      : _storage = storage ?? const FlutterSecureStorage();
+  Future<SharedPreferences> get _prefs => SharedPreferences.getInstance();
 
   Future<void> saveTokens({
     required String accessToken,
@@ -17,19 +18,28 @@ class TokenStorage {
     required String accessExpiresAt,
     required String refreshExpiresAt,
   }) async {
+    final prefs = await _prefs;
     await Future.wait([
-      _storage.write(key: _keyAccess, value: accessToken),
-      _storage.write(key: _keyRefresh, value: refreshToken),
-      _storage.write(key: _keyAccessExpiry, value: accessExpiresAt),
-      _storage.write(key: _keyRefreshExpiry, value: refreshExpiresAt),
+      prefs.setString(_keyAccess, accessToken),
+      prefs.setString(_keyRefresh, refreshToken),
+      prefs.setString(_keyAccessExpiry, accessExpiresAt),
+      prefs.setString(_keyRefreshExpiry, refreshExpiresAt),
     ]);
   }
 
-  Future<String?> getAccessToken() => _storage.read(key: _keyAccess);
-  Future<String?> getRefreshToken() => _storage.read(key: _keyRefresh);
+  Future<String?> getAccessToken() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyAccess);
+  }
+
+  Future<String?> getRefreshToken() async {
+    final prefs = await _prefs;
+    return prefs.getString(_keyRefresh);
+  }
 
   Future<bool> isAccessExpired() async {
-    final expiry = await _storage.read(key: _keyAccessExpiry);
+    final prefs = await _prefs;
+    final expiry = prefs.getString(_keyAccessExpiry);
     if (expiry == null) return true;
     try {
       final dt = DateTime.parse(expiry);
@@ -40,7 +50,8 @@ class TokenStorage {
   }
 
   Future<bool> isRefreshExpired() async {
-    final expiry = await _storage.read(key: _keyRefreshExpiry);
+    final prefs = await _prefs;
+    final expiry = prefs.getString(_keyRefreshExpiry);
     if (expiry == null) return true;
     try {
       final dt = DateTime.parse(expiry);
@@ -51,11 +62,12 @@ class TokenStorage {
   }
 
   Future<void> clear() async {
+    final prefs = await _prefs;
     await Future.wait([
-      _storage.delete(key: _keyAccess),
-      _storage.delete(key: _keyRefresh),
-      _storage.delete(key: _keyAccessExpiry),
-      _storage.delete(key: _keyRefreshExpiry),
+      prefs.remove(_keyAccess),
+      prefs.remove(_keyRefresh),
+      prefs.remove(_keyAccessExpiry),
+      prefs.remove(_keyRefreshExpiry),
     ]);
   }
 }

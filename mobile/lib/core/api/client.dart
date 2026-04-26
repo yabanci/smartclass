@@ -13,9 +13,8 @@ class ApiClient {
   final TokenStorage _tokenStorage;
   LogoutCallback? _onLogout;
 
-  // Prevents multiple concurrent token refreshes
   bool _isRefreshing = false;
-  final _refreshCompleter = <Completer<bool>>[];
+  final List<Completer<bool>> _refreshWaiters = [];
 
   ApiClient({TokenStorage? tokenStorage})
       : _tokenStorage = tokenStorage ?? TokenStorage() {
@@ -25,90 +24,88 @@ class ApiClient {
 
   void setLogoutCallback(LogoutCallback cb) => _onLogout = cb;
 
-  Dio _buildDio() {
-    return Dio(BaseOptions(
-      baseUrl: ConnectionResolver.instance.current.baseUrl,
-      connectTimeout: const Duration(seconds: 10),
-      receiveTimeout: const Duration(seconds: 15),
-      headers: {'Content-Type': 'application/json'},
-    ));
-  }
+  Dio _buildDio() => Dio(BaseOptions(
+        baseUrl: ConnectionResolver.instance.current.baseUrl,
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        headers: {'Content-Type': 'application/json'},
+      ));
 
   void updateBaseUrl() {
     _dio.options.baseUrl = ConnectionResolver.instance.current.baseUrl;
   }
 
   void _addInterceptors() {
-    _dio.interceptors.add(
-      InterceptorsWrapper(
-        onRequest: (options, handler) async {
-          final token = await _tokenStorage.getAccessToken();
-          if (token != null) {
-            options.headers['Authorization'] = 'Bearer $token';
-          }
+    _dio.interceptors.add(InterceptorsWrapper(
+      onRequest: (options, handler) async {
+        // Skip auth injection for refresh endpoint to avoid infinite loop
+        if (options.extra['skipAuth'] == true) {
           return handler.next(options);
-        },
-        onError: (DioException error, handler) async {
-          if (error.response?.statusCode == 401) {
-            final retried = await _handleUnauthorized(error);
-            if (retried != null) return handler.resolve(retried);
-          }
-          return handler.next(error);
-        },
-      ),
-    );
+        }
+        final token = await _tokenStorage.getAccessToken();
+        if (token != null) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+        handler.next(options);
+      },
+      onError: (DioException error, handler) async {
+        // Only intercept 401 on non-refresh requests
+        if (error.response?.statusCode == 401 &&
+            error.requestOptions.extra['skipAuth'] != true) {
+          final retried = await _handleUnauthorized(error);
+          if (retried != null) return handler.resolve(retried);
+        }
+        handler.next(error);
+      },
+    ));
   }
 
-  Future<Response?> _handleUnauthorized(DioException error) async {
+  Future<Response?> _handleUnauthorized(DioException original) async {
+    // If refresh already in progress, wait for it
     if (_isRefreshing) {
-      // Wait for the in-progress refresh
-      final completer = Completer<bool>();
-      _refreshCompleter.add(completer);
-      final success = await completer.future;
-      if (!success) return null;
-      return _retry(error.requestOptions);
+      final c = Completer<bool>();
+      _refreshWaiters.add(c);
+      final ok = await c.future;
+      if (!ok) return null;
+      return _retry(original.requestOptions);
     }
 
     _isRefreshing = true;
     try {
       final refreshToken = await _tokenStorage.getRefreshToken();
       if (refreshToken == null) {
+        _notifyWaiters(false);
         await _logout();
         return null;
       }
 
-      final response = await _dio.post(
+      final resp = await _dio.post(
         '/auth/refresh',
         data: {'refreshToken': refreshToken},
-        options: Options(
-          // Skip the interceptor for this call to avoid infinite loop
-          extra: {'skipAuth': true},
-        ),
+        options: Options(extra: {'skipAuth': true}),
       );
 
-      final data = response.data as Map<String, dynamic>;
-      if (data['ok'] == true) {
-        final tokens = data['data']['tokens'] as Map<String, dynamic>;
-        await _tokenStorage.saveTokens(
-          accessToken: tokens['accessToken'] as String,
-          refreshToken: tokens['refreshToken'] as String,
-          accessExpiresAt: tokens['accessExpiresAt'] as String,
-          refreshExpiresAt: tokens['refreshExpiresAt'] as String,
-        );
-        for (final c in _refreshCompleter) {
-          c.complete(true);
-        }
-        _refreshCompleter.clear();
-        return _retry(error.requestOptions);
-      } else {
+      final body = resp.data as Map<String, dynamic>;
+      // Backend wraps in { data: { tokens: {...} } }
+      final tokensMap = (body['data'] as Map<String, dynamic>?)?['tokens']
+          as Map<String, dynamic>?;
+
+      if (tokensMap == null) {
+        _notifyWaiters(false);
         await _logout();
         return null;
       }
+
+      await _tokenStorage.saveTokens(
+        accessToken: tokensMap['accessToken'] as String,
+        refreshToken: tokensMap['refreshToken'] as String,
+        accessExpiresAt: tokensMap['accessExpiresAt'] as String,
+        refreshExpiresAt: tokensMap['refreshExpiresAt'] as String,
+      );
+      _notifyWaiters(true);
+      return _retry(original.requestOptions);
     } catch (_) {
-      for (final c in _refreshCompleter) {
-        c.complete(false);
-      }
-      _refreshCompleter.clear();
+      _notifyWaiters(false);
       await _logout();
       return null;
     } finally {
@@ -116,18 +113,22 @@ class ApiClient {
     }
   }
 
-  Future<Response> _retry(RequestOptions requestOptions) async {
+  void _notifyWaiters(bool success) {
+    for (final c in _refreshWaiters) {
+      c.complete(success);
+    }
+    _refreshWaiters.clear();
+  }
+
+  Future<Response> _retry(RequestOptions req) async {
     final token = await _tokenStorage.getAccessToken();
     return _dio.request(
-      requestOptions.path,
-      data: requestOptions.data,
-      queryParameters: requestOptions.queryParameters,
+      req.path,
+      data: req.data,
+      queryParameters: req.queryParameters,
       options: Options(
-        method: requestOptions.method,
-        headers: {
-          ...requestOptions.headers,
-          'Authorization': 'Bearer $token',
-        },
+        method: req.method,
+        headers: {...req.headers, if (token != null) 'Authorization': 'Bearer $token'},
       ),
     );
   }
@@ -151,31 +152,15 @@ class ApiClient {
     return envelope.data as T;
   }
 
-  Future<Response> get(
-    String path, {
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) =>
+  Future<Response> get(String path, {Map<String, dynamic>? queryParameters, Options? options}) =>
       _dio.get(path, queryParameters: queryParameters, options: options);
 
-  Future<Response> post(
-    String path, {
-    dynamic data,
-    Map<String, dynamic>? queryParameters,
-    Options? options,
-  }) =>
+  Future<Response> post(String path, {dynamic data, Map<String, dynamic>? queryParameters, Options? options}) =>
       _dio.post(path, data: data, queryParameters: queryParameters, options: options);
 
-  Future<Response> patch(
-    String path, {
-    dynamic data,
-    Options? options,
-  }) =>
+  Future<Response> patch(String path, {dynamic data, Options? options}) =>
       _dio.patch(path, data: data, options: options);
 
-  Future<Response> delete(
-    String path, {
-    Options? options,
-  }) =>
+  Future<Response> delete(String path, {Options? options}) =>
       _dio.delete(path, options: options);
 }

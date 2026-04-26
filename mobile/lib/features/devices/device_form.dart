@@ -55,6 +55,12 @@ class _DeviceFormSheetState extends ConsumerState<DeviceFormSheet> {
             config: config,
           );
       if (mounted) Navigator.of(context).pop(device);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.toString()), backgroundColor: Colors.red),
+        );
+      }
     } finally {
       if (mounted) setState(() => _saving = false);
     }

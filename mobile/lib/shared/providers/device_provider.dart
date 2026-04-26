@@ -36,41 +36,31 @@ class DeviceListNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   }
 
   Future<void> sendCommand(String deviceId, String type, {dynamic value}) async {
-    try {
-      final updated =
-          await _endpoints.sendCommand(deviceId, type, value: value);
-      state.whenData((devices) {
-        state = AsyncValue.data([
-          for (final d in devices)
-            if (d.id == deviceId) updated else d
-        ]);
-      });
-    } catch (_) {
-      await load();
-    }
+    final updated = await _endpoints.sendCommand(deviceId, type, value: value);
+    state.whenData((devices) {
+      state = AsyncValue.data([
+        for (final d in devices) if (d.id == deviceId) updated else d
+      ]);
+    });
   }
 
-  Future<Device?> create({
+  Future<Device> create({
     required String name,
     required String type,
     required String brand,
     required String driver,
     Map<String, dynamic>? config,
   }) async {
-    try {
-      final device = await _endpoints.create(
-        classroomId: classroomId,
-        name: name,
-        type: type,
-        brand: brand,
-        driver: driver,
-        config: config,
-      );
-      load();
-      return device;
-    } catch (_) {
-      return null;
-    }
+    final device = await _endpoints.create(
+      classroomId: classroomId,
+      name: name,
+      type: type,
+      brand: brand,
+      driver: driver,
+      config: config,
+    );
+    await load();
+    return device;
   }
 
   Future<void> delete(String id) async {

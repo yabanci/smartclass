@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/connection/connection_mode.dart';
-import '../../core/connection/resolver.dart';
+import '../../app.dart';
 import '../../shared/models/classroom.dart';
-import '../../shared/providers/auth_provider.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../shared/providers/schedule_provider.dart';
@@ -13,40 +11,27 @@ import '../../shared/providers/sensor_provider.dart';
 import '../../shared/providers/ws_provider.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/classroom_picker.dart';
-import '../../shared/widgets/loading_indicator.dart';
 
-class HomePage extends ConsumerStatefulWidget {
+class HomePage extends ConsumerWidget {
   const HomePage({super.key});
 
   @override
-  ConsumerState<HomePage> createState() => _HomePageState();
-}
+  Widget build(BuildContext context, WidgetRef ref) {
+    final classroomsAsync = ref.watch(classroomListProvider);
+    final classroom = ref.watch(activeClassroomProvider);
 
-class _HomePageState extends ConsumerState<HomePage> {
-  @override
-  void initState() {
-    super.initState();
-    // Load classrooms and auto-select first one
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      final classroomsAsync = ref.read(classroomListProvider);
-      classroomsAsync.whenData((classrooms) {
+    // Auto-select first classroom as soon as list loads
+    ref.listen(classroomListProvider, (_, next) {
+      next.whenData((classrooms) {
         if (classrooms.isNotEmpty && ref.read(activeClassroomProvider) == null) {
           ref.read(activeClassroomProvider.notifier).select(classrooms.first);
         }
       });
     });
-  }
 
-  @override
-  Widget build(BuildContext context) {
-    final classroom = ref.watch(activeClassroomProvider);
-    final connectionMode = ConnectionResolver.instance.current.mode;
-
-    // Connect WebSocket when classroom is selected
+    // Connect WebSocket when classroom selected
     if (classroom != null) {
       ref.read(wsConnectionProvider.notifier).connectToClassroom(classroom.id);
-
-      // Listen to WS events
       ref.listen(wsEventsProvider, (_, next) {
         next.whenData((event) {
           if (event.type.startsWith('device.')) {
@@ -60,24 +45,18 @@ class _HomePageState extends ConsumerState<HomePage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Smart Classroom'),
+        title: const Text('Smart Classroom',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         actions: [
           // Connection mode chip
           Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: Chip(
-              label: Text(
-                connectionMode == ConnectionMode.local ? 'Local' : 'Remote',
-                style: const TextStyle(fontSize: 11),
-              ),
-              avatar: Icon(
-                connectionMode == ConnectionMode.local
-                    ? Icons.home_outlined
-                    : Icons.cloud_outlined,
-                size: 14,
-              ),
+            padding: const EdgeInsets.only(right: 4),
+            child: ActionChip(
+              label: const Text('Remote', style: TextStyle(fontSize: 11)),
+              avatar: const Icon(Icons.cloud_outlined, size: 14),
               padding: EdgeInsets.zero,
               visualDensity: VisualDensity.compact,
+              onPressed: () {},
             ),
           ),
           IconButton(
@@ -85,30 +64,50 @@ class _HomePageState extends ConsumerState<HomePage> {
             onPressed: () => context.push('/notifications'),
           ),
         ],
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(48),
-          child: Padding(
+      ),
+      body: Column(
+        children: [
+          // Classroom selector bar
+          Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).scaffoldBackgroundColor,
+              border: Border(
+                bottom: BorderSide(
+                  color: kPrimary.withOpacity(0.08),
+                ),
+              ),
+            ),
             child: Row(
               children: [
-                Expanded(child: ClassroomPicker()),
+                Expanded(
+                  child: classroomsAsync.when(
+                    loading: () => const LinearProgressIndicator(),
+                    error: (e, _) => Text('Error: $e',
+                        style: const TextStyle(color: kDanger, fontSize: 12)),
+                    data: (_) => const ClassroomPicker(),
+                  ),
+                ),
                 IconButton(
-                  icon: const Icon(Icons.add),
+                  icon: const Icon(Icons.add_circle_outline, color: kPrimary),
                   tooltip: 'New classroom',
-                  onPressed: () => _showCreateDialog(context),
+                  onPressed: () => _showCreateDialog(context, ref),
                 ),
               ],
             ),
           ),
-        ),
+
+          Expanded(
+            child: classroom == null
+                ? _EmptyState(onCreateTap: () => _showCreateDialog(context, ref))
+                : _ClassroomBody(classroom: classroom),
+          ),
+        ],
       ),
-      body: classroom == null
-          ? _EmptyState(onCreateTap: () => _showCreateDialog(context))
-          : _ClassroomBody(classroom: classroom),
     );
   }
 
-  Future<void> _showCreateDialog(BuildContext context) async {
+  Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
     final ctrl = TextEditingController();
     final confirmed = await showDialog<bool>(
       context: context,
@@ -118,9 +117,9 @@ class _HomePageState extends ConsumerState<HomePage> {
           controller: ctrl,
           decoration: const InputDecoration(
             labelText: 'Classroom name',
-            border: OutlineInputBorder(),
           ),
           autofocus: true,
+          onSubmitted: (_) => Navigator.pop(ctx, true),
         ),
         actions: [
           TextButton(
@@ -134,11 +133,21 @@ class _HomePageState extends ConsumerState<HomePage> {
         ],
       ),
     );
-    if (confirmed == true && ctrl.text.isNotEmpty) {
-      final classroom =
-          await ref.read(classroomListProvider.notifier).create(ctrl.text);
-      if (classroom != null) {
+    if (confirmed == true && ctrl.text.trim().isNotEmpty && context.mounted) {
+      try {
+        final classroom = await ref
+            .read(classroomListProvider.notifier)
+            .create(ctrl.text.trim());
         ref.read(activeClassroomProvider.notifier).select(classroom);
+      } catch (e) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(e.toString()),
+              backgroundColor: kDanger,
+            ),
+          );
+        }
       }
     }
   }
@@ -146,7 +155,6 @@ class _HomePageState extends ConsumerState<HomePage> {
 
 class _EmptyState extends StatelessWidget {
   final VoidCallback onCreateTap;
-
   const _EmptyState({required this.onCreateTap});
 
   @override
@@ -155,11 +163,15 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.meeting_room_outlined, size: 64, color: Colors.grey),
+          Icon(Icons.meeting_room_outlined, size: 72,
+              color: kPrimary.withOpacity(0.3)),
           const SizedBox(height: 16),
-          const Text('Create your first classroom',
-              style: TextStyle(fontSize: 16)),
-          const SizedBox(height: 16),
+          const Text('No classroom selected',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text('Create or select a classroom above',
+              style: TextStyle(fontSize: 13, color: Colors.grey.shade500)),
+          const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: onCreateTap,
             icon: const Icon(Icons.add),
@@ -173,7 +185,6 @@ class _EmptyState extends StatelessWidget {
 
 class _ClassroomBody extends ConsumerWidget {
   final Classroom classroom;
-
   const _ClassroomBody({required this.classroom});
 
   @override
@@ -184,7 +195,7 @@ class _ClassroomBody extends ConsumerWidget {
 
     return RefreshIndicator(
       onRefresh: () async {
-        ref.invalidate(deviceListProvider(classroom.id));
+        ref.read(deviceListProvider(classroom.id).notifier).load();
         ref.invalidate(currentLessonProvider(classroom.id));
         ref.read(sensorNotifierProvider(classroom.id).notifier).load();
       },
@@ -199,19 +210,41 @@ class _ClassroomBody extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Active devices',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: kPrimary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.devices,
+                                color: kPrimary, size: 18),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Active',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       devicesAsync.when(
-                        data: (devices) => Text(
-                          '${devices.where((d) => d.online).length}/${devices.length}',
+                        data: (d) => Text(
+                          '${d.where((x) => x.online).length}/${d.length}',
                           style: const TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.bold),
+                              fontSize: 24, fontWeight: FontWeight.w800),
                         ),
-                        loading: () =>
-                            const CircularProgressIndicator(strokeWidth: 2),
+                        loading: () => const SizedBox(
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
                         error: (_, __) => const Text('—'),
                       ),
+                      if (devicesAsync.valueOrNull != null)
+                        Text(
+                          '● ${devicesAsync.valueOrNull!.where((x) => x.isOn).length} on',
+                          style: const TextStyle(fontSize: 12, color: kAccent),
+                        ),
                     ],
                   ),
                 ),
@@ -222,17 +255,37 @@ class _ClassroomBody extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Devices ON',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Container(
+                            width: 32,
+                            height: 32,
+                            decoration: BoxDecoration(
+                              color: kAccent.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Icon(Icons.bolt,
+                                color: kAccent, size: 18),
+                          ),
+                          const SizedBox(width: 8),
+                          const Text('Energy',
+                              style: TextStyle(
+                                  fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
                       devicesAsync.when(
-                        data: (devices) => Text(
-                          '${devices.where((d) => d.isOn).length}',
-                          style: const TextStyle(
-                              fontSize: 24, fontWeight: FontWeight.bold),
-                        ),
-                        loading: () =>
-                            const CircularProgressIndicator(strokeWidth: 2),
+                        data: (d) {
+                          final on = d.where((x) => x.isOn).length;
+                          return Text(
+                            '${(on * 0.2).toStringAsFixed(1)} kW',
+                            style: const TextStyle(
+                                fontSize: 24, fontWeight: FontWeight.w800),
+                          );
+                        },
+                        loading: () => const SizedBox(
+                            width: 20, height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2)),
                         error: (_, __) => const Text('—'),
                       ),
                     ],
@@ -243,7 +296,7 @@ class _ClassroomBody extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
-          // Sensors row
+          // Sensor row
           Row(
             children: [
               Expanded(
@@ -252,10 +305,7 @@ class _ClassroomBody extends ConsumerWidget {
                   label: 'Temperature',
                   value: sensorState.readings
                       .where((r) => r.metric == 'temperature')
-                      .fold<double?>(
-                        null,
-                        (_, r) => r.value,
-                      ),
+                      .fold<double?>(null, (_, r) => r.value),
                   unit: '°C',
                   color: Colors.orange,
                 ),
@@ -267,10 +317,7 @@ class _ClassroomBody extends ConsumerWidget {
                   label: 'Humidity',
                   value: sensorState.readings
                       .where((r) => r.metric == 'humidity')
-                      .fold<double?>(
-                        null,
-                        (_, r) => r.value,
-                      ),
+                      .fold<double?>(null, (_, r) => r.value),
                   unit: '%',
                   color: Colors.blue,
                 ),
@@ -279,80 +326,105 @@ class _ClassroomBody extends ConsumerWidget {
           ),
           const SizedBox(height: 12),
 
+          // Quick controls
+          devicesAsync.when(
+            data: (devices) => devices.isEmpty
+                ? const SizedBox.shrink()
+                : AppCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('Quick controls',
+                            style: TextStyle(
+                                fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _QuickBtn(
+                                label: 'All ON',
+                                color: kAccent,
+                                classroomId: classroom.id,
+                                command: 'ON',
+                                devices: devices,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _QuickBtn(
+                                label: 'All OFF',
+                                color: Colors.grey,
+                                classroomId: classroom.id,
+                                command: 'OFF',
+                                devices: devices,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+            loading: () => const SizedBox.shrink(),
+            error: (_, __) => const SizedBox.shrink(),
+          ),
+          const SizedBox(height: 12),
+
           // Current lesson
           AppCard(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Current lesson',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 8),
-                currentLessonAsync.when(
-                  data: (lesson) => lesson != null
-                      ? Row(
-                          children: [
-                            const Icon(Icons.book_outlined, size: 20),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(lesson.subject,
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  Text(
-                                      '${lesson.startsAt} – ${lesson.endsAt}',
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey)),
-                                ],
-                              ),
-                            ),
-                          ],
-                        )
-                      : const Text('No lesson in progress',
-                          style: TextStyle(color: Colors.grey)),
-                  loading: () =>
-                      const CircularProgressIndicator(strokeWidth: 2),
-                  error: (_, __) =>
-                      const Text('No lesson in progress',
-                          style: TextStyle(color: Colors.grey)),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Quick controls
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Quick controls',
-                    style: TextStyle(fontSize: 12, color: Colors.grey)),
-                const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(
-                      child: _QuickControlButton(
-                        label: 'All ON',
-                        icon: Icons.power,
-                        color: Colors.green,
-                        classroomId: classroom.id,
-                        command: 'ON',
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _QuickControlButton(
-                        label: 'All OFF',
-                        icon: Icons.power_off,
-                        color: Colors.red,
-                        classroomId: classroom.id,
-                        command: 'OFF',
-                      ),
-                    ),
+                    Icon(Icons.calendar_today,
+                        color: kPrimary, size: 16),
+                    const SizedBox(width: 8),
+                    const Text('Current lesson',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w700)),
                   ],
+                ),
+                const SizedBox(height: 12),
+                currentLessonAsync.when(
+                  data: (lesson) => lesson != null
+                      ? Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: kAccent.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border(
+                              left: BorderSide(
+                                  color: kAccent, width: 4),
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment:
+                                CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                lesson.subject,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 15),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${lesson.startsAt} – ${lesson.endsAt}',
+                                style: const TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        )
+                      : Text(
+                          'No lesson in progress',
+                          style: TextStyle(color: Colors.grey.shade500),
+                        ),
+                  loading: () =>
+                      const CircularProgressIndicator(strokeWidth: 2),
+                  error: (_, __) => Text('No lesson in progress',
+                      style: TextStyle(color: Colors.grey.shade500)),
                 ),
               ],
             ),
@@ -384,18 +456,19 @@ class _SensorCard extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, color: color, size: 28),
-          const SizedBox(width: 8),
+          const SizedBox(width: 10),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                  style: const TextStyle(
+                      fontSize: 11, color: Colors.grey)),
               Text(
                 value != null
                     ? '${value!.toStringAsFixed(1)}$unit'
                     : '—',
                 style: const TextStyle(
-                    fontSize: 18, fontWeight: FontWeight.bold),
+                    fontSize: 20, fontWeight: FontWeight.w800),
               ),
             ],
           ),
@@ -405,40 +478,48 @@ class _SensorCard extends StatelessWidget {
   }
 }
 
-class _QuickControlButton extends ConsumerWidget {
+class _QuickBtn extends ConsumerWidget {
   final String label;
-  final IconData icon;
   final Color color;
   final String classroomId;
   final String command;
+  final List devices;
 
-  const _QuickControlButton({
+  const _QuickBtn({
     required this.label,
-    required this.icon,
     required this.color,
     required this.classroomId,
     required this.command,
+    required this.devices,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return ElevatedButton.icon(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: color.withOpacity(0.1),
-        foregroundColor: color,
-      ),
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      onPressed: () async {
-        final devicesAsync = ref.read(deviceListProvider(classroomId));
-        devicesAsync.whenData((devices) {
-          for (final device in devices) {
-            ref
-                .read(deviceListProvider(classroomId).notifier)
-                .sendCommand(device.id, command);
-          }
-        });
+    return GestureDetector(
+      onTap: () {
+        for (final d in devices) {
+          ref
+              .read(deviceListProvider(classroomId).notifier)
+              .sendCommand(d.id, command);
+        }
       },
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.12),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Center(
+          child: Text(
+            label,
+            style: TextStyle(
+              color: color == Colors.grey ? Colors.grey.shade700 : color,
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
