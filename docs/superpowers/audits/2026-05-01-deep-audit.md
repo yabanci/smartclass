@@ -4,7 +4,41 @@
 > Plan: `docs/superpowers/plans/2026-05-01-deep-audit-execution.md`.
 
 ## Executive summary
-_Filled in at end of Phase 4._
+
+**Total findings:** 29
+- **P0 (Critical):** 0
+- **P1 (High):** 2 — both fixed inline (F-009 refresh-token replay, F-020 WS tenant authz bypass)
+- **P2 (Medium):** 11 — 8 fixed inline (deps/staticcheck/gosec/JWT/readyz/body-limit/scene-timeout/CI scanners), 3 deferred (F-023 hass slow tests, F-014 WS query-token, F-029 observability gap)
+- **P3 (Low):** 8 — 1 fixed inline (notification map cleanup), 7 deferred to dedicated specs / future hardening
+- **Info:** 8
+
+**Top 5 risks before fixes (by severity × impact):**
+1. **F-009 P1** — Refresh tokens never rotated, never revoked, replay-undetectable. **Fixed:** new `refresh_tokens` table + `MemRefreshStore`/`PostgresRefreshStore` + replay-detected `Service.Refresh` + `POST /auth/logout`. Replay now revokes every live session for the user.
+2. **F-020 P1** — Any teacher could subscribe to `?topic=classroom:<other-classroom>:devices` and silently observe another tenant's realtime stream. **Fixed:** strict `TopicAuthorizer` allowlist; foreign-classroom/foreign-user/malformed shapes 403'd before WS upgrade; 6 unit tests.
+3. **F-029 P2** — Backend has zero metrics/traces/instrumentation. Cannot answer "is the backend healthy?" without crawling logs. **Deferred** to dedicated observability spec; F-013 (request-ID middleware) lays the trace-correlation foundation.
+4. **F-001 P2** — 8 transitive CVEs in pgx/v5, x/net, x/crypto, go-chi/v5. **Fixed:** versions bumped (pgx 5.7.4→5.9.2, chi 5.2.2→5.2.5, x/crypto 0.36→0.50, x/net 0.38→0.53). govulncheck now 0 hits.
+5. **F-006 P2** — Total backend coverage 26.1% with handler/server packages at 0%. **Deferred** to dedicated test-coverage spec; this audit raised coverage to 27.3% via the auth/middleware/ws additions.
+
+**Fixed during audit (15 findings):** F-001..F-005 (Phase 1 hygiene), F-009..F-013 (auth + readyz + body-limit + req-id), F-015 (notification map), F-018 (scene timeout), F-020 (WS authz), F-025 (CI scanners). Each ships with passing tests (or gated by passing CI scanners).
+
+**Deferred to dedicated specs (top candidates):**
+- **Observability spec** (F-029, F-013-extension, F-011-extension) — Prometheus metrics on every external call, OTel traces via request_id, real-dependency depth in /readyz beyond Postgres.
+- **Test coverage spec** (F-006, F-023) — drive Tier 1 packages to ≥60%; isolate slow `hass` tests.
+- **Refresh-token UX hardening spec** (F-014, F-021, F-022) — replace `?access_token=` WS query auth with single-use ticket; tighten WS CheckOrigin; add `version` to event schema.
+- **Per-classroom configurability spec** (F-016, F-017) — thresholds + timezone stored per classroom.
+- **Mobile push delivery spec** (F-024) — wire real Firebase project; activate FCM stub.
+
+**Recommended next 3 specs:** see `docs/superpowers/audits/2026-05-01-deep-audit/next-specs.md`.
+
+**Health snapshot post-audit:**
+- `go vet`: 0 hits
+- `staticcheck`: 0 hits
+- `govulncheck`: 0 vulnerabilities
+- `gosec`: 0 issues (6 nosec annotations on operator-configured paths)
+- `go test -race -count=1 ./...`: 20/20 packages pass
+- Backend coverage: 26.1% → **27.3%**
+- `flutter analyze`: 0 issues
+- `flutter test`: **59/59** pass
 
 ## Methodology
 Categories: Correctness | Security | Contracts | Reliability | Observability | Tests | Quality | MobileUX | Infra.
@@ -467,7 +501,35 @@ See spec §3-§4 for full rubric.
 **Note:** `request_id` field added in F-013 is the foundation for trace correlation.
 
 ## Cross-cutting observations
-_Filled by Phase 4._
+
+### Contract drift
+Sampled 5 backend DTO ↔ mobile model pairs (User, Device, Classroom, Notification, Lesson) — fields aligned, types consistent. WS `Event` schema is open-keyed and mobile parser tolerates unknowns. Net: drift is currently zero, but no `version` field on WS messages (F-022) means future schema changes can't be rolled out incrementally.
+
+### Observability gap
+Zero metrics, traces, or instrumentation in the entire backend (F-029). `/healthz` and `/readyz` were both unconditional 200s before this audit (F-011 fixed `/readyz` to actually ping Postgres). Logs were missing correlation IDs (F-013 added one). Sufficient foundation for a future observability spec but no operator-facing signals exist today.
+
+### Test gap
+Total backend coverage 26.1% before audit, 27.3% after. Per-package coverage range: 0% (cmd/server, server, auditlog, config) to 100% (devicectl interface). Tier-1 packages most exposed: classroom (13.7%), schedule (17.0%), scene (18.8%), sensor (14.8%), analytics (15.9%). The `hass` package alone takes 55s of test time (F-023) — a tax on every CI run.
+
+### Security posture
+Up from "0 scanners in CI" to "4 scanners blocking" (vet/staticcheck/govulncheck/gosec). Refresh-token replay detection landed (was the most acute live risk). WS tenant authz closed (was the second). 6 nosec annotations remain — all on operator-configured paths in the HA client, with explicit rationale comments. No PII found in logs, no secrets in repo.
 
 ## Fixes applied during audit
-_Each fix gets a one-line entry: `F-NNN — fixed in <commit>`._
+
+| Finding | Severity | Status | Commit |
+|---|---|---|---|
+| F-001 — 8 dep CVEs | P2 | Fixed | `04890ce` |
+| F-002 — staticcheck S1016 | P3 | Fixed | `04890ce` |
+| F-003 — gosec SSRF flowID | P2 | Fixed (validation + nosec) | `04890ce` |
+| F-004 — gosec G117 password | Info | Annotated | `04890ce` |
+| F-005 — gosec G304 i18n | Info | Annotated | `04890ce` |
+| F-009 — refresh-token replay | P1 | Fixed (full rotation/revocation) | `b149017` |
+| F-010 — JWT iss/leeway | P2 | Fixed | `b149017` |
+| F-011 — /readyz unconditional 200 | P2 | Fixed (Postgres ping) | `b149017` |
+| F-012 — body-size limit | P2 | Fixed (1 MiB cap) | `b149017` |
+| F-013 — no request-ID | P3 | Fixed | `b149017` |
+| F-015 — notification map leak | P3 | Fixed | `628d050` |
+| F-018 — scene per-step timeout | P2 | Fixed (10s) | `628d050` |
+| F-020 — WS tenant authz | P1 | Fixed (TopicAuthorizer + 6 tests) | `628d050` |
+| F-025 — CI scanners | P2 | Fixed (3 new blocking steps) | `ae266bd` |
+| F-006, F-007, F-008, F-014, F-016, F-017, F-019, F-021, F-022, F-023, F-024, F-026, F-027, F-028, F-029 | Various | Logged, deferred, or Info | — |
