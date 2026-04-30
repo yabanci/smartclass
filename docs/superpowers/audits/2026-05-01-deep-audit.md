@@ -313,29 +313,158 @@ See spec §3-§4 for full rubric.
 
 #### Tier 2
 ##### classroom
+- [x] Authz scoping enforced via `Service.Authorize` everywhere; admin role bypass; non-admin must be member or creator. OK.
+- [x] Cascade: `devices.classroom_id ON DELETE CASCADE`, schedule + scenes likewise. OK.
+- [x] Pagination present (`limit`/`offset` clamped 50/500 in repo). OK.
+
 ##### device
+- [x] CRUD authz delegates to classroom service. OK.
+- [x] `driver` field validated against registered factory in service. OK.
+- [x] `lastSeenAt` updated on sensor reading + on command success.
+- [ ] **Info:** `config` JSON is freeform per driver — no JSON schema. A future spec could ship per-driver schemas validated server-side.
+
 ##### sensor
+- [x] Bulk insert via parameterized `VALUES ($1,$2,...)`. OK.
+- [x] Limit clamp (≤0 or >10000 → 500). OK.
+- [x] Index `(device_id, metric, recorded_at DESC)` perfectly serves both `List` and `LatestByClassroom`. OK.
+
 ##### analytics
+- [x] Authz via classroom.Authorize. OK.
+- [x] Aggregation uses `date_trunc` server-side (Postgres handles tz).
+- [ ] **Info:** Energy-formula correctness not reviewed in this audit; needs domain-knowledge pass.
+
 ##### hass
+
+#### F-023 — `internal/hass` test runtime is 55s (slowest in suite by 3 orders of magnitude)
+**Category:** Tests / Reliability
+**Severity:** P2
+**Location:** `backend/internal/hass/service_test.go`, `backend/internal/hass/hasstest/*`
+**Evidence:** Every `go test` reports `ok smartclass/internal/hass 54.6s` while every other package is sub-100ms. The cost is paid on every CI run and every developer's `go test ./...`.
+**Why it matters:** Slow tests get skipped or rebrand as integration tests; fast feedback loop matters on every iteration of fixes in this audit. Likely cause: `time.Sleep` retry loops or real HTTP calls under retry backoff.
+**Suggested direction:** **Needs dedicated spec.** Inject a clock; replace `time.Sleep` with deterministic time advance; if the slowness is real-HTTP, route through `httptest.Server` with deterministic responses.
+**Effort:** M
+**Blast radius:** local
+
 ##### MQTT
+- [x] Mosquitto config inspected: `mosquitto/mosquitto.conf` shipped with `allow_anonymous true` for dev. OK for pet project.
+- [ ] **Info:** No MQTT client code in `backend/`; the broker is exposed but not wired into a Go consumer yet (intended for Tasmota/Zigbee2MQTT future work). Document but no action.
 
 #### Tier 3
 ##### server / httpx / middleware
+- [x] Middleware order: Recoverer → RequestID → RequestLogger → CORS → Language → BodyLimit → RateLimit → Authn (in subgroup). Outermost is panic recovery — correct. ✓
+- [x] CORS: per-origin allowlist, no `*` with credentials. ✓
+- [x] BodyLimit (1 MiB) added in Iteration 2.
+- [x] Rate limiter: per-IP with XFF spoofing guard. ✓
+- [x] Recoverer doesn't leak stack trace to client (writes generic 500). ✓
+
 ##### platform: i18n / validation / postgres / main / auditlog / migrations
+- [x] All 13 migrations have `+goose Down` blocks. ✓
+- [x] Postgres: pool config explicit (MaxConns 20, MinConns 2, MaxConnLifetime 1h, MaxConnIdleTime 30m). ✓
+- [x] main.go: graceful shutdown via `signal.NotifyContext` + ordered defers (db.Close at last). ✓
+- [x] i18n: 3 locale files present (en/ru/kz). Loaded with strict suffix + supported-lang filter. ✓ Confirmed via `ls backend/locales/` returning en.json, kz.json, ru.json.
+- [ ] **Info:** Validator has `validate.New()` in handlers; field-level errors map to httpx error code through bundle. OK.
+- [ ] **Info:** auditlog is admin-only via role check in handler; events recorded for create/delete actions but not all updates — could be expanded later.
 
 #### Mobile
+
 ##### core
+- [x] API endpoints parse `{data}/{error}` envelope consistently (per recent commit `bd4dc0d`).
+- [x] Storage: only `flutter_secure_storage`; no `shared_preferences` fallback (per memory). Verified via grep — 0 hits.
+- [x] WS: reconnect with exponential backoff in `core/ws`.
+- [x] Router: auth guards on `/home/*`; redirects to `/login` on missing token.
+
+#### F-024 — Mobile FCM is a stub (Firebase not configured)
+**Category:** MobileUX
+**Severity:** Info
+**Location:** `mobile/lib/core/push/fcm_service.dart`
+**Evidence:** Firebase imports commented out; activation requires creating a Firebase project + downloading `google-services.json`/`GoogleService-Info.plist`.
+**Why it matters:** Push delivery is documented but not live. Backend has `fcm_token` migration + endpoint stub, frontend has the call site stubbed. End-to-end push doesn't work until Firebase project exists.
+**Suggested direction:** **Needs dedicated spec** — depends on creating a Firebase project (Google Cloud account, billing, etc.). Out of code scope.
+**Effort:** M
+**Blast radius:** service (mobile + backend)
+
 ##### features
+- [x] iot_wizard OAuth URL extraction works (commit `ac0191f`). Host-file requirement for Xiaomi documented in README, surfaced in wizard.
+- [x] notifications, analytics features present with empty-state widgets.
+- [x] friendlyError used consistently (per memory + recent commits).
+
 ##### UX / i18n / accessibility / offline
+- [x] Offline banner triggers via `connectionStatus` provider.
+- [ ] **Info:** Accessibility (`Semantics(`) annotation count low — UI primarily targets sighted users. Future spec could add semantic labels for screen-reader support.
+- [x] i18n: en/ru/kz parity present (sample check).
 
 #### Infra / CI / Supply chain
 
+#### F-025 — CI lacks security scanners (staticcheck, govulncheck, gosec)
+**Category:** Infra
+**Severity:** P2
+**Location:** `.github/workflows/ci.yml`
+**Evidence:** Backend job runs `go vet` + `go test` + `go build` only. No vulnerability scan, no static-analysis lint, no security audit.
+**Why it matters:** Findings F-001 (8 CVEs) and F-002 (3 staticcheck hits) and F-003-F-005 (gosec) all snuck in because nothing in CI would catch them. Fixed in Iteration 1, but without CI gating they'll regress.
+**Suggested direction:** Add three blocking steps before `Unit tests`: install + run staticcheck/govulncheck/gosec.
+**Effort:** S
+**Blast radius:** local
+**Status:** **FIXED** — three new CI steps added; build fails on any new finding.
+
+#### F-026 — Dockerfile is well-structured (multi-stage, non-root, pinned)
+**Category:** Infra
+**Severity:** Info
+**Location:** `backend/Dockerfile`
+**Evidence:** Multi-stage (golang:1.25-alpine + alpine:3.20). Non-root user uid 10001. `-trimpath -s -w` for reproducibility. Uses `--no-cache apk add`. No secrets in layers.
+**Why it matters:** Reference quality.
+**Suggested direction:** None.
+
+#### F-027 — Docker compose has healthchecks and ordered dependencies
+**Category:** Infra
+**Severity:** Info
+**Location:** `docker-compose.yml`
+**Evidence:** Each service declares `healthcheck` with command + interval + timeout + retries. Backend `depends_on: postgres: condition: service_healthy`.
+**Why it matters:** Reference quality.
+**Suggested direction:** None.
+
+#### F-028 — `mosquitto.conf` allows anonymous connections (dev-default)
+**Category:** Infra / Security
+**Severity:** P3
+**Location:** `mosquitto/mosquitto.conf`
+**Evidence:** `allow_anonymous true` and no ACL file.
+**Why it matters:** Acceptable for pet project where mosquitto is bound to localhost in dev. Would be P0 if exposed publicly.
+**Suggested direction:** Document the dev-only assumption in README; future production deployment should add `password_file` + `acl_file`.
+**Effort:** S
+**Blast radius:** local
+
 ### Phase 3 — Cross-cutting
+
 ##### Contract drift
+- Sampled 5 backend DTO/mobile model pairs (User, Device, Classroom, Notification, Lesson) — fields aligned. ✓
+- WS Event vs mobile parser: mobile `realtime_event.dart` accepts an open map and tolerates unknown keys. ✓ (No drift today; F-022 still applies for future versioning).
+
 ##### Error handling consistency
+- Sampled 3 random handlers (classroom.update, scene.run, device.create). All paths:
+  - DB errors are wrapped via the repository layer with `%w`.
+  - Service layer maps to `httpx.DomainError` with stable codes + i18n message keys.
+  - Handler calls `httpx.WriteError`, which never leaks stack traces or SQL strings to the client.
+  - Status codes correctly distinguish 400/401/403/404/409/500.
+- One `_, _ := json.Marshal(...)` discarded error (in hass/client.go) is intentional — `json.Marshal` of a struct never fails for primitive fields. OK.
+
 ##### Secret scan
+- Pattern `sk-|api_key|password\s*=|secret\s*=` over backend + mobile + compose: **0 real hits** after excluding test files, validator tags, hashed-password fields, and HA's `onboardUserReq.Password` wire field. ✓
+
 ##### PII in logs
+- Pattern `log.*` → `email|phone|fullname|password`: **0 hits** in backend handlers/services. ✓
+- All log lines on the auth path log IDs (`zap.Stringer("user_id")`), not PII content. Aligns with `pet/CLAUDE.md` §11 PII rule.
+
 ##### Metrics/traces presence
+
+#### F-029 — Backend has zero metrics, traces, or instrumentation
+**Category:** Observability
+**Severity:** P2
+**Location:** cross-cutting (backend-wide)
+**Evidence:** `grep prometheus|otel|metrics\.|tracer\.|instrument` over `backend/`: **0 hits**. Per `pet/observability.md` rule "Every external call gets a counter (`_total`) and a histogram (`_duration_seconds`)" — none exist.
+**Why it matters:** Cannot answer "is the backend healthy?" without crawling logs. No alert can fire on error rates. No correlation across services. Per `pet/CLAUDE.md` §13 ("Every external call must have… metric") this is a foundational gap.
+**Suggested direction:** **Needs dedicated spec.** Add `/metrics` endpoint via `github.com/prometheus/client_golang/prometheus/promhttp`. Wrap every external call (DB, HA, MQTT, drivers, FCM, Triton-future) with `cctv_smartclass_<op>_total{result}` counter + `_duration_seconds` histogram. Optional: OpenTelemetry traces via `traceparent` header, propagated through middleware.
+**Effort:** L
+**Blast radius:** service
+**Note:** `request_id` field added in F-013 is the foundation for trace correlation.
 
 ## Cross-cutting observations
 _Filled by Phase 4._

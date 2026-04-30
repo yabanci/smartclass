@@ -33,6 +33,24 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # Security/lint scanners. Each is a separate step so one failing tool
+      # doesn't mask the rest. All four (vet, staticcheck, govulncheck, gosec)
+      # are kept blocking — any new finding fails the build.
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -quiet ./...
+
       - name: Unit tests (race + coverage)
         run: go test ./... -count=1 -race -coverprofile=coverage.out -covermode=atomic
 
