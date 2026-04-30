@@ -34,7 +34,7 @@ func newHandler(t *testing.T) (*auth.Handler, *auth.Service) {
 	repo := usertest.NewMemRepo()
 	h := hasher.NewBcrypt(4)
 	iss := tokens.NewJWT("test-secret-key-1234567890", time.Minute, time.Hour, "test")
-	svc := auth.NewService(repo, h, iss)
+	svc := auth.NewService(repo, h, iss, auth.NewMemRefreshStore(), nil)
 
 	bundle := i18n.NewBundle(i18n.EN)
 	require.NoError(t, bundle.LoadDir(localesDir(t)))

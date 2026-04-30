@@ -57,3 +57,28 @@ func TestJWT_RejectsGarbage(t *testing.T) {
 	_, err := j.Parse("not-a-real-token")
 	require.ErrorIs(t, err, ErrInvalidToken)
 }
+
+func TestJWT_RejectsWrongIssuer(t *testing.T) {
+	a := NewJWT("k1k1k1k1", time.Minute, time.Minute, "issuer-a")
+	b := NewJWT("k1k1k1k1", time.Minute, time.Minute, "issuer-b")
+
+	pair, err := a.Issue(uuid.New(), "user")
+	require.NoError(t, err)
+	_, err = b.Parse(pair.Access)
+	require.ErrorIs(t, err, ErrInvalidToken,
+		"a token signed with issuer=A must not be accepted under issuer=B even when the secret matches")
+}
+
+func TestJWT_AllowsClockSkewWithinLeeway(t *testing.T) {
+	frozen := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	j := NewJWT("secret-secret", time.Minute, time.Minute, "iss", WithClock(func() time.Time { return frozen }))
+
+	pair, err := j.Issue(uuid.New(), "user")
+	require.NoError(t, err)
+
+	// 70s past expiry: 60s TTL + 30s leeway = 90s window. 70s is inside.
+	j2 := NewJWT("secret-secret", time.Minute, time.Minute, "iss",
+		WithClock(func() time.Time { return frozen.Add(70 * time.Second) }))
+	_, err = j2.Parse(pair.Access)
+	require.NoError(t, err, "tokens must be accepted within the leeway window to absorb clock drift between hosts")
+}

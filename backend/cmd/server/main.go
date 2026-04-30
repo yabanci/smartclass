@@ -93,7 +93,8 @@ func main() {
 	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker).WithLogger(logger)
 	triggerEngine := notification.NewEngine(notificationSvc, notification.DefaultRules()).WithLogger(logger)
 
-	authSvc := auth.NewService(userRepo, hash, issuer)
+	refreshStore := auth.NewPostgresRefreshStore(db.Pool)
+	authSvc := auth.NewService(userRepo, hash, issuer, refreshStore, logger)
 	userSvc := user.NewService(userRepo, hash)
 	deviceSvc := device.NewService(deviceRepo, classroomSvc, factory, broker).
 		WithLogger(logger).
@@ -136,6 +137,7 @@ func main() {
 		Logger:              logger,
 		Bundle:              bundle,
 		Issuer:              issuer,
+		Readiness:           db,
 		AuthHandler:         authH,
 		UserHandler:         userH,
 		ClassroomHandler:    classroomH,

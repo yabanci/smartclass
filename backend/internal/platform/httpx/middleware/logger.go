@@ -53,14 +53,18 @@ func RequestLogger(logger *zap.Logger) func(http.Handler) http.Handler {
 			start := time.Now()
 			rec := &statusRecorder{ResponseWriter: w}
 			next.ServeHTTP(rec, r)
-			logger.Info("http",
+			fields := []zap.Field{
 				zap.String("method", r.Method),
 				zap.String("path", r.URL.Path),
 				zap.Int("status", rec.status),
 				zap.Int("bytes", rec.bytes),
 				zap.Duration("took", time.Since(start)),
 				zap.String("remote", r.RemoteAddr),
-			)
+			}
+			if id := RequestIDFrom(r.Context()); id != "" {
+				fields = append(fields, zap.String("request_id", id))
+			}
+			logger.Info("http", fields...)
 		})
 	}
 }

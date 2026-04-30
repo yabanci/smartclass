@@ -153,6 +153,71 @@ See spec §3-§4 for full rubric.
 
 #### Tier 1
 ##### auth + tokens
+
+#### F-009 — Refresh tokens have no rotation, revocation, or replay detection
+**Category:** Security
+**Severity:** P1
+**Location:** `backend/internal/auth/service.go` (Refresh), `backend/internal/platform/tokens/tokens.go`
+**Evidence:** Original `Service.Refresh` parsed the refresh JWT and issued a fresh pair without invalidating the old one. The old refresh token remained valid until expiry, and there was no `/auth/logout` to revoke. Refresh-token state was not stored in DB at all.
+**Why it matters:** A stolen refresh token works until expiry — typically 7+ days. No way for the user to invalidate it. No way to detect a replay attack (legitimate user logs in again, attacker still holds the original token). Standard OWASP refresh-token guidance is: rotate on use + persist jti + revoke on logout.
+**Suggested direction:** New `refresh_tokens(jti, user_id, expires_at, used_at, revoked_at)` table. `RefreshStore` interface (postgres + in-memory impl for tests). Service.Refresh: status check → mark used → revoke-all-on-replay-detection → issue new pair (which inserts new jti). Add `Service.Logout` and `POST /api/v1/auth/logout`.
+**Effort:** L
+**Blast radius:** service (auth, no contract change for clients besides new endpoint)
+**Status:** **FIXED** — migration `00013_refresh_tokens.sql`, `auth.RefreshStore` interface, `auth.PostgresRefreshStore`, `auth.MemRefreshStore` (for tests), `Service.Refresh` rotated/replay-checked, new `Service.Logout` + `POST /auth/logout`. 5 new tests cover rotation, replay detection (revokes all sessions), logout, deleted-user rejection, garbage rejection.
+
+#### F-010 — JWT Parse did not validate `iss`, lacked clock-skew leeway, did not pin signing alg
+**Category:** Security
+**Severity:** P2
+**Location:** `backend/internal/platform/tokens/tokens.go:109` (Parse)
+**Evidence:** Issuer was set when signing but never verified on parse. No `WithLeeway` — strictly past `exp` was rejected (real-world clock drift between containers can cause spurious 401s). `WithValidMethods` was not set, so the alg confusion attack surface was wider than necessary (manual check existed but defense in depth missing).
+**Why it matters:** Different smartclass deployments could conceivably share a JWT signing secret while having different issuers; without `iss` validation, a token from environment A would authenticate against B. Clock-skew leeway prevents flaky 401s.
+**Suggested direction:** `WithIssuer(j.issuer)` + `WithLeeway(30*time.Second)` + `WithValidMethods([]string{"HS256"})` + `WithExpirationRequired()` in ParseWithClaims options.
+**Effort:** S
+**Blast radius:** local
+**Status:** **FIXED** — all four options added; new tests `TestJWT_RejectsWrongIssuer` and `TestJWT_AllowsClockSkewWithinLeeway` cover the change.
+
+#### F-011 — `/healthz` and `/readyz` returned 200 unconditionally
+**Category:** Observability
+**Severity:** P2
+**Location:** `backend/internal/server/server.go:67-68,125`
+**Evidence:** Both routes pointed at `healthz` which returned 200 with no dependency check. A deployment where Postgres was unreachable would still report Ready=true and receive traffic.
+**Why it matters:** Per `pet/CLAUDE.md` §13 ("Readiness fails if: DB unreachable…"), `/readyz` must reflect real dependency state. Otherwise Kubernetes/load balancer never sheds traffic to a broken instance.
+**Suggested direction:** Define `ReadinessChecker` interface; have `*postgres.DB` implement `Ready(ctx)` via Pool.Ping with 2s timeout; wire `Deps.Readiness` from main.go.
+**Effort:** S
+**Blast radius:** service
+**Status:** **FIXED** — `server.ReadinessChecker` interface, `postgres.DB.Ready`, `/readyz` now returns 503 with reason on DB ping failure. `/healthz` (liveness) stays decoupled.
+
+#### F-012 — No request-body size limit
+**Category:** Reliability / Security
+**Severity:** P2
+**Location:** `backend/internal/server/server.go` (middleware stack)
+**Evidence:** No `http.MaxBytesReader` middleware in the chain. A client could POST a 1 GB body to any endpoint and tie up server memory parsing it.
+**Why it matters:** DoS amplification on JSON-decoding endpoints. Also catches misbehaving clients early with a clean 413 instead of timing out.
+**Suggested direction:** New `middleware.BodyLimit(1 MiB)` middleware applied globally.
+**Effort:** S
+**Blast radius:** service
+**Status:** **FIXED** — `BodyLimit` middleware + 1 MiB cap + 2 unit tests.
+
+#### F-013 — No request-ID middleware; logs lack correlation IDs
+**Category:** Observability
+**Severity:** P3
+**Location:** `backend/internal/platform/httpx/middleware/logger.go`, `server.go`
+**Evidence:** Request log line included method/path/status/bytes/duration but no correlation ID. Tracing a single request across logs (or correlating to a client bug report) was impossible without `grep`-by-timestamp.
+**Why it matters:** Per `pet/observability.md` rule "Include a correlation ID in every log line on the request path."
+**Suggested direction:** New `middleware.RequestID` that generates UUID (or trusts inbound `X-Request-Id` ≤128 chars), echoes back in response header, adds to context. `RequestLogger` reads it and adds `request_id` zap field.
+**Effort:** S
+**Blast radius:** local
+**Status:** **FIXED** — `middleware.RequestID` + 3 unit tests; `RequestLogger` includes `request_id` field when present.
+
+#### F-014 — Auth tokens accepted via `?access_token=` query param
+**Category:** Security / Observability
+**Severity:** P3
+**Location:** `backend/internal/platform/httpx/middleware/auth.go:64`
+**Evidence:** WebSocket upgrades fall back to a query param because browsers can't set Authorization headers on WS handshakes. Tokens in query strings get logged by reverse proxies, browser history, etc.
+**Why it matters:** Documented anti-pattern. The mobile client uses WS so the fallback is currently load-bearing, but it widens the leakage surface.
+**Suggested direction:** **Needs dedicated spec.** Replace with a short-lived (60 s) WS ticket: client calls `POST /ws/ticket` with bearer, server returns one-time ticket, client uses `?ticket=...` (single-use, server-side rotation). Simpler than per-request JWT, no PII in proxy logs.
+**Effort:** M
+**Blast radius:** service (mobile WS client + server change)
 ##### notification
 ##### schedule
 ##### scene

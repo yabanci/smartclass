@@ -48,6 +48,19 @@ func (db *DB) Close() {
 	}
 }
 
+// Ready satisfies server.ReadinessChecker by pinging the pool. Returns
+// promptly on context cancellation so the readiness probe stays responsive
+// even when the DB is wedged.
+func (db *DB) Ready(ctx context.Context) error {
+	if db.Pool == nil {
+		return fmt.Errorf("postgres: pool not initialized")
+	}
+	if err := db.Pool.Ping(ctx); err != nil {
+		return fmt.Errorf("postgres: ping: %w", err)
+	}
+	return nil
+}
+
 func (db *DB) Migrate(dir string) error {
 	sqlDB, err := sql.Open("pgx", db.dsn)
 	if err != nil {
