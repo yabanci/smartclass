@@ -10,10 +10,20 @@ import (
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 
+	"smartclass/internal/classroom"
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
+	"smartclass/internal/user"
 )
+
+// TopicAuthorizer answers "may this principal subscribe to this classroom?"
+// Implemented by *classroom.Service.Authorize. We accept the small interface
+// rather than the concrete type so the ws package can be tested without
+// pulling in the whole classroom service.
+type TopicAuthorizer interface {
+	Authorize(ctx context.Context, p classroom.Principal, classroomID uuid.UUID, mutate bool) error
+}
 
 const (
 	writeWait  = 10 * time.Second
@@ -25,13 +35,14 @@ type Handler struct {
 	hub    *Hub
 	log    *zap.Logger
 	bundle *i18n.Bundle
+	authz  TopicAuthorizer
 }
 
-func NewHandler(hub *Hub, log *zap.Logger, bundle *i18n.Bundle) *Handler {
+func NewHandler(hub *Hub, log *zap.Logger, bundle *i18n.Bundle, authz TopicAuthorizer) *Handler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Handler{hub: hub, log: log, bundle: bundle}
+	return &Handler{hub: hub, log: log, bundle: bundle, authz: authz}
 }
 
 var upgrader = websocket.Upgrader{
@@ -48,10 +59,18 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	topics := parseTopics(r, p.UserID)
-	conn, err := upgrader.Upgrade(w, r, nil)
+	topics, err := h.authorizeTopics(r.Context(), p, r.URL.Query()["topic"])
 	if err != nil {
-		h.log.Warn("ws upgrade", zap.Error(err))
+		// Fail closed: any unauthorized classroom topic in the request rejects
+		// the entire upgrade. Silently dropping just the bad ones would mean
+		// clients couldn't tell why their realtime updates went missing.
+		httpx.WriteError(w, r, h.bundle, err)
+		return
+	}
+
+	conn, upgErr := upgrader.Upgrade(w, r, nil)
+	if upgErr != nil {
+		h.log.Warn("ws upgrade", zap.Error(upgErr))
 		return
 	}
 
@@ -64,17 +83,63 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	go h.writePump(conn, client, r.Context())
 }
 
-func parseTopics(r *http.Request, userID uuid.UUID) []string {
-	q := r.URL.Query()["topic"]
-	topics := make([]string, 0, len(q)+1)
-	for _, t := range q {
-		t = strings.TrimSpace(t)
-		if t != "" {
-			topics = append(topics, t)
+// authorizeTopics enforces the WS subscription contract:
+//
+//   - "user:<self-uuid>:notifications" is auto-added (a user always sees their
+//     own notifications).
+//   - "classroom:<uuid>:..." is allowed only if the principal has access to
+//     that classroom; the check delegates to the classroom service.
+//   - any other shape is rejected — strict allowlist, not a denylist.
+//
+// Without this check a teacher could subscribe to "classroom:<other>:devices"
+// and silently observe events from a classroom they have no membership in.
+func (h *Handler) authorizeTopics(ctx context.Context, p mw.Principal, requested []string) ([]string, error) {
+	out := make([]string, 0, len(requested)+1)
+	out = append(out, "user:"+p.UserID.String()+":notifications")
+
+	principal := classroom.Principal{UserID: p.UserID, Role: user.Role(p.Role)}
+	for _, raw := range requested {
+		t := strings.TrimSpace(raw)
+		if t == "" {
+			continue
 		}
+
+		// Allow the user's own notification topic again as an explicit request
+		// (idempotent — common path for clients re-subscribing on reconnect).
+		if t == "user:"+p.UserID.String()+":notifications" {
+			continue // already in `out`
+		}
+
+		// Reject any other "user:" topic — those are someone else's events.
+		if strings.HasPrefix(t, "user:") {
+			return nil, httpx.ErrForbidden
+		}
+
+		if strings.HasPrefix(t, "classroom:") {
+			rest := t[len("classroom:"):]
+			sep := strings.IndexByte(rest, ':')
+			if sep <= 0 {
+				return nil, httpx.ErrBadRequest
+			}
+			classroomID, err := uuid.Parse(rest[:sep])
+			if err != nil {
+				return nil, httpx.ErrBadRequest
+			}
+			if h.authz == nil {
+				// Misconfiguration — refuse rather than fall open.
+				return nil, httpx.ErrForbidden
+			}
+			if err := h.authz.Authorize(ctx, principal, classroomID, false); err != nil {
+				return nil, httpx.ErrForbidden
+			}
+			out = append(out, t)
+			continue
+		}
+
+		// Unknown topic prefix → reject.
+		return nil, httpx.ErrBadRequest
 	}
-	topics = append(topics, "user:"+userID.String()+":notifications")
-	return topics
+	return out, nil
 }
 
 func (h *Handler) readPump(conn *websocket.Conn, c *Client) {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -15,6 +16,13 @@ import (
 	"smartclass/internal/platform/httpx"
 	"smartclass/internal/realtime"
 )
+
+// stepTimeout caps how long a single device command inside a scene may run.
+// Without a per-step ceiling, a single misbehaving device (slow network, dead
+// HA instance, locked physical device) holds up the entire scene; with it,
+// the scene degrades gracefully — the bad step fails fast and the next step
+// gets its full budget.
+const stepTimeout = 10 * time.Second
 
 var (
 	ErrDomainNotFound = httpx.NewDomainError("scene_not_found", http.StatusNotFound, "scene.not_found")
@@ -149,7 +157,9 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 	var firstErr error
 	for _, step := range sc.Steps {
 		cmd := devicectl.Command{Type: devicectl.CommandType(step.Command), Value: step.Value}
-		_, err := s.devices.Execute(ctx, p, step.DeviceID, cmd)
+		stepCtx, cancel := context.WithTimeout(ctx, stepTimeout)
+		_, err := s.devices.Execute(stepCtx, p, step.DeviceID, cmd)
+		cancel()
 		r := StepResult{Step: step, Success: err == nil}
 		if err != nil {
 			r.Error = err.Error()
@@ -158,6 +168,11 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 			}
 		}
 		results = append(results, r)
+		// Honour caller cancellation: if the request was cancelled mid-scene,
+		// stop spawning new step contexts.
+		if ctx.Err() != nil {
+			break
+		}
 	}
 
 	if err := s.broker.Publish(ctx, realtime.Event{

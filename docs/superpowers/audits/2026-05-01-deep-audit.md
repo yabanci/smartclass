@@ -219,10 +219,97 @@ See spec §3-§4 for full rubric.
 **Effort:** M
 **Blast radius:** service (mobile WS client + server change)
 ##### notification
+
+#### F-015 — Notification Engine cooldown map grew unbounded
+**Category:** Reliability
+**Severity:** P3
+**Location:** `backend/internal/notification/trigger.go:56` (throttle)
+**Evidence:** `lastAlert` map keyed on `classroomID:deviceID:rule` was inserted into on every alert and never cleaned up. Devices that are decommissioned still occupied a map entry forever.
+**Why it matters:** Slow memory leak. Pet-project scale never sees it; not so for a long-running deployment with high device churn.
+**Suggested direction:** Lazy GC pass when map size crosses a high-water mark; delete entries older than the cooldown window.
+**Effort:** S
+**Blast radius:** local
+**Status:** **FIXED** — high-water-mark eviction in `throttle()`.
+
+#### F-016 — Notification thresholds are global, not per-classroom
+**Category:** Reliability
+**Severity:** P3 (Info if a future feature)
+**Location:** `backend/internal/notification/trigger.go:27-34` (Rules)
+**Evidence:** `Rules{TemperatureHighC, TemperatureLowC, HumidityHigh}` is a single struct constructed at startup and reused across every classroom.
+**Why it matters:** A chemistry lab and a kindergarten have different "high temperature" definitions. With global thresholds, getting one right means getting the other wrong.
+**Suggested direction:** **Needs dedicated spec.** Per-classroom thresholds stored in DB with sensible defaults; admin UI to override.
+**Effort:** M
+**Blast radius:** service (UI + DB + service)
+
 ##### schedule
+
+#### F-017 — Schedule "current lesson" uses server-local time, not classroom timezone
+**Category:** Correctness
+**Severity:** P3 (single-tenant pet project; would be P1 multi-region)
+**Location:** `backend/internal/schedule/service.go:170` (Current)
+**Evidence:** `mins := TimeOfDay(now.Hour()*60 + now.Minute())` reads the server's wall-clock time. The lesson `StartsAt`/`EndsAt` are stored as `TimeOfDay` minutes-since-midnight, presumed to be in the school's timezone.
+**Why it matters:** Single-school single-server is fine (server's TZ is the school's TZ). Multi-region deployment would silently match the wrong lesson.
+**Suggested direction:** Add `timezone` to classrooms (default "Asia/Almaty"); convert `time.Now()` to that TZ before extracting minutes.
+**Effort:** M
+**Blast radius:** service (DB column + migration + frontend display)
+
 ##### scene
+
+#### F-018 — Scene execution had no per-step timeout
+**Category:** Reliability
+**Severity:** P2
+**Location:** `backend/internal/scene/service.go` (Run)
+**Evidence:** Each step called `s.devices.Execute(ctx, ...)` with the request context. The driver client has its own Timeout (5–15s), but the call path includes auth/repo lookups upstream. A single slow step would block the entire scene goroutine indefinitely if the inner Timeout was zero or absent for any reason.
+**Why it matters:** A 10-step scene with one stuck device blocks the whole batch. Defense in depth on top of driver timeouts.
+**Suggested direction:** Wrap each step in `context.WithTimeout(ctx, 10*time.Second)`. Honour caller cancellation between steps.
+**Effort:** S
+**Blast radius:** local
+**Status:** **FIXED** — per-step `context.WithTimeout(10s)`; loop also breaks on `ctx.Err()`.
+
 ##### devicectl + drivers
+
+#### F-019 — Driver layer review: timeouts present, errors wrapped, panics avoided
+**Category:** Quality
+**Severity:** Info
+**Location:** `backend/internal/devicectl/drivers/{generic,homeassistant,smartthings}/`
+**Evidence:** Each driver constructs an `http.Client` with explicit timeout (5s/10s/15s). Errors wrapped with `%w`. No `panic()` on transport errors.
+**Why it matters:** Confidence point — the driver layer holds up. SSRF concern in `generic_http` (no rejection of internal addresses like `169.254.169.254` for cloud metadata) is real but admins set the URL, not end users → not in this audit's threat model.
+**Suggested direction:** None for now. A future hardening spec could deny RFC1918+link-local in `generic_http` config validation.
+**Status:** **NO IMMEDIATE FIX** — documented as Info.
+
 ##### realtime/ws
+
+#### F-020 — WebSocket subscription bypassed tenant boundaries
+**Category:** Security
+**Severity:** P1
+**Location:** `backend/internal/realtime/ws/handler.go:67` (parseTopics)
+**Evidence:** `parseTopics` accepted any string from `?topic=` query and registered it as a subscription. A teacher could pass `?topic=classroom:<other-uuid>:devices` and silently observe events from a classroom they had no membership in.
+**Why it matters:** Broken access control — a multi-tenant CCTV-adjacent product cannot let one teacher see another classroom's realtime device/sensor stream.
+**Suggested direction:** Strict allowlist: `user:<self>:notifications` (auto-added) and `classroom:<id>:*` only when `classroom.Service.Authorize(p, id, false)` succeeds. Reject any other shape with 403.
+**Effort:** M
+**Blast radius:** service (WS handler + main.go wiring)
+**Status:** **FIXED** — `TopicAuthorizer` interface, strict topic parser, `Handler.authorizeTopics` rejects foreign-user, foreign-classroom, and unknown-shape topics; 6 new unit tests.
+
+#### F-021 — WebSocket CheckOrigin allows any origin
+**Category:** Security
+**Severity:** P3
+**Location:** `backend/internal/realtime/ws/handler.go:40` (upgrader.CheckOrigin)
+**Evidence:** `CheckOrigin: func(_ *http.Request) bool { return true }`.
+**Why it matters:** With Bearer-JWT-in-query authentication, CSRF-equivalent for WS is partially mitigated (no cookie-based session to hijack). Still defense-in-depth gap; a malicious page that can read tokens (XSS) can also open a WS connection more easily.
+**Suggested direction:** Reuse the CORS allowed-origins list. Track in the WS-ticket spec (F-014).
+**Effort:** S
+**Blast radius:** local
+
+#### F-022 — WebSocket message schema has no version field
+**Category:** Contracts
+**Severity:** P3
+**Location:** `backend/internal/realtime/event.go` (Event struct)
+**Evidence:** `realtime.Event{Topic, Type, Payload}` — no `version` per `pet/contracts.md` rule "Every message carries a `version` field".
+**Why it matters:** Future schema changes can't be rolled out incrementally if consumers can't tell which version they're parsing.
+**Suggested direction:** Add `Version int` (default 1); mobile parser tolerates unknown fields already.
+**Effort:** S
+**Blast radius:** cross-service (mobile + backend in lock-step)
+**Note:** marked `needs dedicated spec` — touches a contract.
 
 #### Tier 2
 ##### classroom

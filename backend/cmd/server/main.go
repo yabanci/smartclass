@@ -130,7 +130,7 @@ func main() {
 	auditH := auditlog.NewHandler(auditSvc, bundle)
 	analyticsH := analytics.NewHandler(analyticsSvc, bundle)
 	hassH := hass.NewHandler(hassSvc, valid, bundle)
-	wsH := ws.NewHandler(hub, logger, bundle)
+	wsH := ws.NewHandler(hub, logger, bundle, classroomSvc)
 
 	srv := server.New(server.Deps{
 		Cfg:                 cfg,
