@@ -57,12 +57,7 @@ func (h *Handler) updateMe(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, err)
 		return
 	}
-	u, err := h.svc.UpdateProfile(r.Context(), p.UserID, UpdateProfileInput{
-		FullName:  req.FullName,
-		Language:  req.Language,
-		AvatarURL: req.AvatarURL,
-		Phone:     req.Phone,
-	})
+	u, err := h.svc.UpdateProfile(r.Context(), p.UserID, UpdateProfileInput(req))
 	if err != nil {
 		httpx.WriteError(w, r, h.bundle, err)
 		return

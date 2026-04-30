@@ -1,0 +1,61 @@
+00:00 +0: loading /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart
+00:00 +0: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/error_utils_test.dart: friendlyError strips ApiException prefix
+00:00 +1: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Device.fromJson round-trips full device
+00:00 +2: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Device.fromJson round-trips full device
+00:00 +3: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +4: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +5: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +6: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +7: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +8: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +9: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +10: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/widget_test.dart: placeholder
+00:00 +11: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Device.fromJson copyWith preserves unchanged fields
+00:00 +12: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Classroom.fromJson parses all fields
+00:00 +13: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Classroom.fromJson accepts null description
+00:00 +14: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Lesson.fromJson parses weekday lesson
+00:00 +15: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: Scene.fromJson parses steps correctly
+00:00 +16: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: SensorReading.fromJson parses temperature reading
+00:00 +17: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: AppNotification isRead false when readAt is null
+00:00 +18: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: AppNotification isRead true when readAt is set
+00:00 +19: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: AppNotification parses all three types
+00:00 +20: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassFlowStep.fromJson parses form step with data_schema
+00:00 +21: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassFlowStep.fromJson parses create_entry
+00:00 +22: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassFlowStep.fromJson parses abort with reason
+00:00 +23: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassFlowStep.fromJson parses external_step with url
+00:00 +24: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassFlowStep.fromJson safe cast for non-string description_placeholders
+00:00 +25: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassSchemaField.normalizedOptions flat string array
+00:00 +26: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/models_test.dart: HassSchemaField.normalizedOptions dict {"cn": "China"}
+00:00 +27: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +28: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +29: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +30: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +31: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +32: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +33: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +34: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +35: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +36: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when no localUrl
+00:00 +37: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/connection_resolver_test.dart: ConnectionResolver remote mode when localUrl is unreachable
+00:00 +38: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +39: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +40: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +41: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +42: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +43: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +44: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email is empty
+00:01 +45: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/device_test.dart: DeviceCard rendering online device shows green dot (accent color)
+00:01 +46: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email format is invalid
+00:01 +47: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email format is invalid
+00:01 +48: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email format is invalid
+00:01 +49: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows error when email format is invalid
+00:01 +50: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/device_test.dart: DeviceCard rendering fan level buttons visible when ON
+00:01 +51: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows password required when only email filled
+00:01 +52: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: LoginPage form validation shows password required when only email filled
+00:01 +53: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/device_test.dart: DeviceCard rendering edit and delete buttons present
+00:01 +54: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/device_test.dart: DeviceCard rendering edit and delete buttons present
+00:01 +55: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: RegisterPage form validation shows password mismatch error
+00:01 +56: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: RegisterPage form validation shows password mismatch error
+00:01 +57: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: RegisterPage form validation has confirm_password_field key
+00:01 +58: /Users/arsenozhetov/Projects/pet/smartclass/mobile/test/auth_test.dart: RegisterPage form validation shows role dropdown
+00:01 +59: All tests passed!

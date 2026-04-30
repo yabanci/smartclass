@@ -4,15 +4,27 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
 )
+
+// flowIDPattern restricts HA config-flow IDs to the characters HA itself emits
+// (32-char hex tokens). Rejecting `/`, `?`, `..` etc. closes the SSRF / path-
+// traversal vector flagged by gosec G704: an authenticated admin cannot use a
+// crafted flowID to redirect the URL at a different HA endpoint.
+var flowIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+// ErrInvalidFlowID is returned when a caller passes a flow ID that does not
+// match the allowed character set.
+var ErrInvalidFlowID = errors.New("hass: invalid flow id")
 
 // clientID used for HA's OAuth2 indieauth flow during onboarding. HA validates
 // that the client_id is a parseable URL but doesn't care about its value
@@ -95,6 +107,7 @@ type onboardUserResp struct {
 // be exchanged for tokens. Fails with ErrAlreadyOnboarded if someone already
 // completed this step (HA returns 403 in that case).
 func (c *Client) CreateOwner(ctx context.Context, name, username, password, lang string) (string, error) {
+	// #nosec G117 -- HA's onboarding API requires a password field by contract; this is the wire format.
 	body, _ := json.Marshal(onboardUserReq{
 		ClientID: oauthClientID,
 		Name:     name, Username: username, Password: password, Language: lang,
@@ -458,6 +471,9 @@ func (c *Client) StartFlow(ctx context.Context, token, handler string) (*FlowSte
 }
 
 func (c *Client) StepFlow(ctx context.Context, token, flowID string, data map[string]any) (*FlowStep, error) {
+	if !flowIDPattern.MatchString(flowID) {
+		return nil, ErrInvalidFlowID
+	}
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -470,12 +486,17 @@ func (c *Client) StepFlow(ctx context.Context, token, flowID string, data map[st
 }
 
 func (c *Client) AbortFlow(ctx context.Context, token, flowID string) error {
+	if !flowIDPattern.MatchString(flowID) {
+		return ErrInvalidFlowID
+	}
+	// #nosec G704 -- baseURL is operator-configured (HA endpoint); flowID is regex-validated above.
 	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/api/config/config_entries/flow/"+flowID, nil)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := c.http.Do(req)
+	resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
+
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
@@ -523,6 +544,7 @@ func (c *Client) getJSON(ctx context.Context, token, path string, out any) error
 }
 
 func (c *Client) requestJSON(ctx context.Context, method, token, path string, body io.Reader, out any) error {
+	// #nosec G704 -- baseURL is operator-configured (HA endpoint), path is internal/validated input.
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUpstream, err)
@@ -531,7 +553,8 @@ func (c *Client) requestJSON(ctx context.Context, method, token, path string, bo
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}
-	resp, err := c.http.Do(req)
+	resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
+
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrUpstream, err)
 	}

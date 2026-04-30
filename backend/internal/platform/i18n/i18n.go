@@ -75,7 +75,11 @@ func (b *Bundle) LoadDir(dir string) error {
 		if _, ok := supported[lang]; !ok {
 			continue
 		}
-		raw, err := os.ReadFile(filepath.Join(dir, e.Name()))
+		// e.Name() comes from os.ReadDir which only returns basenames; combined
+		// with the .json suffix and supported-language guard above, no untrusted
+		// path can reach this read. filepath.Base is belt-and-braces for gosec.
+		raw, err := os.ReadFile(filepath.Join(dir, filepath.Base(e.Name()))) // #nosec G304
+
 		if err != nil {
 			return fmt.Errorf("i18n: read %s: %w", e.Name(), err)
 		}

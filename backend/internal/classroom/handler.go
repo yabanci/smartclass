@@ -131,7 +131,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, err)
 		return
 	}
-	c, err := h.svc.Update(r.Context(), p, id, UpdateInput{Name: req.Name, Description: req.Description})
+	c, err := h.svc.Update(r.Context(), p, id, UpdateInput(req))
 	if err != nil {
 		httpx.WriteError(w, r, h.bundle, err)
 		return

@@ -1,0 +1,139 @@
+Fetching vulnerabilities from the database...
+
+Checking the code against the vulnerabilities...
+
+The package pattern matched the following 36 root packages:
+  smartclass/internal/platform/i18n
+  smartclass/internal/platform/validation
+  smartclass/internal/platform/httpx
+  smartclass/internal/platform/tokens
+  smartclass/internal/platform/httpx/middleware
+  smartclass/internal/platform/hasher
+  smartclass/internal/user
+  smartclass/internal/classroom
+  smartclass/internal/analytics
+  smartclass/internal/auditlog
+  smartclass/internal/auth
+  smartclass/internal/config
+  smartclass/internal/devicectl
+  smartclass/internal/realtime
+  smartclass/internal/device
+  smartclass/internal/devicectl/drivers/generic
+  smartclass/internal/devicectl/drivers/homeassistant
+  smartclass/internal/devicectl/drivers/smartthings
+  smartclass/internal/hass
+  smartclass/internal/notification
+  smartclass/internal/platform/postgres
+  smartclass/internal/realtime/ws
+  smartclass/internal/scene
+  smartclass/internal/schedule
+  smartclass/internal/sensor
+  smartclass/internal/server
+  smartclass/cmd/server
+  smartclass/internal/classroom/classroomtest
+  smartclass/internal/device/devicetest
+  smartclass/internal/devicectl/drivers/stub
+  smartclass/internal/hass/hasstest
+  smartclass/internal/notification/notificationtest
+  smartclass/internal/scene/scenetest
+  smartclass/internal/schedule/scheduletest
+  smartclass/internal/sensor/sensortest
+  smartclass/internal/user/usertest
+Govulncheck scanned the following 26 modules and the go1.26.2 standard library:
+  smartclass
+  github.com/caarlos0/env/v11@v11.3.1
+  github.com/gabriel-vasile/mimetype@v1.4.8
+  github.com/go-chi/chi/v5@v5.2.2
+  github.com/go-playground/locales@v0.14.1
+  github.com/go-playground/universal-translator@v0.18.1
+  github.com/go-playground/validator/v10@v10.26.0
+  github.com/golang-jwt/jwt/v5@v5.2.2
+  github.com/google/uuid@v1.6.0
+  github.com/gorilla/websocket@v1.5.3
+  github.com/jackc/pgpassfile@v1.0.0
+  github.com/jackc/pgservicefile@v0.0.0-20240606120523-5a60cdf6a761
+  github.com/jackc/pgx/v5@v5.7.4
+  github.com/jackc/puddle/v2@v2.2.2
+  github.com/leodido/go-urn@v1.4.0
+  github.com/mfridman/interpolate@v0.0.2
+  github.com/pressly/goose/v3@v3.24.2
+  github.com/sethvargo/go-retry@v0.3.0
+  go.uber.org/multierr@v1.11.0
+  go.uber.org/zap@v1.27.0
+  golang.org/x/crypto@v0.36.0
+  golang.org/x/net@v0.38.0
+  golang.org/x/sync@v0.12.0
+  golang.org/x/sys@v0.31.0
+  golang.org/x/text@v0.23.0
+  golang.org/x/time@v0.11.0
+
+=== Symbol Results ===
+
+No vulnerabilities found.
+
+=== Package Results ===
+
+Vulnerability #1: GO-2026-4772
+    CVE-2026-33816 in github.com/jackc/pgx
+  More info: https://pkg.go.dev/vuln/GO-2026-4772
+  Module: github.com/jackc/pgx/v5
+    Found in: github.com/jackc/pgx/v5@v5.7.4
+    Fixed in: github.com/jackc/pgx/v5@v5.9.0
+
+Vulnerability #2: GO-2026-4771
+    CVE-2026-33815 in github.com/jackc/pgx
+  More info: https://pkg.go.dev/vuln/GO-2026-4771
+  Module: github.com/jackc/pgx/v5
+    Found in: github.com/jackc/pgx/v5@v5.7.4
+    Fixed in: github.com/jackc/pgx/v5@v5.9.0
+
+Vulnerability #3: GO-2026-4441
+    Infinite parsing loop in golang.org/x/net
+  More info: https://pkg.go.dev/vuln/GO-2026-4441
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.38.0
+    Fixed in: golang.org/x/net@v0.45.0
+
+Vulnerability #4: GO-2026-4440
+    Quadratic parsing complexity in golang.org/x/net/html
+  More info: https://pkg.go.dev/vuln/GO-2026-4440
+  Module: golang.org/x/net
+    Found in: golang.org/x/net@v0.38.0
+    Fixed in: golang.org/x/net@v0.45.0
+
+=== Module Results ===
+
+Vulnerability #1: GO-2026-4316
+    Open redirect vulnerability in the RedirectSlashes middleware in
+    github.com/go-chi/chi
+  More info: https://pkg.go.dev/vuln/GO-2026-4316
+  Module: github.com/go-chi/chi/v5
+    Found in: github.com/go-chi/chi/v5@v5.2.2
+    Fixed in: github.com/go-chi/chi/v5@v5.2.4
+
+Vulnerability #2: GO-2025-4135
+    Malformed constraint may cause denial of service in
+    golang.org/x/crypto/ssh/agent
+  More info: https://pkg.go.dev/vuln/GO-2025-4135
+  Module: golang.org/x/crypto
+    Found in: golang.org/x/crypto@v0.36.0
+    Fixed in: golang.org/x/crypto@v0.45.0
+
+Vulnerability #3: GO-2025-4134
+    Unbounded memory consumption in golang.org/x/crypto/ssh
+  More info: https://pkg.go.dev/vuln/GO-2025-4134
+  Module: golang.org/x/crypto
+    Found in: golang.org/x/crypto@v0.36.0
+    Fixed in: golang.org/x/crypto@v0.45.0
+
+Vulnerability #4: GO-2025-4116
+    Potential denial of service in golang.org/x/crypto/ssh/agent
+  More info: https://pkg.go.dev/vuln/GO-2025-4116
+  Module: golang.org/x/crypto
+    Found in: golang.org/x/crypto@v0.36.0
+    Fixed in: golang.org/x/crypto@v0.43.0
+
+Your code is affected by 0 vulnerabilities.
+This scan also found 4 vulnerabilities in packages you import and 4
+vulnerabilities in modules you require, but your code doesn't appear to call
+these vulnerabilities.
