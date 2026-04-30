@@ -44,8 +44,8 @@ Mobile (from `mobile/`):
 - `flutter test --coverage`
 
 Infra:
-- `goose status` from `backend/`
-- `docker scout` or `trivy fs` on Dockerfiles (best-effort)
+- `goose status` from `backend/`.
+- Container scan: try `trivy fs .` first, fall back to `docker scout cves` if installed; if neither is available, note "container scan skipped — install trivy or docker scout" and proceed.
 
 ### Phase 2 — Subsystem deep-read (focused, deep)
 Manual code reading per subsystem, weighted by risk tier (§5).
@@ -154,7 +154,7 @@ Time-budget tag in `[brackets]` reflects expected reading depth.
 **`internal/device`** — CRUD authz, classroom binding, driver field validation, JSON config schema per driver, offline detection.
 **`internal/sensor`** — bulk insert, validation, history index usage, latest-per-device query plan.
 **`internal/analytics`** — aggregation correctness, timezone day buckets, p95 latency vs `< 3s` budget, energy formula consistency.
-**`internal/hass`** — onboarding state machine error paths, token persistence + refresh, self-test accuracy, **investigate 55s test runtime**.
+**`internal/hass`** — onboarding state machine error paths, token persistence + refresh, self-test accuracy. **Investigate 55s test runtime** — file as a finding (Tests/Reliability category) regardless of cause; the cause becomes the suggested direction (real HTTP vs `time.Sleep` vs testcontainers).
 **MQTT** — broker auth/ACL (currently anonymous?), topic layout per classroom/tenant, reconnect, QoS, retained-message cleanup.
 
 ### Tier 3 — Skim (10–15 min each)
@@ -222,7 +222,8 @@ Path: `docs/superpowers/audits/2026-05-01-deep-audit.md`
 …
 
 ## Tool output appendix
-(Raw, collapsed under <details>)
+(Summary table of which tools ran, exit code, hit count.
+Full raw outputs live under raw/, not inlined here.)
 
 ## Coverage snapshot
 (Per-package coverage table, dated)
