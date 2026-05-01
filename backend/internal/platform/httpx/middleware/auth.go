@@ -94,3 +94,12 @@ func RequireRole(bundle *i18n.Bundle, roles ...string) func(http.Handler) http.H
 		})
 	}
 }
+
+// WithPrincipalForTest installs a Principal directly in the context, used by
+// handler tests that don't go through the real Authn middleware. Production
+// code never calls this — use Authn instead.
+func WithPrincipalForTest(ctx context.Context, p Principal) context.Context {
+	ctx = context.WithValue(ctx, ctxKeyUserID, p.UserID)
+	ctx = context.WithValue(ctx, ctxKeyRole, p.Role)
+	return ctx
+}
