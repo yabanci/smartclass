@@ -10,10 +10,12 @@ package ws
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
 
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/realtime"
 )
 
@@ -75,6 +77,7 @@ func (h *Hub) Register(c *Client) {
 		}
 		h.byTopic[t][c.ID] = c
 	}
+	metrics.WSConnected.Inc()
 	h.log.Debug("ws: client registered", zap.String("id", c.ID), zap.Int("topics", len(c.topics)))
 }
 
@@ -91,7 +94,21 @@ func (h *Hub) Unregister(c *Client) {
 	}
 	h.mu.Unlock()
 	c.close()
+	metrics.WSConnected.Dec()
 	h.log.Debug("ws: client unregistered", zap.String("id", c.ID))
+}
+
+// topicKind classifies a topic by prefix into a bounded set of values.
+// Used as a label on WSMessagesPublished to keep label cardinality bounded.
+func topicKind(topic string) string {
+	switch {
+	case strings.HasPrefix(topic, "user:"):
+		return "user"
+	case strings.HasPrefix(topic, "classroom:"):
+		return "classroom"
+	default:
+		return "other"
+	}
 }
 
 func (h *Hub) Publish(_ context.Context, event realtime.Event) error {
@@ -117,6 +134,9 @@ func (h *Hub) Publish(_ context.Context, event realtime.Event) error {
 			h.log.Warn("ws: dropping slow client", zap.String("id", c.ID))
 		}
 	}
+	// Count the publish regardless of subscriber count: a 0-subscriber publish
+	// is still a published event from the producer's perspective.
+	metrics.WSMessagesPublished.WithLabelValues(topicKind(event.Topic)).Inc()
 	return nil
 }
 

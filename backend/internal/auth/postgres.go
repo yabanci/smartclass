@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 // PostgresRefreshStore is the single source of truth for refresh-token state.
@@ -23,7 +25,7 @@ func NewPostgresRefreshStore(pool *pgxpool.Pool) *PostgresRefreshStore {
 
 func (s *PostgresRefreshStore) Track(ctx context.Context, jti uuid.UUID, userID uuid.UUID, expiresAt time.Time) error {
 	const q = `INSERT INTO refresh_tokens (jti, user_id, expires_at) VALUES ($1, $2, $3)`
-	if _, err := s.pool.Exec(ctx, q, jti, userID, expiresAt); err != nil {
+	if _, err := s.pool.Exec(metrics.WithDBOp(ctx, "auth.refresh.Track"), q, jti, userID, expiresAt); err != nil {
 		return fmt.Errorf("auth: track refresh: %w", err)
 	}
 	return nil
@@ -31,7 +33,7 @@ func (s *PostgresRefreshStore) Track(ctx context.Context, jti uuid.UUID, userID 
 
 func (s *PostgresRefreshStore) Status(ctx context.Context, jti uuid.UUID) (RefreshStatus, error) {
 	const q = `SELECT user_id, expires_at, used_at, revoked_at FROM refresh_tokens WHERE jti = $1`
-	row := s.pool.QueryRow(ctx, q, jti)
+	row := s.pool.QueryRow(metrics.WithDBOp(ctx, "auth.refresh.Status"), q, jti)
 	var st RefreshStatus
 	if err := row.Scan(&st.UserID, &st.ExpiresAt, &st.UsedAt, &st.RevokedAt); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -48,7 +50,7 @@ func (s *PostgresRefreshStore) MarkUsed(ctx context.Context, jti uuid.UUID) erro
 	// affected, which we map to ErrRefreshAlreadyUsed. This is what powers
 	// replay detection.
 	const q = `UPDATE refresh_tokens SET used_at = now() WHERE jti = $1 AND used_at IS NULL AND revoked_at IS NULL`
-	tag, err := s.pool.Exec(ctx, q, jti)
+	tag, err := s.pool.Exec(metrics.WithDBOp(ctx, "auth.refresh.MarkUsed"), q, jti)
 	if err != nil {
 		return fmt.Errorf("auth: mark used: %w", err)
 	}
@@ -61,7 +63,7 @@ func (s *PostgresRefreshStore) MarkUsed(ctx context.Context, jti uuid.UUID) erro
 func (s *PostgresRefreshStore) RevokeUser(ctx context.Context, userID uuid.UUID) error {
 	const q = `UPDATE refresh_tokens SET revoked_at = now()
 	            WHERE user_id = $1 AND revoked_at IS NULL AND used_at IS NULL`
-	if _, err := s.pool.Exec(ctx, q, userID); err != nil {
+	if _, err := s.pool.Exec(metrics.WithDBOp(ctx, "auth.refresh.RevokeUser"), q, userID); err != nil {
 		return fmt.Errorf("auth: revoke user: %w", err)
 	}
 	return nil

@@ -12,6 +12,7 @@ import (
 
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/httpx"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/user"
 )
@@ -107,17 +108,20 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 	u, err := s.users.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
+			metrics.AuthLogins.WithLabelValues("invalid").Inc()
 			return nil, ErrInvalidCredentials
 		}
 		return nil, err
 	}
 	if err := s.hash.Compare(u.PasswordHash, password); err != nil {
+		metrics.AuthLogins.WithLabelValues("invalid").Inc()
 		return nil, ErrInvalidCredentials
 	}
 	pair, err := s.issuePair(ctx, u)
 	if err != nil {
 		return nil, err
 	}
+	metrics.AuthLogins.WithLabelValues("ok").Inc()
 	return &LoginResult{User: u, Tokens: pair}, nil
 }
 
@@ -129,16 +133,19 @@ func (s *Service) Login(ctx context.Context, email, password string) (*LoginResu
 func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResult, error) {
 	claims, err := s.issuer.Parse(refreshToken)
 	if err != nil || claims.Kind != tokens.KindRefresh {
+		metrics.AuthRefresh.WithLabelValues("invalid").Inc()
 		return nil, ErrInvalidRefresh
 	}
 	jti := claims.JTI()
 	if jti == uuid.Nil {
+		metrics.AuthRefresh.WithLabelValues("invalid").Inc()
 		return nil, ErrInvalidRefresh
 	}
 
 	status, err := s.store.Status(ctx, jti)
 	if err != nil {
 		if errors.Is(err, ErrRefreshUnknown) {
+			metrics.AuthRefresh.WithLabelValues("invalid").Inc()
 			return nil, ErrInvalidRefresh
 		}
 		return nil, err
@@ -150,9 +157,12 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 		s.logger.Warn("refresh replay detected — revoking all sessions",
 			zap.Stringer("user_id", status.UserID), zap.Stringer("jti", jti))
 		_ = s.store.RevokeUser(ctx, status.UserID)
+		metrics.AuthRefresh.WithLabelValues("replay").Inc()
+		metrics.AuthReplayDetected.Inc()
 		return nil, ErrInvalidRefresh
 	}
 	if !status.IsLive(timeNow()) {
+		metrics.AuthRefresh.WithLabelValues("invalid").Inc()
 		return nil, ErrInvalidRefresh
 	}
 
@@ -163,6 +173,8 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 			s.logger.Warn("refresh race lost — revoking all sessions",
 				zap.Stringer("user_id", status.UserID), zap.Stringer("jti", jti))
 			_ = s.store.RevokeUser(ctx, status.UserID)
+			metrics.AuthRefresh.WithLabelValues("replay").Inc()
+			metrics.AuthReplayDetected.Inc()
 			return nil, ErrInvalidRefresh
 		}
 		return nil, err
@@ -171,6 +183,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 	u, err := s.users.GetByID(ctx, claims.UserID)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
+			metrics.AuthRefresh.WithLabelValues("invalid").Inc()
 			return nil, ErrInvalidRefresh
 		}
 		return nil, err
@@ -179,6 +192,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 	if err != nil {
 		return nil, err
 	}
+	metrics.AuthRefresh.WithLabelValues("ok").Inc()
 	return &LoginResult{User: u, Tokens: pair}, nil
 }
 

@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"smartclass/internal/devicectl"
+	"smartclass/internal/platform/metrics"
 )
 
 const Name = "homeassistant"
@@ -148,31 +149,37 @@ func mapCommand(cmd devicectl.Command, entityDomain string) (serviceCall, error)
 }
 
 func (d *Driver) Execute(ctx context.Context, t devicectl.Target, cmd devicectl.Command) (devicectl.Result, error) {
-	cfg, err := parseConfig(t.Config)
-	if err != nil {
-		return devicectl.Result{}, err
-	}
-	token, err := d.resolveToken(ctx, cfg)
-	if err != nil {
-		return devicectl.Result{}, err
-	}
-	domain := entityDomain(cfg.EntityID)
-	sc, err := mapCommand(cmd, domain)
-	if err != nil {
-		return devicectl.Result{}, err
-	}
-	body := map[string]any{"entity_id": cfg.EntityID}
-	for k, v := range sc.extra {
-		body[k] = v
-	}
-	if err := d.callService(ctx, cfg.BaseURL, token, sc.domain, sc.service, body); err != nil {
-		return devicectl.Result{Online: false}, err
-	}
-	return devicectl.Result{
-		Status:   inferStatus(cmd.Type, domain),
-		Online:   true,
-		LastSeen: time.Now().UTC(),
-	}, nil
+	var out devicectl.Result
+	err := metrics.TrackDriver(ctx, Name, string(cmd.Type), func(ctx context.Context) error {
+		cfg, err := parseConfig(t.Config)
+		if err != nil {
+			return err
+		}
+		token, err := d.resolveToken(ctx, cfg)
+		if err != nil {
+			return err
+		}
+		domain := entityDomain(cfg.EntityID)
+		sc, err := mapCommand(cmd, domain)
+		if err != nil {
+			return err
+		}
+		body := map[string]any{"entity_id": cfg.EntityID}
+		for k, v := range sc.extra {
+			body[k] = v
+		}
+		if err := d.callService(ctx, cfg.BaseURL, token, sc.domain, sc.service, body); err != nil {
+			out = devicectl.Result{Online: false}
+			return err
+		}
+		out = devicectl.Result{
+			Status:   inferStatus(cmd.Type, domain),
+			Online:   true,
+			LastSeen: time.Now().UTC(),
+		}
+		return nil
+	})
+	return out, err
 }
 
 func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Result, error) {

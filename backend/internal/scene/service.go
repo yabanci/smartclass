@@ -14,6 +14,7 @@ import (
 	"smartclass/internal/device"
 	"smartclass/internal/devicectl"
 	"smartclass/internal/platform/httpx"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/realtime"
 )
 
@@ -189,8 +190,20 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 
 	out := &RunResult{SceneID: sc.ID, Steps: results}
 	if firstErr != nil {
+		failedCount := 0
+		for _, r := range results {
+			if !r.Success {
+				failedCount++
+			}
+		}
+		if failedCount == len(results) {
+			metrics.ScenesRun.WithLabelValues("err").Inc()
+		} else {
+			metrics.ScenesRun.WithLabelValues("partial").Inc()
+		}
 		return out, fmt.Errorf("%w: %v", ErrStepFailed, firstErr)
 	}
+	metrics.ScenesRun.WithLabelValues("ok").Inc()
 	return out, nil
 }
 

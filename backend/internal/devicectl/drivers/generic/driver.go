@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"smartclass/internal/devicectl"
+	"smartclass/internal/platform/metrics"
 )
 
 const Name = "generic_http"
@@ -72,26 +73,31 @@ func parseConfig(raw map[string]any) (*config, error) {
 }
 
 func (d *Driver) Execute(ctx context.Context, t devicectl.Target, cmd devicectl.Command) (devicectl.Result, error) {
-	cfg, err := parseConfig(t.Config)
-	if err != nil {
-		return devicectl.Result{}, err
-	}
-	ep, ok := cfg.Commands[string(cmd.Type)]
-	if !ok {
-		return devicectl.Result{}, fmt.Errorf("%w: %s", devicectl.ErrUnsupportedCommand, cmd.Type)
-	}
-	body := substituteValue(ep.Body, cmd.Value)
-	raw, err := d.do(ctx, cfg, ep, body)
-	if err != nil {
-		return devicectl.Result{Online: false}, err
-	}
-	status := inferStatus(cmd.Type)
-	return devicectl.Result{
-		Status:   status,
-		Online:   true,
-		LastSeen: time.Now().UTC(),
-		Raw:      raw,
-	}, nil
+	var out devicectl.Result
+	err := metrics.TrackDriver(ctx, Name, string(cmd.Type), func(ctx context.Context) error {
+		cfg, err := parseConfig(t.Config)
+		if err != nil {
+			return err
+		}
+		ep, ok := cfg.Commands[string(cmd.Type)]
+		if !ok {
+			return fmt.Errorf("%w: %s", devicectl.ErrUnsupportedCommand, cmd.Type)
+		}
+		body := substituteValue(ep.Body, cmd.Value)
+		raw, err := d.do(ctx, cfg, ep, body)
+		if err != nil {
+			out = devicectl.Result{Online: false}
+			return err
+		}
+		out = devicectl.Result{
+			Status:   inferStatus(cmd.Type),
+			Online:   true,
+			LastSeen: time.Now().UTC(),
+			Raw:      raw,
+		}
+		return nil
+	})
+	return out, err
 }
 
 func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Result, error) {

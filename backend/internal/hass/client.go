@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"smartclass/internal/platform/metrics"
 )
 
 // flowIDPattern restricts HA config-flow IDs to the characters HA itself emits
@@ -489,25 +491,26 @@ func (c *Client) AbortFlow(ctx context.Context, token, flowID string) error {
 	if !flowIDPattern.MatchString(flowID) {
 		return ErrInvalidFlowID
 	}
-	// #nosec G704 -- baseURL is operator-configured (HA endpoint); flowID is regex-validated above.
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/api/config/config_entries/flow/"+flowID, nil)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
-
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		return ErrFlowNotFound
-	}
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("%w: abort %d", ErrUpstream, resp.StatusCode)
-	}
-	return nil
+	return metrics.TrackHass(ctx, "AbortFlow", func(ctx context.Context) error {
+		// #nosec G704 -- baseURL is operator-configured (HA endpoint); flowID is regex-validated above.
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/api/config/config_entries/flow/"+flowID, nil)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
+			return ErrFlowNotFound
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("%w: abort %d", ErrUpstream, resp.StatusCode)
+		}
+		return nil
+	})
 }
 
 type haState struct {
@@ -544,35 +547,36 @@ func (c *Client) getJSON(ctx context.Context, token, path string, out any) error
 }
 
 func (c *Client) requestJSON(ctx context.Context, method, token, path string, body io.Reader, out any) error {
-	// #nosec G704 -- baseURL is operator-configured (HA endpoint), path is internal/validated input.
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
-
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode == http.StatusNotFound {
-		return ErrFlowNotFound
-	}
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("%w: %s %d: %s", ErrUpstream, path, resp.StatusCode, truncate(string(raw), 240))
-	}
-	if out == nil || len(raw) == 0 {
+	return metrics.TrackHass(ctx, "requestJSON", func(ctx context.Context) error {
+		// #nosec G704 -- baseURL is operator-configured (HA endpoint), path is internal/validated input.
+		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		defer resp.Body.Close()
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if resp.StatusCode == http.StatusNotFound {
+			return ErrFlowNotFound
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("%w: %s %d: %s", ErrUpstream, path, resp.StatusCode, truncate(string(raw), 240))
+		}
+		if out == nil || len(raw) == 0 {
+			return nil
+		}
+		if err := json.Unmarshal(raw, out); err != nil {
+			return fmt.Errorf("%w: decode %s: %v", ErrUpstream, path, err)
+		}
 		return nil
-	}
-	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("%w: decode %s: %v", ErrUpstream, path, err)
-	}
-	return nil
+	})
 }
 
 func truncate(s string, n int) string {

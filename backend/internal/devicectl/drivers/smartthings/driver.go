@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"smartclass/internal/devicectl"
+	"smartclass/internal/platform/metrics"
 )
 
 const (
@@ -144,25 +145,29 @@ func override(custom, fallback string) string {
 }
 
 func (d *Driver) Execute(ctx context.Context, t devicectl.Target, cmd devicectl.Command) (devicectl.Result, error) {
-	cfg, err := parseConfig(t.Config)
-	if err != nil {
-		return devicectl.Result{}, err
-	}
-	stCmd, expected, err := mapCommand(cmd, cfg)
-	if err != nil {
-		return devicectl.Result{}, err
-	}
-	body := map[string]any{"commands": []stCommand{stCmd}}
-	raw, err := d.postJSON(ctx, cfg, "/devices/"+cfg.DeviceID+"/commands", body)
-	if err != nil {
-		return devicectl.Result{Online: false}, err
-	}
-	_ = raw
-	return devicectl.Result{
-		Status:   expected,
-		Online:   true,
-		LastSeen: time.Now().UTC(),
-	}, nil
+	var out devicectl.Result
+	err := metrics.TrackDriver(ctx, Name, string(cmd.Type), func(ctx context.Context) error {
+		cfg, err := parseConfig(t.Config)
+		if err != nil {
+			return err
+		}
+		stCmd, expected, err := mapCommand(cmd, cfg)
+		if err != nil {
+			return err
+		}
+		body := map[string]any{"commands": []stCommand{stCmd}}
+		if _, err := d.postJSON(ctx, cfg, "/devices/"+cfg.DeviceID+"/commands", body); err != nil {
+			out = devicectl.Result{Online: false}
+			return err
+		}
+		out = devicectl.Result{
+			Status:   expected,
+			Online:   true,
+			LastSeen: time.Now().UTC(),
+		}
+		return nil
+	})
+	return out, err
 }
 
 func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Result, error) {
