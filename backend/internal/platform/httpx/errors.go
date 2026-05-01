@@ -56,4 +56,8 @@ var (
 	ErrForbidden    = NewDomainError("forbidden", http.StatusForbidden, "forbidden")
 	ErrNotFound     = NewDomainError("not_found", http.StatusNotFound, "not_found")
 	ErrBadRequest   = NewDomainError("bad_request", http.StatusBadRequest, "bad_request")
+	// WS-specific. Both surface 401 but with distinct body codes so dashboards
+	// and clients can tell "client forgot the ticket" from "ticket invalid".
+	ErrWSTicketRequired = NewDomainError("ws_ticket_required", http.StatusUnauthorized, "ws.ticket_required")
+	ErrWSTicketInvalid  = NewDomainError("ws_ticket_invalid", http.StatusUnauthorized, "ws.ticket_invalid")
 )
