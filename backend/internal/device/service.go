@@ -263,8 +263,9 @@ func (s *Service) load(ctx context.Context, id uuid.UUID) (*Device, error) {
 
 func (s *Service) publish(ctx context.Context, d *Device, eventType string) {
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("classroom:%s:devices", d.ClassroomID.String()),
-		Type:  eventType,
+		Version: 1,
+		Topic:   fmt.Sprintf("classroom:%s:devices", d.ClassroomID.String()),
+		Type:    eventType,
 		Payload: map[string]any{
 			"id":         d.ID.String(),
 			"classroomId": d.ClassroomID.String(),

@@ -32,32 +32,59 @@ const (
 )
 
 type Handler struct {
-	hub    *Hub
-	log    *zap.Logger
-	bundle *i18n.Bundle
-	authz  TopicAuthorizer
+	hub          *Hub
+	log          *zap.Logger
+	bundle       *i18n.Bundle
+	authz        TopicAuthorizer
+	tickets      TicketStore
+	allowedOrigs []string
+	upgrader     websocket.Upgrader
 }
 
-func NewHandler(hub *Hub, log *zap.Logger, bundle *i18n.Bundle, authz TopicAuthorizer) *Handler {
+// NewHandler builds a WebSocket Handler. Authentication is the *ticket flow*:
+// the mobile client first POSTs to /ws/ticket (Bearer-authenticated) and uses
+// the returned 60s single-use ticket here. Tokens-in-URL leaked into reverse-
+// proxy access logs; tickets are one-shot and short-lived.
+//
+// allowedOrigs becomes the WebSocket CheckOrigin allow-list. Pass `[]string{"*"}`
+// for dev / tests; production should pass cfg.CORS.Origins.
+func NewHandler(hub *Hub, log *zap.Logger, bundle *i18n.Bundle,
+	authz TopicAuthorizer, tickets TicketStore, allowedOrigs []string) *Handler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Handler{hub: hub, log: log.With(zap.String("subsystem", "ws")), bundle: bundle, authz: authz}
-}
-
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin:     func(_ *http.Request) bool { return true },
-	Subprotocols:    []string{"bearer"},
+	return &Handler{
+		hub: hub, log: log.With(zap.String("subsystem", "ws")),
+		bundle: bundle, authz: authz, tickets: tickets, allowedOrigs: allowedOrigs,
+		upgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+			CheckOrigin:     makeCheckOrigin(allowedOrigs),
+			Subprotocols:    []string{"bearer"},
+		},
+	}
 }
 
 func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
-	p, ok := mw.PrincipalFrom(r.Context())
-	if !ok {
-		httpx.WriteError(w, r, h.bundle, httpx.ErrUnauthorized)
+	raw := r.URL.Query().Get("ticket")
+	if raw == "" {
+		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketRequired)
 		return
 	}
+	if h.tickets == nil {
+		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketInvalid)
+		return
+	}
+	userID, err := h.tickets.Consume(r.Context(), raw)
+	if err != nil {
+		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketInvalid)
+		return
+	}
+
+	// The principal we know about is just userID; role isn't carried on the
+	// ticket. For topic-authz we only need userID + role-string; lookups in
+	// classroom.Service treat "" as "non-admin" which is the safest default.
+	p := mw.Principal{UserID: userID, Role: ""}
 
 	topics, err := h.authorizeTopics(r.Context(), p, r.URL.Query()["topic"])
 	if err != nil {
@@ -68,7 +95,7 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	conn, upgErr := upgrader.Upgrade(w, r, nil)
+	conn, upgErr := h.upgrader.Upgrade(w, r, nil)
 	if upgErr != nil {
 		h.log.Warn("ws upgrade", zap.Error(upgErr))
 		return
@@ -81,6 +108,30 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	// server is shutting down, rather than waiting for the 60s pong timeout.
 	go h.readPump(conn, client)
 	go h.writePump(conn, client, r.Context())
+}
+
+// makeCheckOrigin returns a CheckOrigin that consults the CORS allow-list.
+// Empty origins (non-browser clients: native mobile, CLI, tests) are allowed
+// because the ticket validation already gated the request — there's no
+// cookie-equivalent CSRF threat. The "*" sentinel keeps the dev/test
+// allow-everything mode.
+func makeCheckOrigin(allowedOrigins []string) func(*http.Request) bool {
+	allowAll := len(allowedOrigins) == 1 && strings.TrimSpace(allowedOrigins[0]) == "*"
+	allowed := make(map[string]struct{}, len(allowedOrigins))
+	for _, o := range allowedOrigins {
+		allowed[strings.TrimSpace(o)] = struct{}{}
+	}
+	return func(r *http.Request) bool {
+		if allowAll {
+			return true
+		}
+		origin := r.Header.Get("Origin")
+		if origin == "" {
+			return true
+		}
+		_, ok := allowed[origin]
+		return ok
+	}
 }
 
 // authorizeTopics enforces the WS subscription contract:

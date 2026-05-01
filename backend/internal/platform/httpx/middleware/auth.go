@@ -60,16 +60,15 @@ func Authn(issuer tokens.Issuer, bundle *i18n.Bundle) func(http.Handler) http.Ha
 	}
 }
 
-// extractToken reads the access JWT from the standard Authorization header, and
-// falls back to the "access_token" query parameter — required for WebSocket
-// upgrades where browsers cannot set custom headers.
+// extractToken reads the access JWT from the standard Authorization header.
+// The previous `?access_token=` query-string fallback was intentional for
+// browser WebSocket upgrades, but it leaked JWTs into reverse-proxy access
+// logs. WebSocket upgrades now use the single-use ticket flow under
+// /api/v1/ws/ticket; nothing else needed the fallback.
 func extractToken(r *http.Request) string {
 	const prefix = "Bearer "
 	if raw := r.Header.Get("Authorization"); strings.HasPrefix(raw, prefix) {
 		return strings.TrimPrefix(raw, prefix)
-	}
-	if q := r.URL.Query().Get("access_token"); q != "" {
-		return q
 	}
 	return ""
 }

@@ -177,8 +177,9 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 	}
 
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("classroom:%s:scenes", sc.ClassroomID.String()),
-		Type:  "scene.ran",
+		Version: 1,
+		Topic:   fmt.Sprintf("classroom:%s:scenes", sc.ClassroomID.String()),
+		Type:    "scene.ran",
 		Payload: map[string]any{
 			"sceneId": sc.ID.String(),
 			"name":    sc.Name,

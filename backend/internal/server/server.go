@@ -52,6 +52,7 @@ type Deps struct {
 	AnalyticsHandler    *analytics.Handler
 	HassHandler         *hass.Handler
 	WSHandler           *ws.Handler
+	WSTicketHandler     http.Handler
 }
 
 func New(d Deps) *Server {
@@ -117,10 +118,20 @@ func New(d Deps) *Server {
 				r.Route("/hass", d.HassHandler.Routes)
 			}
 
-			if d.WSHandler != nil {
-				r.Get("/ws", d.WSHandler.Serve)
+			// /ws/ticket needs the principal (JWT-authenticated). The actual
+			// /ws upgrade authenticates via the ticket itself, so it is
+			// registered OUTSIDE this Authn-protected group below.
+			if d.WSTicketHandler != nil {
+				r.Post("/ws/ticket", d.WSTicketHandler.ServeHTTP)
 			}
 		})
+
+		// /ws is authenticated by the single-use ticket query param, NOT by
+		// Bearer JWT — sits outside the Authn-protected group so the upgrade
+		// handshake doesn't 401 before the ticket is even consumed.
+		if d.WSHandler != nil {
+			r.Get("/ws", d.WSHandler.Serve)
+		}
 	})
 
 	srv := &http.Server{

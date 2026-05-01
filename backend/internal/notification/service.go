@@ -126,8 +126,9 @@ func toNotification(in Input) *Notification {
 
 func (s *Service) publish(ctx context.Context, n *Notification) {
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("user:%s:notifications", n.UserID.String()),
-		Type:  "notification.created",
+		Version: 1,
+		Topic:   fmt.Sprintf("user:%s:notifications", n.UserID.String()),
+		Type:    "notification.created",
 		Payload: map[string]any{
 			"id":        n.ID.String(),
 			"type":      string(n.Type),

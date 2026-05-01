@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"time"
 	"errors"
 	"log"
 	"net/http"
@@ -134,7 +135,16 @@ func main() {
 	auditH := auditlog.NewHandler(auditSvc, bundle)
 	analyticsH := analytics.NewHandler(analyticsSvc, bundle)
 	hassH := hass.NewHandler(hassSvc, valid, bundle)
-	wsH := ws.NewHandler(hub, logger, bundle, classroomSvc)
+
+	// Ticket store for WS upgrades. 60s TTL, single-use, in-memory.
+	// Cleanup goroutine started immediately; stop function deferred so it
+	// shuts down cleanly on signal.
+	wsTickets := ws.NewMemTicketStore(60 * time.Second)
+	stopTicketCleanup := wsTickets.Run(time.Minute)
+	defer stopTicketCleanup()
+
+	wsH := ws.NewHandler(hub, logger, bundle, classroomSvc, wsTickets, cfg.CORS.Origins)
+	wsTicketH := ws.NewTicketHandler(wsTickets, bundle)
 
 	srv := server.New(server.Deps{
 		Cfg:                 cfg,
@@ -154,6 +164,7 @@ func main() {
 		AnalyticsHandler:    analyticsH,
 		HassHandler:         hassH,
 		WSHandler:           wsH,
+		WSTicketHandler:     wsTicketH,
 	})
 
 	go func() {
