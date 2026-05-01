@@ -54,8 +54,26 @@ jobs:
       - name: Unit tests (race + coverage)
         run: go test ./... -count=1 -race -coverprofile=coverage.out -covermode=atomic
 
+      - name: hass slow tests (build tag)
+        run: go test -tags=slow -race -count=1 ./internal/hass/...
+
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -n 1
+
+      - name: Coverage gate
+        # Threshold inline; bump as test coverage grows. See
+        # docs/superpowers/specs/2026-05-01-test-coverage-design.md for the rationale.
+        run: |
+          pct=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%","",$NF); print int($NF)}')
+          echo "Total coverage: $pct%"
+          if [ -z "$pct" ]; then
+            echo "::error::could not parse coverage from coverage.out"
+            exit 1
+          fi
+          if [ "$pct" -lt 30 ]; then
+            echo "::error::Total coverage $pct% is below threshold 30%"
+            exit 1
+          fi
 
       - name: Build
         run: go build -trimpath -o bin/server ./cmd/server
