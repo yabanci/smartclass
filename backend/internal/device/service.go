@@ -60,7 +60,7 @@ func NewService(repo Repository, cls *classroom.Service, f *devicectl.Factory, b
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "device"))
 	}
 	return s
 }

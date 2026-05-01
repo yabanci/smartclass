@@ -35,7 +35,7 @@ func NewService(repo Repository, members MemberLookup, broker realtime.Broker) *
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "notification"))
 	}
 	return s
 }

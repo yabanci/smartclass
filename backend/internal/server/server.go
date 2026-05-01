@@ -34,20 +34,12 @@ type Server struct {
 	cfg  config.Config
 }
 
-// ReadinessChecker is anything that can answer "are my critical dependencies
-// reachable right now". The server's /readyz wires it up so a Kubernetes
-// readiness probe (or our `make verify` script) sees a real signal — not a
-// process-is-alive heartbeat that masks DB outages.
-type ReadinessChecker interface {
-	Ready(ctx context.Context) error
-}
-
 type Deps struct {
 	Cfg                 config.Config
 	Logger              *zap.Logger
 	Bundle              *i18n.Bundle
 	Issuer              tokens.Issuer
-	Readiness           ReadinessChecker
+	ReadinessChecks     []ReadinessCheck
 	AuthHandler         *auth.Handler
 	UserHandler         *user.Handler
 	ClassroomHandler    *classroom.Handler
@@ -79,7 +71,7 @@ func New(d Deps) *Server {
 	r.Use(rl.Middleware())
 
 	r.Get("/healthz", healthz)
-	r.Get("/readyz", readyz(d.Readiness))
+	r.Get("/readyz", readyzHandler(d.ReadinessChecks))
 	// /metrics is intentionally unauthenticated. The endpoint is meant to be
 	// scraped by an in-cluster Prometheus; in production this listener must
 	// be locked down at the proxy/firewall layer (see README §"Local
@@ -148,27 +140,4 @@ func (s *Server) Shutdown(ctx context.Context) error { return s.http.Shutdown(ct
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-}
-
-// readyz reports 503 when the server cannot serve traffic — for now that's
-// "DB pool can't ping in 2s". Liveness (/healthz) stays decoupled: the
-// process is up even when Postgres is down, which is exactly what
-// orchestrators need to distinguish "restart me" from "stop sending traffic".
-func readyz(checker ReadinessChecker) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		if checker == nil {
-			httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-			return
-		}
-		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
-		defer cancel()
-		if err := checker.Ready(ctx); err != nil {
-			httpx.JSON(w, http.StatusServiceUnavailable, map[string]string{
-				"status": "unready",
-				"reason": err.Error(),
-			})
-			return
-		}
-		httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})
-	}
 }

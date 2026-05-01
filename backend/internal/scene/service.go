@@ -47,7 +47,7 @@ func NewService(repo Repository, cls *classroom.Service, devices *device.Service
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "scene"))
 	}
 	return s
 }

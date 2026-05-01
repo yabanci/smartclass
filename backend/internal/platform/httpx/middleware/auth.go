@@ -48,6 +48,13 @@ func Authn(issuer tokens.Issuer, bundle *i18n.Bundle) func(http.Handler) http.Ha
 			}
 			ctx := context.WithValue(r.Context(), ctxKeyUserID, claims.UserID)
 			ctx = context.WithValue(ctx, ctxKeyRole, claims.Role)
+			// Mirror the principal into the slot so the outer RequestLogger
+			// can include user_id+role on the log line. Downstream
+			// PrincipalFrom helper still reads from the immutable ctx values.
+			if slot := PrincipalSlotFrom(r.Context()); slot != nil {
+				slot.Principal = Principal{UserID: claims.UserID, Role: claims.Role}
+				slot.Set = true
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

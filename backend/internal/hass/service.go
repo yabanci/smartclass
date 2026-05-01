@@ -61,6 +61,9 @@ func NewService(cfg Config, repo Repository, client *Client, devices *device.Ser
 	if cfg.Language == "" {
 		cfg.Language = "en"
 	}
+	if logger != nil {
+		logger = logger.With(zap.String("subsystem", "hass"))
+	}
 	return &Service{cfg: cfg, repo: repo, client: client, logger: logger, devices: devices}
 }
 

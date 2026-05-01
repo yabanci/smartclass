@@ -24,6 +24,7 @@ func NewService(repo Repository, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}
+	log = log.With(zap.String("subsystem", "auditlog"))
 	s := &Service{
 		repo:   repo,
 		log:    log,

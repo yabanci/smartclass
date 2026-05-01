@@ -46,7 +46,7 @@ func NewEngine(svc *Service, rules Rules) *Engine {
 
 func (e *Engine) WithLogger(l *zap.Logger) *Engine {
 	if l != nil {
-		e.log = l
+		e.log = l.With(zap.String("subsystem", "notification.trigger"))
 	}
 	return e
 }

@@ -63,7 +63,7 @@ func NewHub(log *zap.Logger) *Hub {
 	return &Hub{
 		byID:    map[string]*Client{},
 		byTopic: map[string]map[string]*Client{},
-		log:     log,
+		log:     log.With(zap.String("subsystem", "ws.hub")),
 	}
 }
 

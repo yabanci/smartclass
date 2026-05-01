@@ -141,7 +141,7 @@ func main() {
 		Logger:              logger,
 		Bundle:              bundle,
 		Issuer:              issuer,
-		Readiness:           db,
+		ReadinessChecks:     buildReadinessChecks(cfg, db),
 		AuthHandler:         authH,
 		UserHandler:         userH,
 		ClassroomHandler:    classroomH,
@@ -181,4 +181,16 @@ func newLogger(env string) (*zap.Logger, error) {
 		return zap.NewProduction()
 	}
 	return zap.NewDevelopment()
+}
+
+// buildReadinessChecks composes the list of checks exposed at /readyz.
+// Postgres is always present; HA is added when an HA URL is configured.
+// Including HA without a URL would surface a permanent "fail" entry that
+// confuses operators reading the report.
+func buildReadinessChecks(cfg config.Config, db *postgres.DB) []server.ReadinessCheck {
+	checks := []server.ReadinessCheck{server.PostgresCheck{DB: db}}
+	if cfg.Hass.URL != "" {
+		checks = append(checks, server.HassCheck{BaseURL: cfg.Hass.URL})
+	}
+	return checks
 }

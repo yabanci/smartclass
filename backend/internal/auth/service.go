@@ -51,7 +51,7 @@ func NewService(users user.Repository, hash hasher.Hasher, issuer tokens.Issuer,
 	if logger == nil {
 		logger = zap.NewNop()
 	}
-	return &Service{users: users, hash: hash, issuer: issuer, store: store, logger: logger}
+	return &Service{users: users, hash: hash, issuer: issuer, store: store, logger: logger.With(zap.String("subsystem", "auth"))}
 }
 
 type RegisterInput struct {

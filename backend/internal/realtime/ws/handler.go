@@ -42,7 +42,7 @@ func NewHandler(hub *Hub, log *zap.Logger, bundle *i18n.Bundle, authz TopicAutho
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Handler{hub: hub, log: log, bundle: bundle, authz: authz}
+	return &Handler{hub: hub, log: log.With(zap.String("subsystem", "ws")), bundle: bundle, authz: authz}
 }
 
 var upgrader = websocket.Upgrader{
