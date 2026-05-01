@@ -1,0 +1,98 @@
+{
+  "title": "Smartclass — Operations",
+  "uid": "smartclass-ops",
+  "schemaVersion": 39,
+  "tags": ["smartclass"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "HTTP request rate (per status)",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {"expr": "sum by (status) (rate(cctv_smartclass_http_requests_total[1m]))", "legendFormat": "{{status}}"}
+      ]
+    },
+    {
+      "id": 2,
+      "type": "timeseries",
+      "title": "HTTP p95 latency by route",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le, route) (rate(cctv_smartclass_http_request_duration_seconds_bucket[5m])))", "legendFormat": "{{route}}"}
+      ]
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "DB query rate by op",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {"expr": "sum by (op) (rate(cctv_smartclass_db_queries_total[1m]))", "legendFormat": "{{op}}"}
+      ]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "DB error ratio",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {"expr": "sum(rate(cctv_smartclass_db_queries_total{result=\"err\"}[5m])) / sum(rate(cctv_smartclass_db_queries_total[5m]))"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Active WebSocket clients",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 16},
+      "targets": [{"expr": "cctv_smartclass_ws_connected"}]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Replay detections (last 1h)",
+      "gridPos": {"h": 4, "w": 6, "x": 6, "y": 16},
+      "targets": [{"expr": "increase(cctv_smartclass_auth_replay_detected_total[1h])"}],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Driver call rate by driver/result",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [
+        {"expr": "sum by (driver, result) (rate(cctv_smartclass_driver_calls_total[1m]))", "legendFormat": "{{driver}} / {{result}}"}
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "HA call latency p95 by op",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 20},
+      "targets": [
+        {"expr": "histogram_quantile(0.95, sum by (le, op) (rate(cctv_smartclass_hass_call_duration_seconds_bucket[5m])))", "legendFormat": "{{op}}"}
+      ]
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Notifications + scene runs",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 24},
+      "targets": [
+        {"expr": "rate(cctv_smartclass_notifications_created_total[5m])", "legendFormat": "notifications/{{type}}"},
+        {"expr": "rate(cctv_smartclass_scenes_run_total[5m])", "legendFormat": "scenes/{{result}}"}
+      ]
+    }
+  ]
+}

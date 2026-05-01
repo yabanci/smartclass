@@ -39,6 +39,30 @@ make test       # Go unit + race tests (18 packages)
 make e2e        # live 32-step API/websocket test (stack must be running)
 ```
 
+## Local observability
+
+The backend exposes Prometheus metrics at `GET /metrics`. To scrape them
+locally:
+
+```bash
+docker run --rm -p 9090:9090 \
+  -v "$PWD/docs/observability/prometheus.yml:/etc/prometheus/prometheus.yml" \
+  prom/prometheus
+```
+
+Then open <http://localhost:9090> and try queries like:
+
+- `sum(rate(cctv_smartclass_http_requests_total[1m])) by (status)`
+- `histogram_quantile(0.95, sum(rate(cctv_smartclass_http_request_duration_seconds_bucket[5m])) by (le, route))`
+- `increase(cctv_smartclass_auth_replay_detected_total[1h])`
+
+For graphs: `docs/observability/dashboard.json` is a Grafana dashboard
+you can import (Grafana → Dashboards → Import → Upload JSON).
+
+`/healthz` is liveness (always 200 if the process is alive).
+`/readyz` is readiness — it returns 503 + a per-check JSON breakdown
+when any dependency (Postgres, Home Assistant) is unreachable.
+
 ## What's running
 
 4 services, 1 network, 1 command:
