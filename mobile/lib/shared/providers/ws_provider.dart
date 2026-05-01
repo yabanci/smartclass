@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/api/endpoints/ws_endpoints.dart';
 import '../../core/connection/resolver.dart';
-import '../../core/storage/token_storage.dart';
 import '../../core/ws/ws_client.dart';
 import '../../core/ws/ws_event.dart';
 import 'auth_provider.dart';
@@ -14,18 +14,26 @@ final wsEventsProvider = StreamProvider<WsEvent>((ref) {
 
 class WsConnectionNotifier extends StateNotifier<bool> {
   final WsClient _ws;
-  final TokenStorage _storage;
+  final WsEndpoints _wsEndpoints;
   final ConnectionResolver _resolver;
 
-  WsConnectionNotifier(this._ws, this._storage, this._resolver) : super(false);
+  WsConnectionNotifier(this._ws, this._wsEndpoints, this._resolver)
+      : super(false);
 
+  /// Connects the WebSocket. The auth flow is:
+  /// 1) POST /ws/ticket with the access JWT (added by ApiClient's
+  ///    interceptor) → backend returns a 60-second single-use ticket.
+  /// 2) Build the WS URL with `?ticket=<x>` and connect.
+  ///
+  /// This avoids putting the long-lived JWT into the URL — query strings get
+  /// logged by reverse proxies; tickets are one-shot and short-lived.
   Future<void> connectToClassroom(String classroomId) async {
-    final token = await _storage.getAccessToken();
-    if (token == null) return;
-
+    final ticket = await _wsEndpoints.createTicket();
     final baseWs = _resolver.wsBaseUrl;
-    final url =
-        '$baseWs/ws?topic=classroom:$classroomId:devices&topic=classroom:$classroomId:sensors&access_token=$token';
+    final url = '$baseWs/ws'
+        '?topic=classroom:$classroomId:devices'
+        '&topic=classroom:$classroomId:sensors'
+        '&ticket=$ticket';
     _ws.connect(url);
     state = true;
   }
@@ -40,7 +48,7 @@ final wsConnectionProvider =
     StateNotifierProvider<WsConnectionNotifier, bool>((ref) {
   return WsConnectionNotifier(
     ref.watch(wsProvider),
-    ref.read(tokenStorageProvider),
+    WsEndpoints(ref.watch(apiClientProvider)),
     ConnectionResolver.instance,
   );
 });
