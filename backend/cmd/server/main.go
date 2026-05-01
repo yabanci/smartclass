@@ -25,6 +25,7 @@ import (
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/i18n"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/platform/postgres"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/platform/validation"
@@ -52,7 +53,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := postgres.Connect(ctx, cfg.DB.DSN())
+	// Pass the metrics tracer into the pool so every SQL query gets counted.
+	// Repos progressively annotate their queries via metrics.WithDBOp(ctx,
+	// "<op>"); unannotated queries fall back to op="unknown".
+	db, err := postgres.Connect(ctx, cfg.DB.DSN(), metrics.NewDBTracer())
 	if err != nil {
 		logger.Fatal("postgres connect", zap.Error(err))
 	}

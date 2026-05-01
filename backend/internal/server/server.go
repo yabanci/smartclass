@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"smartclass/internal/analytics"
@@ -19,6 +20,7 @@ import (
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/realtime/ws"
 	"smartclass/internal/scene"
@@ -70,6 +72,7 @@ func New(d Deps) *Server {
 	r.Use(mw.Recoverer(d.Logger))
 	r.Use(mw.RequestID)
 	r.Use(mw.RequestLogger(d.Logger))
+	r.Use(metrics.HTTPMiddleware)
 	r.Use(mw.CORS(d.Cfg.CORS.Origins))
 	r.Use(mw.Language)
 	r.Use(mw.BodyLimit(mw.MaxBodyBytes))
@@ -77,6 +80,14 @@ func New(d Deps) *Server {
 
 	r.Get("/healthz", healthz)
 	r.Get("/readyz", readyz(d.Readiness))
+	// /metrics is intentionally unauthenticated. The endpoint is meant to be
+	// scraped by an in-cluster Prometheus; in production this listener must
+	// be locked down at the proxy/firewall layer (see README §"Local
+	// observability"). For pet-project localhost use, no auth is fine.
+	r.Mount("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{
+		Registry:          metrics.Registry,
+		EnableOpenMetrics: true,
+	}))
 
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Group(func(r chi.Router) {

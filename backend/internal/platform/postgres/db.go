@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/pressly/goose/v3"
@@ -16,10 +17,13 @@ type DB struct {
 	dsn  string
 }
 
-func Connect(ctx context.Context, dsn string) (*DB, error) {
+func Connect(ctx context.Context, dsn string, tracer pgx.QueryTracer) (*DB, error) {
 	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("postgres: parse config: %w", err)
+	}
+	if tracer != nil {
+		cfg.ConnConfig.Tracer = tracer
 	}
 
 	cfg.MaxConns = 20
