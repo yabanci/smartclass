@@ -27,6 +27,7 @@ func Recoverer(logger *zap.Logger) func(http.Handler) http.Handler {
 						logger.Error("panic recovered",
 							zap.Any("panic", rec),
 							zap.String("path", r.URL.Path),
+							zap.String("request_id", RequestIDFrom(r.Context())),
 							zap.ByteString("stack", debug.Stack()),
 						)
 					}

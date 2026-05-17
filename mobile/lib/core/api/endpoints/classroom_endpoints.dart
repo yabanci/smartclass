@@ -5,8 +5,11 @@ class ClassroomEndpoints {
   final ApiClient _client;
   ClassroomEndpoints(this._client);
 
-  Future<List<Classroom>> list() => _client.unwrap(
-        _client.get('/classrooms'),
+  Future<List<Classroom>> list({int? limit, int? offset}) => _client.unwrap(
+        _client.get('/classrooms', queryParameters: {
+          if (limit != null) 'limit': limit.toString(),
+          if (offset != null) 'offset': offset.toString(),
+        }),
         (d) => (d as List).map((e) => Classroom.fromJson(e as Map<String, dynamic>)).toList(),
       );
 

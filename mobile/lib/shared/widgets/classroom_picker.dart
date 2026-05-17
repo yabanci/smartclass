@@ -60,7 +60,7 @@ class ClassroomPicker extends ConsumerWidget {
             if (active != null)
               PopupMenuButton<_ClassroomAction>(
                 icon: const Icon(Icons.more_vert, size: 18),
-                tooltip: 'Classroom options',
+                tooltip: l.classroomOptions,
                 onSelected: (action) async {
                   switch (action) {
                     case _ClassroomAction.rename:
@@ -70,23 +70,23 @@ class ClassroomPicker extends ConsumerWidget {
                   }
                 },
                 itemBuilder: (_) => [
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: _ClassroomAction.rename,
                     child: ListTile(
                       dense: true,
-                      leading: Icon(Icons.edit_outlined, size: 18),
-                      title: Text('Rename'),
+                      leading: const Icon(Icons.edit_outlined, size: 18),
+                      title: Text(l.classroomRename),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
-                  const PopupMenuItem(
+                  PopupMenuItem(
                     value: _ClassroomAction.delete,
                     child: ListTile(
                       dense: true,
-                      leading: Icon(Icons.delete_outlined,
+                      leading: const Icon(Icons.delete_outlined,
                           size: 18, color: Colors.red),
-                      title: Text('Delete',
-                          style: TextStyle(color: Colors.red)),
+                      title: Text(l.classroomDelete,
+                          style: const TextStyle(color: Colors.red)),
                       contentPadding: EdgeInsets.zero,
                     ),
                   ),
@@ -104,48 +104,53 @@ class ClassroomPicker extends ConsumerWidget {
     String id,
     String currentName,
   ) async {
+    final l = AppLocalizations.of(context);
     final ctrl = TextEditingController(text: currentName);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rename classroom'),
-        content: TextField(
-          controller: ctrl,
-          decoration: const InputDecoration(labelText: 'Name'),
-          autofocus: true,
-          onSubmitted: (_) => Navigator.pop(ctx, true),
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.classroomRenameTitle),
+          content: TextField(
+            controller: ctrl,
+            decoration: InputDecoration(labelText: l.classroomNameLabel),
+            autofocus: true,
+            onSubmitted: (_) => Navigator.pop(ctx, true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.commonCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.commonSave),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true &&
-        ctrl.text.trim().isNotEmpty &&
-        ctrl.text.trim() != currentName &&
-        context.mounted) {
-      try {
-        final updated = await ref
-            .read(classroomEndpointsProvider)
-            .update(id, name: ctrl.text.trim());
-        await ref.read(classroomListProvider.notifier).load();
-        ref.read(activeClassroomProvider.notifier).select(updated);
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text(friendlyError(e)),
-                backgroundColor: Colors.red),
-          );
+      );
+      if (confirmed == true &&
+          ctrl.text.trim().isNotEmpty &&
+          ctrl.text.trim() != currentName &&
+          context.mounted) {
+        try {
+          final updated = await ref
+              .read(classroomEndpointsProvider)
+              .update(id, name: ctrl.text.trim());
+          await ref.read(classroomListProvider.notifier).load();
+          ref.read(activeClassroomProvider.notifier).select(updated);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                  content: Text(friendlyError(e)),
+                  backgroundColor: Colors.red),
+            );
+          }
         }
       }
+    } finally {
+      ctrl.dispose();
     }
   }
 
@@ -154,21 +159,21 @@ class ClassroomPicker extends ConsumerWidget {
     WidgetRef ref,
     String id,
   ) async {
+    final l = AppLocalizations.of(context);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete classroom?'),
-        content: const Text(
-            'This will remove the classroom and all its data. This cannot be undone.'),
+        title: Text(l.classroomDeleteTitle),
+        content: Text(l.classroomDeleteBody),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+            child: Text(l.commonCancel),
           ),
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Delete'),
+            child: Text(l.commonDelete),
           ),
         ],
       ),

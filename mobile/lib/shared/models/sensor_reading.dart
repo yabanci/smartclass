@@ -5,6 +5,8 @@ class SensorReading {
   final double value;
   final String? unit;
   final String recordedAt;
+  // Y-2: backend ReadingDTO.Raw map[string]any json:"raw,omitempty"
+  final Map<String, dynamic>? raw;
 
   const SensorReading({
     this.id,
@@ -13,6 +15,7 @@ class SensorReading {
     required this.value,
     this.unit,
     required this.recordedAt,
+    this.raw,
   });
 
   factory SensorReading.fromJson(Map<String, dynamic> json) => SensorReading(
@@ -22,6 +25,7 @@ class SensorReading {
         value: (json['value'] as num).toDouble(),
         unit: json['unit'] as String?,
         recordedAt: json['recordedAt'] as String,
+        raw: json['raw'] as Map<String, dynamic>?,
       );
 
   Map<String, dynamic> toJson() => {
@@ -31,5 +35,6 @@ class SensorReading {
         'value': value,
         if (unit != null) 'unit': unit,
         'recordedAt': recordedAt,
+        if (raw != null) 'raw': raw,
       };
 }

@@ -91,18 +91,6 @@ func (r *PostgresRepository) getByColumn(ctx context.Context, column string, val
 	return u, nil
 }
 
-func (r *PostgresRepository) UpdateFCMToken(ctx context.Context, id uuid.UUID, token string) error {
-	const q = `UPDATE users SET fcm_token=$2, updated_at=$3 WHERE id=$1`
-	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "users.UpdateFCMToken"), q, id, token, time.Now().UTC())
-	if err != nil {
-		return err
-	}
-	if tag.RowsAffected() == 0 {
-		return ErrNotFound
-	}
-	return nil
-}
-
 func (r *PostgresRepository) Update(ctx context.Context, u *User) error {
 	const q = `
 UPDATE users SET full_name=$2, language=$3, avatar_url=$4, phone=$5, birth_date=$6, role=$7, updated_at=$8

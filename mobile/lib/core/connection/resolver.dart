@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../config/app_config.dart';
@@ -76,6 +77,11 @@ class ConnectionResolver {
   }
 
   Future<void> setLocalUrl(String url) async {
+    if (kReleaseMode && url.startsWith('http://')) {
+      throw ArgumentError(
+        'Local server URL must use https:// in release builds.',
+      );
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kLocalUrlKey, url);
     await resolve();

@@ -164,5 +164,16 @@
       "state": { "type": "String" }
     }
   },
-  "cachedDataLabel": "Кэш деректері"
+  "cachedDataLabel": "Кэш деректері",
+  "authEmailRequired": "Email міндетті",
+  "authPasswordRequired": "Құпия сөз міндетті",
+  "authFullNameRequired": "Толық аты міндетті",
+  "devicesNameRequired": "Атауы міндетті",
+  "classroomRename": "Атауын өзгерту",
+  "classroomDelete": "Жою",
+  "classroomOptions": "Сынып параметрлері",
+  "classroomRenameTitle": "Сынып атауын өзгерту",
+  "classroomNameLabel": "Атауы",
+  "classroomDeleteTitle": "Сыныпты жою?",
+  "classroomDeleteBody": "Бұл сынып пен оның барлық деректерін жояды. Бұл әрекетті болдырмау мүмкін емес."
 }

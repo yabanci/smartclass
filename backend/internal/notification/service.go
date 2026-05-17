@@ -85,8 +85,9 @@ func (s *Service) CreateForUser(ctx context.Context, in Input) (*Notification, e
 	if s.pusher != nil {
 		// #nosec G118 — push fan-out intentionally outlives the request scope:
 		// the HTTP 201 must return immediately while FCM round-trips complete
-		// in the background. sendPush manages its own context with a 10s timeout.
-		go s.sendPush(n)
+		// in the background. sendPush derives a child context from ctx so the
+		// request_id propagates through logs while still enforcing the 10s cap.
+		go s.sendPush(ctx, n)
 	}
 	return n, nil
 }
@@ -123,7 +124,7 @@ func (s *Service) CreateForClassroom(ctx context.Context, classroomID uuid.UUID,
 		for _, n := range items {
 			n := n // capture loop var
 			// #nosec G118 — see CreateForUser; same reasoning applies per item.
-			go s.sendPush(n)
+			go s.sendPush(ctx, n)
 		}
 	}
 	return items, nil
@@ -163,8 +164,11 @@ func toNotification(in Input) *Notification {
 	}
 }
 
-func (s *Service) sendPush(n *Notification) {
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+func (s *Service) sendPush(parentCtx context.Context, n *Notification) {
+	// Derive a child context from the request context so request_id propagates
+	// through logs. context.Background() would drop it. The 10s cap is applied
+	// here; cancel is always deferred so there is no goroutine leak.
+	ctx, cancel := context.WithTimeout(parentCtx, 10*time.Second)
 	defer cancel()
 	payload := PushPayload{
 		Title: n.Title,

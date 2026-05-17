@@ -72,6 +72,7 @@ func New(d Deps) *Server {
 	authRL := mw.NewRateLimiter(5, 10).WithTrustedProxies(d.TrustedProxies)
 
 	r.Use(mw.RequestID)
+	r.Use(mw.SecurityHeaders())
 	r.Use(mw.RequestLogger(d.Logger))
 	r.Use(mw.Recoverer(d.Logger))
 	r.Use(metrics.HTTPMiddleware)
@@ -82,14 +83,29 @@ func New(d Deps) *Server {
 
 	r.Get("/healthz", healthz)
 	r.Get("/readyz", readyzHandler(d.ReadinessChecks))
-	// /metrics is intentionally unauthenticated. The endpoint is meant to be
-	// scraped by an in-cluster Prometheus; in production this listener must
-	// be locked down at the proxy/firewall layer (see README §"Local
-	// observability"). For pet-project localhost use, no auth is fine.
-	r.Mount("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{
+	// /metrics: when METRICS_TOKEN is set in the environment, requests must
+	// carry `X-Metrics-Token: <value>` — a simple pre-shared-key guard that
+	// keeps Prometheus scrapers happy without a full JWT flow. When the env var
+	// is unset (default), the endpoint is open so local dev and docker-compose
+	// work out of the box. In internet-facing deployments, set METRICS_TOKEN.
+	metricsHandler := promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{
 		Registry:          metrics.Registry,
 		EnableOpenMetrics: true,
-	}))
+	})
+	if d.Cfg.MetricsToken != "" {
+		token := d.Cfg.MetricsToken
+		metricsHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Header.Get("X-Metrics-Token") != token {
+				http.Error(w, `{"error":{"code":"unauthorized","message":"Unauthorized"}}`, http.StatusUnauthorized)
+				return
+			}
+			promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{
+				Registry:          metrics.Registry,
+				EnableOpenMetrics: true,
+			}).ServeHTTP(w, r)
+		})
+	}
+	r.Mount("/metrics", metricsHandler)
 
 	r.Route("/api/v1", func(r chi.Router) {
 		// /auth has two distinct middleware regimes that both need to live at

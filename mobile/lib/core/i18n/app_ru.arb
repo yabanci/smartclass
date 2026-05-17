@@ -164,5 +164,16 @@
       "state": { "type": "String" }
     }
   },
-  "cachedDataLabel": "Данные из кеша"
+  "cachedDataLabel": "Данные из кеша",
+  "authEmailRequired": "Email обязателен",
+  "authPasswordRequired": "Пароль обязателен",
+  "authFullNameRequired": "Полное имя обязательно",
+  "devicesNameRequired": "Название обязательно",
+  "classroomRename": "Переименовать",
+  "classroomDelete": "Удалить",
+  "classroomOptions": "Настройки класса",
+  "classroomRenameTitle": "Переименовать класс",
+  "classroomNameLabel": "Название",
+  "classroomDeleteTitle": "Удалить класс?",
+  "classroomDeleteBody": "Это удалит класс и все его данные. Действие нельзя отменить."
 }

@@ -472,4 +472,38 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get cachedDataLabel => 'Данные из кеша';
+
+  @override
+  String get authEmailRequired => 'Email обязателен';
+
+  @override
+  String get authPasswordRequired => 'Пароль обязателен';
+
+  @override
+  String get authFullNameRequired => 'Полное имя обязательно';
+
+  @override
+  String get devicesNameRequired => 'Название обязательно';
+
+  @override
+  String get classroomRename => 'Переименовать';
+
+  @override
+  String get classroomDelete => 'Удалить';
+
+  @override
+  String get classroomOptions => 'Настройки класса';
+
+  @override
+  String get classroomRenameTitle => 'Переименовать класс';
+
+  @override
+  String get classroomNameLabel => 'Название';
+
+  @override
+  String get classroomDeleteTitle => 'Удалить класс?';
+
+  @override
+  String get classroomDeleteBody =>
+      'Это удалит класс и все его данные. Действие нельзя отменить.';
 }

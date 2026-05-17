@@ -279,7 +279,7 @@ class _EditDeviceSheetState extends ConsumerState<_EditDeviceSheet> {
                   border: const OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? '${l.devicesName} is required' : null,
+                    v == null || v.isEmpty ? l.devicesNameRequired : null,
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String>(

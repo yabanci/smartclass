@@ -164,5 +164,16 @@
       "state": { "type": "String" }
     }
   },
-  "cachedDataLabel": "Offline data"
+  "cachedDataLabel": "Offline data",
+  "authEmailRequired": "Email is required",
+  "authPasswordRequired": "Password is required",
+  "authFullNameRequired": "Full name is required",
+  "devicesNameRequired": "Name is required",
+  "classroomRename": "Rename",
+  "classroomDelete": "Delete",
+  "classroomOptions": "Classroom options",
+  "classroomRenameTitle": "Rename classroom",
+  "classroomNameLabel": "Name",
+  "classroomDeleteTitle": "Delete classroom?",
+  "classroomDeleteBody": "This will remove the classroom and all its data. This cannot be undone."
 }

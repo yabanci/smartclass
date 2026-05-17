@@ -8,6 +8,8 @@ import 'ws_event.dart';
 
 typedef TicketFactory = Future<String> Function();
 
+enum WsState { connected, reconnecting, failed }
+
 class WsClient {
   WsClient._();
   static final WsClient instance = WsClient._();
@@ -23,6 +25,10 @@ class WsClient {
   // via wsEventsProvider (a StreamProvider that re-reads this getter).
   StreamController<WsEvent> _controller = StreamController<WsEvent>.broadcast();
   Stream<WsEvent> get events => _controller.stream;
+
+  StreamController<WsState> _stateController =
+      StreamController<WsState>.broadcast();
+  Stream<WsState> get connectionState => _stateController.stream;
 
   String? _wsBaseUrl;
   String? _classroomId;
@@ -66,6 +72,9 @@ class WsClient {
       // fresh one so _connectUrl can add events without hitting a closed sink.
       if (_controller.isClosed) {
         _controller = StreamController<WsEvent>.broadcast();
+      }
+      if (_stateController.isClosed) {
+        _stateController = StreamController<WsState>.broadcast();
       }
       // C-006: always mint a fresh ticket on (re)connect via the factory.
       final ticket = await ticketFactory();
@@ -121,6 +130,9 @@ class WsClient {
           if (!connectedOnce) {
             connectedOnce = true;
             _reconnectAttempt = 0;
+            if (!_stateController.isClosed) {
+              _stateController.add(WsState.connected);
+            }
           }
           // B-007: guard against binary frames — only handle String messages
           if (data is! String) return;
@@ -149,8 +161,14 @@ class WsClient {
     _reconnectTimer?.cancel();
 
     if (_reconnectAttempt >= _maxReconnectAttempts) {
-      // Give up — UI reflects disconnected state via ws_provider.
+      // Give up — emit failed so UI can react via connectionState stream.
+      if (!_stateController.isClosed) {
+        _stateController.add(WsState.failed);
+      }
       return;
+    }
+    if (!_stateController.isClosed) {
+      _stateController.add(WsState.reconnecting);
     }
 
     final delaySecs = (1 << _reconnectAttempt).clamp(1, 60);
@@ -203,6 +221,10 @@ class WsClient {
       _controller.close();
     }
     _controller = StreamController<WsEvent>.broadcast();
+    if (!_stateController.isClosed) {
+      _stateController.close();
+    }
+    _stateController = StreamController<WsState>.broadcast();
   }
 
   /// Final teardown — closes the StreamController permanently.
@@ -212,6 +234,9 @@ class WsClient {
     _dispose();
     if (!_controller.isClosed) {
       _controller.close();
+    }
+    if (!_stateController.isClosed) {
+      _stateController.close();
     }
   }
 }

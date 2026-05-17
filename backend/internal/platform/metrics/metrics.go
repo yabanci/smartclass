@@ -42,6 +42,7 @@ var (
 	AuthReplayDetected   prometheus.Counter
 	NotificationsCreated *prometheus.CounterVec
 	ScenesRun            *prometheus.CounterVec
+	PushSends            *prometheus.CounterVec
 )
 
 func init() { build() }
@@ -172,6 +173,14 @@ func build() {
 		[]string{"result"},
 	)
 
+	PushSends = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Namespace: namespace, Subsystem: "push", Name: "sends_total",
+			Help: "FCM push-notification send attempts, partitioned by result (ok|invalid_token|err).",
+		},
+		[]string{"result"},
+	)
+
 	Registry.MustRegister(
 		HTTPRequests, HTTPDuration,
 		DBQueries, DBDuration,
@@ -180,5 +189,6 @@ func build() {
 		WSConnected, WSMessagesPublished, WSTicketInvalid,
 		AuthLogins, AuthRefresh, AuthReplayDetected,
 		NotificationsCreated, ScenesRun,
+		PushSends,
 	)
 }

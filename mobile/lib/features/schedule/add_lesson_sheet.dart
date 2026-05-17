@@ -23,6 +23,13 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
   TimeOfDay _endTime = const TimeOfDay(hour: 9, minute: 0);
   bool _saving = false;
 
+  @override
+  void dispose() {
+    _subjectCtrl.dispose();
+    _notesCtrl.dispose();
+    super.dispose();
+  }
+
   String _formatTime(TimeOfDay t) =>
       '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
 
