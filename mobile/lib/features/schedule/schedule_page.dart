@@ -45,12 +45,15 @@ class _WeekView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
+    // B-102: extend map to cover weekend days 6 and 7
     final dayNames = {
       1: l.scheduleDayMon,
       2: l.scheduleDayTue,
       3: l.scheduleDayWed,
       4: l.scheduleDayThu,
       5: l.scheduleDayFri,
+      6: l.scheduleDaySat,
+      7: l.scheduleDaySun,
     };
     final scheduleAsync = ref.watch(scheduleProvider(classroomId));
 

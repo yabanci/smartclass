@@ -62,7 +62,7 @@ func (r *PostgresRepository) withOverlapCheck(ctx context.Context, l *Lesson, ex
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	const lockQ = `SELECT id, day_of_week, starts_at, ends_at FROM lessons WHERE classroom_id=$1 AND day_of_week=$2 FOR UPDATE`
 	rows, err := tx.Query(ctx, lockQ, l.ClassroomID, int(l.DayOfWeek))

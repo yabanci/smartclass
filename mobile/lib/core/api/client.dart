@@ -71,10 +71,14 @@ class ApiClient {
     }
 
     _isRefreshing = true;
+    // B-300: track whether refresh succeeded so finally can notify waiters
+    // AFTER resetting _isRefreshing. This ensures a new 401 arriving from a
+    // woken waiter sees _isRefreshing == false and can start a fresh cycle
+    // rather than queuing a completer that nobody will ever resolve.
+    bool refreshSuccess = false;
     try {
       final refreshToken = await _tokenStorage.getRefreshToken();
       if (refreshToken == null) {
-        _notifyWaiters(false);
         await _logout();
         return null;
       }
@@ -85,31 +89,49 @@ class ApiClient {
         options: Options(extra: {'skipAuth': true}),
       );
 
+      // B-001: guard against non-map response body
+      if (resp.data is! Map<String, dynamic>) {
+        await _logout();
+        return null;
+      }
       final body = resp.data as Map<String, dynamic>;
-      // Backend wraps in { data: { tokens: {...} } }
+      // Backend wraps in { data: { user: {...}, tokens: {...} } }; extract tokens only.
       final tokensMap = (body['data'] as Map<String, dynamic>?)?['tokens']
           as Map<String, dynamic>?;
 
       if (tokensMap == null) {
-        _notifyWaiters(false);
+        await _logout();
+        return null;
+      }
+
+      // B-002: cast as String? and null-check before saving
+      final newAccessToken = tokensMap['accessToken'] as String?;
+      final newRefreshToken = tokensMap['refreshToken'] as String?;
+      final newAccessExpiresAt = tokensMap['accessExpiresAt'] as String?;
+      final newRefreshExpiresAt = tokensMap['refreshExpiresAt'] as String?;
+
+      if (newAccessToken == null || newRefreshToken == null ||
+          newAccessExpiresAt == null || newRefreshExpiresAt == null) {
         await _logout();
         return null;
       }
 
       await _tokenStorage.saveTokens(
-        accessToken: tokensMap['accessToken'] as String,
-        refreshToken: tokensMap['refreshToken'] as String,
-        accessExpiresAt: tokensMap['accessExpiresAt'] as String,
-        refreshExpiresAt: tokensMap['refreshExpiresAt'] as String,
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+        accessExpiresAt: newAccessExpiresAt,
+        refreshExpiresAt: newRefreshExpiresAt,
       );
-      _notifyWaiters(true);
+      refreshSuccess = true;
       return _retry(original.requestOptions);
     } catch (_) {
-      _notifyWaiters(false);
       await _logout();
       return null;
     } finally {
+      // B-300: reset flag first, then notify — so woken waiters that immediately
+      // hit another 401 don't see _isRefreshing == true and hang forever.
       _isRefreshing = false;
+      _notifyWaiters(refreshSuccess);
     }
   }
 
@@ -143,6 +165,11 @@ class ApiClient {
     T Function(dynamic) fromData,
   ) async {
     final response = await call;
+    // B-003: guard against non-map response body
+    if (response.data is! Map<String, dynamic>) {
+      throw ApiException('Unexpected response format',
+          statusCode: response.statusCode);
+    }
     final json = response.data as Map<String, dynamic>;
     final envelope = ApiEnvelope.fromJson(json, fromData);
     if (!envelope.ok) {

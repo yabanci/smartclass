@@ -107,10 +107,19 @@ class _WizardStepViewState extends State<WizardStepView> {
             FilledButton.icon(
               icon: const Icon(Icons.open_in_new, size: 18),
               label: const Text('Open sign-in page'),
-              onPressed: () => launchUrl(
-                Uri.parse(url),
-                mode: LaunchMode.externalApplication,
-              ),
+              // B-201: await launchUrl and show snackbar on failure
+              onPressed: () async {
+                final ok = await launchUrl(
+                  Uri.parse(url),
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Could not open sign-in page')),
+                  );
+                }
+              },
             ),
             const SizedBox(height: 8),
           ] else ...[
@@ -130,10 +139,19 @@ class _WizardStepViewState extends State<WizardStepView> {
             OutlinedButton.icon(
               icon: const Icon(Icons.open_in_browser, size: 16),
               label: const Text('Open Home Assistant'),
-              onPressed: () => launchUrl(
-                Uri.parse('http://localhost:8123'),
-                mode: LaunchMode.externalApplication,
-              ),
+              // B-201: same guard for fallback URL
+              onPressed: () async {
+                final ok = await launchUrl(
+                  Uri.parse('http://localhost:8123'),
+                  mode: LaunchMode.externalApplication,
+                );
+                if (!ok && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Could not open Home Assistant')),
+                  );
+                }
+              },
             ),
             const SizedBox(height: 8),
           ],
@@ -265,8 +283,13 @@ class _WizardStepViewState extends State<WizardStepView> {
     if (options.isNotEmpty) {
       final current = _values[field.name]?.toString() ??
           (options.isNotEmpty ? options.first.$1 : null);
+      // B-110: avoid mutating _values directly in build; use post-frame callback
       if (!_values.containsKey(field.name) && current != null) {
-        _values[field.name] = current;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && !_values.containsKey(field.name)) {
+            setState(() => _values[field.name] = current);
+          }
+        });
       }
       return DropdownButtonFormField<String>(
         value: current,

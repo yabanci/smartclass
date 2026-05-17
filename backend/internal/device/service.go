@@ -60,7 +60,7 @@ func NewService(repo Repository, cls *classroom.Service, f *devicectl.Factory, b
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "device"))
 	}
 	return s
 }
@@ -263,8 +263,9 @@ func (s *Service) load(ctx context.Context, id uuid.UUID) (*Device, error) {
 
 func (s *Service) publish(ctx context.Context, d *Device, eventType string) {
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("classroom:%s:devices", d.ClassroomID.String()),
-		Type:  eventType,
+		Version: 1,
+		Topic:   fmt.Sprintf("classroom:%s:devices", d.ClassroomID.String()),
+		Type:    eventType,
 		Payload: map[string]any{
 			"id":         d.ID.String(),
 			"classroomId": d.ClassroomID.String(),

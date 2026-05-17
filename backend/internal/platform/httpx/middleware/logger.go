@@ -52,15 +52,28 @@ func RequestLogger(logger *zap.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			rec := &statusRecorder{ResponseWriter: w}
-			next.ServeHTTP(rec, r)
-			logger.Info("http",
+			// Install a mutable slot so an inner Authn middleware can write
+			// the principal, and we read it back here for log enrichment.
+			slot := &PrincipalSlot{}
+			ctx := WithPrincipalSlot(r.Context(), slot)
+			next.ServeHTTP(rec, r.WithContext(ctx))
+			fields := []zap.Field{
 				zap.String("method", r.Method),
 				zap.String("path", r.URL.Path),
 				zap.Int("status", rec.status),
 				zap.Int("bytes", rec.bytes),
 				zap.Duration("took", time.Since(start)),
 				zap.String("remote", r.RemoteAddr),
-			)
+			}
+			if id := RequestIDFrom(r.Context()); id != "" {
+				fields = append(fields, zap.String("request_id", id))
+			}
+			if slot.Set {
+				fields = append(fields,
+					zap.Stringer("user_id", slot.Principal.UserID),
+					zap.String("role", slot.Principal.Role))
+			}
+			logger.Info("http", fields...)
 		})
 	}
 }

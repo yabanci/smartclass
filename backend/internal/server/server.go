@@ -3,9 +3,11 @@ package server
 import (
 	"context"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.uber.org/zap"
 
 	"smartclass/internal/analytics"
@@ -19,6 +21,7 @@ import (
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/realtime/ws"
 	"smartclass/internal/scene"
@@ -28,8 +31,9 @@ import (
 )
 
 type Server struct {
-	http *http.Server
-	cfg  config.Config
+	http     *http.Server
+	cfg      config.Config
+	stopRLs  []func() // cleanup functions for rate-limiter goroutines
 }
 
 type Deps struct {
@@ -37,6 +41,10 @@ type Deps struct {
 	Logger              *zap.Logger
 	Bundle              *i18n.Bundle
 	Issuer              tokens.Issuer
+	ReadinessChecks     []ReadinessCheck
+	// TrustedProxies restricts X-Forwarded-For trust to these CIDRs.
+	// Empty = any loopback/private address is trusted (default).
+	TrustedProxies      []netip.Prefix
 	AuthHandler         *auth.Handler
 	UserHandler         *user.Handler
 	ClassroomHandler    *classroom.Handler
@@ -49,28 +57,53 @@ type Deps struct {
 	AnalyticsHandler    *analytics.Handler
 	HassHandler         *hass.Handler
 	WSHandler           *ws.Handler
+	WSTicketHandler     http.Handler
 }
 
 func New(d Deps) *Server {
 	r := chi.NewRouter()
 
-	rl := mw.NewRateLimiter(d.Cfg.RateLimit.RPS, d.Cfg.RateLimit.Burst)
+	rl := mw.NewRateLimiter(d.Cfg.RateLimit.RPS, d.Cfg.RateLimit.Burst).
+		WithTrustedProxies(d.TrustedProxies)
 	// Strict limiter for auth endpoints: 5 RPS burst 10 per IP prevents brute-force.
-	authRL := mw.NewRateLimiter(5, 10)
+	// Auth limiter inherits the same proxy trust configuration.
+	authRL := mw.NewRateLimiter(5, 10).WithTrustedProxies(d.TrustedProxies)
 
 	r.Use(mw.Recoverer(d.Logger))
+	r.Use(mw.RequestID)
 	r.Use(mw.RequestLogger(d.Logger))
+	r.Use(metrics.HTTPMiddleware)
 	r.Use(mw.CORS(d.Cfg.CORS.Origins))
 	r.Use(mw.Language)
+	r.Use(mw.BodyLimit(mw.MaxBodyBytes))
 	r.Use(rl.Middleware())
 
 	r.Get("/healthz", healthz)
-	r.Get("/readyz", healthz)
+	r.Get("/readyz", readyzHandler(d.ReadinessChecks))
+	// /metrics is intentionally unauthenticated. The endpoint is meant to be
+	// scraped by an in-cluster Prometheus; in production this listener must
+	// be locked down at the proxy/firewall layer (see README §"Local
+	// observability"). For pet-project localhost use, no auth is fine.
+	r.Mount("/metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{
+		Registry:          metrics.Registry,
+		EnableOpenMetrics: true,
+	}))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Group(func(r chi.Router) {
-			r.Use(authRL.Middleware())
-			r.Route("/auth", d.AuthHandler.Routes)
+		// /auth has two distinct middleware regimes that both need to live at
+		// the same URL prefix: the unauthenticated entry points (register/
+		// login/refresh, behind the strict authRL limiter) and the
+		// authenticated ones (logout). chi panics if you call r.Route("/auth")
+		// twice on the same mux, so both groups nest INSIDE one /auth Route.
+		r.Route("/auth", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(authRL.Middleware())
+				d.AuthHandler.Routes(r)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(mw.Authn(d.Issuer, d.Bundle))
+				d.AuthHandler.AuthenticatedRoutes(r)
+			})
 		})
 
 		r.Group(func(r chi.Router) {
@@ -101,10 +134,20 @@ func New(d Deps) *Server {
 				r.Route("/hass", d.HassHandler.Routes)
 			}
 
-			if d.WSHandler != nil {
-				r.Get("/ws", d.WSHandler.Serve)
+			// /ws/ticket needs the principal (JWT-authenticated). The actual
+			// /ws upgrade authenticates via the ticket itself, so it is
+			// registered OUTSIDE this Authn-protected group below.
+			if d.WSTicketHandler != nil {
+				r.Post("/ws/ticket", d.WSTicketHandler.ServeHTTP)
 			}
 		})
+
+		// /ws is authenticated by the single-use ticket query param, NOT by
+		// Bearer JWT — sits outside the Authn-protected group so the upgrade
+		// handshake doesn't 401 before the ticket is even consumed.
+		if d.WSHandler != nil {
+			r.Get("/ws", d.WSHandler.Serve)
+		}
 	})
 
 	srv := &http.Server{
@@ -115,12 +158,21 @@ func New(d Deps) *Server {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	return &Server{http: srv, cfg: d.Cfg}
+	return &Server{
+		http:    srv,
+		cfg:     d.Cfg,
+		stopRLs: []func(){rl.Stop, authRL.Stop},
+	}
 }
 
 func (s *Server) ListenAndServe() error { return s.http.ListenAndServe() }
 
-func (s *Server) Shutdown(ctx context.Context) error { return s.http.Shutdown(ctx) }
+func (s *Server) Shutdown(ctx context.Context) error {
+	for _, stop := range s.stopRLs {
+		stop()
+	}
+	return s.http.Shutdown(ctx)
+}
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})

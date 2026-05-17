@@ -1,7 +1,8 @@
 class Classroom {
   final String id;
   final String name;
-  final String? description;
+  // C-009: backend always sends "" — not null. Non-nullable with empty default.
+  final String description;
   final String createdBy;
   final String createdAt;
   final String updatedAt;
@@ -9,7 +10,7 @@ class Classroom {
   const Classroom({
     required this.id,
     required this.name,
-    this.description,
+    this.description = '',
     required this.createdBy,
     required this.createdAt,
     required this.updatedAt,
@@ -18,7 +19,7 @@ class Classroom {
   factory Classroom.fromJson(Map<String, dynamic> json) => Classroom(
         id: json['id'] as String,
         name: json['name'] as String,
-        description: json['description'] as String?,
+        description: (json['description'] as String?) ?? '',
         createdBy: json['createdBy'] as String,
         createdAt: json['createdAt'] as String,
         updatedAt: json['updatedAt'] as String,
@@ -27,7 +28,7 @@ class Classroom {
   Map<String, dynamic> toJson() => {
         'id': id,
         'name': name,
-        if (description != null) 'description': description,
+        'description': description,
         'createdBy': createdBy,
         'createdAt': createdAt,
         'updatedAt': updatedAt,

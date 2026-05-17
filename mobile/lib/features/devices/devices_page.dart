@@ -144,7 +144,8 @@ class _DeviceList extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(l.commonDelete),
-        content: const Text('This action cannot be undone.'),
+        // B-203: use l10n key instead of hardcoded English
+        content: Text(l.commonCannotUndo),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),

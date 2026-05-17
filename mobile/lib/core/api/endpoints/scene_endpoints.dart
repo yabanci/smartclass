@@ -1,4 +1,5 @@
 import '../client.dart';
+import '../envelope.dart';
 import '../../../shared/models/scene.dart';
 
 class SceneRunResult {
@@ -79,8 +80,24 @@ class SceneEndpoints {
         (_) {},
       );
 
-  Future<SceneRunResult> run(String id) => _client.unwrap(
-        _client.post('/scenes/$id/run'),
-        (d) => SceneRunResult.fromJson(d as Map<String, dynamic>),
+  // C-020: handle 207 Multi-Status — some steps may have failed.
+  // After unwrapping, inspect the result; if any step failed, throw
+  // PartialFailureException so the UI shows a "Some steps failed" message.
+  Future<SceneRunResult> run(String id) async {
+    final resp = await _client.post('/scenes/$id/run');
+    final result = await _client.unwrap(
+      Future.value(resp),
+      (d) => SceneRunResult.fromJson(d as Map<String, dynamic>),
+    );
+    final isPartial = resp.statusCode == 207 ||
+        result.steps.any((s) => !s.success);
+    if (isPartial) {
+      throw PartialFailureException(
+        '${result.successCount}/${result.total} steps succeeded',
+        success: result.successCount,
+        total: result.total,
       );
+    }
+    return result;
+  }
 }

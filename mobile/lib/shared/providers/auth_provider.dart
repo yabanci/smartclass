@@ -10,7 +10,8 @@ import '../models/user.dart';
 final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  final client = ApiClient(tokenStorage: ref.read(tokenStorageProvider));
+  // B-004: use ref.watch so provider rebuilds if tokenStorage changes
+  final client = ApiClient(tokenStorage: ref.watch(tokenStorageProvider));
   return client;
 });
 
@@ -27,15 +28,30 @@ class AuthState {
   final User? user;
   final bool loading;
   final String? error;
+  // C-022: true while init() is awaiting getMe() so login/register pages can
+  // show a spinner instead of a usable form.
+  final bool isInitializing;
 
-  const AuthState({this.user, this.loading = false, this.error});
+  const AuthState({
+    this.user,
+    this.loading = false,
+    this.error,
+    this.isInitializing = false,
+  });
 
   bool get isAuthenticated => user != null;
 
-  AuthState copyWith({User? user, bool? loading, String? error}) => AuthState(
+  AuthState copyWith({
+    User? user,
+    bool? loading,
+    String? error,
+    bool? isInitializing,
+  }) =>
+      AuthState(
         user: user ?? this.user,
         loading: loading ?? this.loading,
         error: error,
+        isInitializing: isInitializing ?? this.isInitializing,
       );
 }
 
@@ -55,11 +71,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       await _storage.clear();
       return;
     }
+    // C-022: signal initializing so UI shows a spinner.
+    state = state.copyWith(isInitializing: true);
     try {
       final user = await _users.getMe();
-      state = state.copyWith(user: user);
+      state = state.copyWith(user: user, isInitializing: false);
     } catch (_) {
       await _storage.clear();
+      state = state.copyWith(isInitializing: false);
     }
   }
 
@@ -111,7 +130,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  // C-008: call backend logout before clearing local storage.
+  // If the backend call fails (offline), still clear locally — user must
+  // be able to log in again even without network.
   Future<void> logout() async {
+    try {
+      await _auth.logout();
+    } catch (_) {
+      // Backend unreachable or already invalidated — proceed with local clear.
+    }
     await _storage.clear();
     state = const AuthState();
   }
@@ -128,7 +155,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // Called by ApiClient when refresh token is expired/invalid
-  void forceLogout() {
+  // B-208: clear token storage in addition to resetting state
+  Future<void> forceLogout() async {
+    await _storage.clear();
     state = const AuthState();
   }
 }
@@ -141,7 +170,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   );
   // Wire logout so expired tokens redirect to login
   ref.read(apiClientProvider).setLogoutCallback(() async {
-    notifier.forceLogout();
+    await notifier.forceLogout();
   });
   return notifier;
 });

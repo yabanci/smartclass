@@ -15,16 +15,17 @@ import (
 	"smartclass/internal/user/usertest"
 )
 
-func newSvc(t *testing.T) (*auth.Service, *usertest.MemRepo) {
+func newSvc(t *testing.T) (*auth.Service, *usertest.MemRepo, *auth.MemRefreshStore) {
 	t.Helper()
 	repo := usertest.NewMemRepo()
 	h := hasher.NewBcrypt(4)
 	iss := tokens.NewJWT("test-secret-key-1234567890", time.Minute, time.Hour, "test")
-	return auth.NewService(repo, h, iss), repo
+	store := auth.NewMemRefreshStore()
+	return auth.NewService(repo, h, iss, store, nil), repo, store
 }
 
 func TestService_Register(t *testing.T) {
-	svc, repo := newSvc(t)
+	svc, repo, _ := newSvc(t)
 
 	t.Run("creates user and issues tokens", func(t *testing.T) {
 		res, err := svc.Register(context.Background(), auth.RegisterInput{
@@ -68,7 +69,7 @@ func TestService_Register(t *testing.T) {
 }
 
 func TestService_Login(t *testing.T) {
-	svc, _ := newSvc(t)
+	svc, _, _ := newSvc(t)
 
 	_, err := svc.Register(context.Background(), auth.RegisterInput{
 		Email: "l@example.com", Password: "password1", FullName: "L", Role: user.RoleTeacher,
@@ -93,34 +94,86 @@ func TestService_Login(t *testing.T) {
 	})
 }
 
-func TestService_Refresh(t *testing.T) {
-	svc, repo := newSvc(t)
+func TestService_Refresh_RotatesAndDetectsReplay(t *testing.T) {
+	svc, _, store := newSvc(t)
 
 	res, err := svc.Register(context.Background(), auth.RegisterInput{
 		Email: "r@example.com", Password: "password1", FullName: "R", Role: user.RoleAdmin,
 	})
 	require.NoError(t, err)
+	originalRefresh := res.Tokens.Refresh
 
-	t.Run("ok", func(t *testing.T) {
-		refreshed, err := svc.Refresh(context.Background(), res.Tokens.Refresh)
+	t.Run("first use rotates the pair", func(t *testing.T) {
+		refreshed, err := svc.Refresh(context.Background(), originalRefresh)
 		require.NoError(t, err)
 		assert.NotEmpty(t, refreshed.Tokens.Access)
+		assert.NotEqual(t, originalRefresh, refreshed.Tokens.Refresh,
+			"a successful refresh must yield a new refresh token, not echo the consumed one")
 		assert.Equal(t, res.User.ID, refreshed.User.ID)
+		assert.Equal(t, 1, store.CountLive(res.User.ID),
+			"after rotation exactly one refresh token (the new one) is live")
 	})
 
-	t.Run("access token rejected as refresh", func(t *testing.T) {
-		_, err := svc.Refresh(context.Background(), res.Tokens.Access)
-		require.ErrorIs(t, err, auth.ErrInvalidRefresh)
+	t.Run("second use of the same token is a replay and revokes all sessions", func(t *testing.T) {
+		_, err := svc.Refresh(context.Background(), originalRefresh)
+		require.ErrorIs(t, err, auth.ErrInvalidRefresh,
+			"presenting the same refresh token twice must fail authentication")
+		assert.Equal(t, 0, store.CountLive(res.User.ID),
+			"replay detection must revoke every other live refresh token for the user — "+
+				"the legitimate user logs in again, the attacker is locked out")
 	})
+}
 
-	t.Run("garbage", func(t *testing.T) {
-		_, err := svc.Refresh(context.Background(), "garbage")
-		require.ErrorIs(t, err, auth.ErrInvalidRefresh)
-	})
+func TestService_Refresh_RejectsAccessToken(t *testing.T) {
+	svc, _, _ := newSvc(t)
 
-	t.Run("deleted user", func(t *testing.T) {
-		repo.Delete(res.User.ID)
-		_, err := svc.Refresh(context.Background(), res.Tokens.Refresh)
-		require.ErrorIs(t, err, auth.ErrInvalidRefresh)
+	res, err := svc.Register(context.Background(), auth.RegisterInput{
+		Email: "a@example.com", Password: "password1", FullName: "A", Role: user.RoleAdmin,
 	})
+	require.NoError(t, err)
+
+	_, err = svc.Refresh(context.Background(), res.Tokens.Access)
+	require.ErrorIs(t, err, auth.ErrInvalidRefresh,
+		"access tokens must not be accepted on /refresh — the kind claim is the discriminator")
+}
+
+func TestService_Refresh_RejectsGarbage(t *testing.T) {
+	svc, _, _ := newSvc(t)
+	_, err := svc.Refresh(context.Background(), "garbage")
+	require.ErrorIs(t, err, auth.ErrInvalidRefresh)
+}
+
+func TestService_Refresh_RejectsDeletedUser(t *testing.T) {
+	svc, repo, _ := newSvc(t)
+	res, err := svc.Register(context.Background(), auth.RegisterInput{
+		Email: "d@example.com", Password: "password1", FullName: "D", Role: user.RoleAdmin,
+	})
+	require.NoError(t, err)
+	repo.Delete(res.User.ID)
+
+	_, err = svc.Refresh(context.Background(), res.Tokens.Refresh)
+	require.ErrorIs(t, err, auth.ErrInvalidRefresh,
+		"a refresh token must fail once the underlying user has been deleted")
+}
+
+func TestService_Logout_RevokesEveryLiveRefreshToken(t *testing.T) {
+	svc, _, store := newSvc(t)
+
+	// Two parallel sessions for the same user (two devices).
+	r1, err := svc.Register(context.Background(), auth.RegisterInput{
+		Email: "lo@example.com", Password: "password1", FullName: "Lo", Role: user.RoleTeacher,
+	})
+	require.NoError(t, err)
+	r2, err := svc.Login(context.Background(), "lo@example.com", "password1")
+	require.NoError(t, err)
+	require.Equal(t, 2, store.CountLive(r1.User.ID))
+
+	require.NoError(t, svc.Logout(context.Background(), r1.User.ID))
+	assert.Equal(t, 0, store.CountLive(r1.User.ID),
+		"Logout must revoke every still-live refresh token belonging to the user "+
+			"so a stolen token can be killed without waiting for its TTL to expire")
+
+	_, err = svc.Refresh(context.Background(), r2.Tokens.Refresh)
+	require.ErrorIs(t, err, auth.ErrInvalidRefresh,
+		"a refresh token explicitly revoked by Logout must be rejected")
 }

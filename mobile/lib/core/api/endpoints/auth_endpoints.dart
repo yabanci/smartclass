@@ -30,4 +30,10 @@ class AuthEndpoints {
         }),
         (d) => AuthResponse.fromJson(d as Map<String, dynamic>),
       );
+
+  // C-008: backend logout uses bearer token only (no body).
+  // Handler reads UserID from JWT principal; returns 204 No Content.
+  Future<void> logout() async {
+    await _client.post('/auth/logout');
+  }
 }

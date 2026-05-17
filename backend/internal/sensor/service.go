@@ -44,7 +44,7 @@ func NewService(repo Repository, cls *classroom.Service, devices *device.Service
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "sensor"))
 	}
 	return s
 }
@@ -121,8 +121,9 @@ func (s *Service) LatestForClassroom(ctx context.Context, p classroom.Principal,
 
 func (s *Service) publish(ctx context.Context, classroomID, deviceID uuid.UUID, metric Metric, value float64, unit string, at time.Time) {
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("classroom:%s:sensors", classroomID.String()),
-		Type:  "sensor.reading",
+		Version: 1,
+		Topic:   fmt.Sprintf("classroom:%s:sensors", classroomID.String()),
+		Type:    "sensor.reading",
 		Payload: map[string]any{
 			"deviceId":   deviceID.String(),
 			"metric":     string(metric),

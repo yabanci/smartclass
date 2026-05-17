@@ -52,6 +52,11 @@ type Bcrypt struct {
 type RateLimit struct {
 	RPS   int `env:"RPS" envDefault:"50"`
 	Burst int `env:"BURST" envDefault:"100"`
+	// TrustedProxies is an optional comma-separated list of CIDR prefixes that
+	// are trusted as reverse proxies for X-Forwarded-For. When empty, any
+	// loopback or RFC-1918 address is trusted (backward-compatible default).
+	// Example: RATE_LIMIT_TRUSTED_PROXIES=10.0.0.0/8,172.16.0.0/12
+	TrustedProxies []string `env:"TRUSTED_PROXIES" envSeparator:","`
 }
 
 type CORS struct {

@@ -6,7 +6,8 @@ class Lesson {
   final int dayOfWeek;
   final String startsAt;
   final String endsAt;
-  final String? notes;
+  // C-010: backend always sends "" — not null. Non-nullable with empty default.
+  final String notes;
   final String createdAt;
   final String updatedAt;
 
@@ -18,7 +19,7 @@ class Lesson {
     required this.dayOfWeek,
     required this.startsAt,
     required this.endsAt,
-    this.notes,
+    this.notes = '',
     required this.createdAt,
     required this.updatedAt,
   });
@@ -31,7 +32,7 @@ class Lesson {
         dayOfWeek: json['dayOfWeek'] as int,
         startsAt: json['startsAt'] as String,
         endsAt: json['endsAt'] as String,
-        notes: json['notes'] as String?,
+        notes: (json['notes'] as String?) ?? '',
         createdAt: json['createdAt'] as String,
         updatedAt: json['updatedAt'] as String,
       );
@@ -44,7 +45,7 @@ class Lesson {
         'dayOfWeek': dayOfWeek,
         'startsAt': startsAt,
         'endsAt': endsAt,
-        if (notes != null) 'notes': notes,
+        'notes': notes,
         'createdAt': createdAt,
         'updatedAt': updatedAt,
       };

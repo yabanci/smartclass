@@ -23,11 +23,29 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
+// JTI returns the parsed token's unique ID as a UUID. It returns the zero
+// UUID if the registered claim is missing or unparseable; callers that
+// require a valid jti must check for uuid.Nil.
+func (c *Claims) JTI() uuid.UUID {
+	if c.ID == "" {
+		return uuid.Nil
+	}
+	id, err := uuid.Parse(c.ID)
+	if err != nil {
+		return uuid.Nil
+	}
+	return id
+}
+
 type Pair struct {
 	Access           string
 	Refresh          string
 	AccessExpiresAt  time.Time
 	RefreshExpiresAt time.Time
+	// RefreshJTI is the unique identifier embedded in the refresh JWT. The
+	// caller persists it so the token can be revoked or marked as used, which
+	// is what makes refresh-token rotation and replay detection possible.
+	RefreshJTI uuid.UUID
 }
 
 type Issuer interface {
@@ -65,11 +83,13 @@ func NewJWT(secret string, accessTTL, refreshTTL time.Duration, issuer string, o
 
 func (j *JWT) Issue(userID uuid.UUID, role string) (Pair, error) {
 	now := j.now()
-	access, accessExp, err := j.sign(userID, role, KindAccess, now, j.accessTTL)
+	accessJTI := uuid.New()
+	refreshJTI := uuid.New()
+	access, accessExp, err := j.sign(userID, role, KindAccess, accessJTI, now, j.accessTTL)
 	if err != nil {
 		return Pair{}, err
 	}
-	refresh, refreshExp, err := j.sign(userID, role, KindRefresh, now, j.refreshTTL)
+	refresh, refreshExp, err := j.sign(userID, role, KindRefresh, refreshJTI, now, j.refreshTTL)
 	if err != nil {
 		return Pair{}, err
 	}
@@ -78,10 +98,11 @@ func (j *JWT) Issue(userID uuid.UUID, role string) (Pair, error) {
 		Refresh:          refresh,
 		AccessExpiresAt:  accessExp,
 		RefreshExpiresAt: refreshExp,
+		RefreshJTI:       refreshJTI,
 	}, nil
 }
 
-func (j *JWT) sign(userID uuid.UUID, role string, kind TokenKind, now time.Time, ttl time.Duration) (string, time.Time, error) {
+func (j *JWT) sign(userID uuid.UUID, role string, kind TokenKind, jti uuid.UUID, now time.Time, ttl time.Duration) (string, time.Time, error) {
 	exp := now.Add(ttl)
 	claims := Claims{
 		UserID: userID,
@@ -93,7 +114,7 @@ func (j *JWT) sign(userID uuid.UUID, role string, kind TokenKind, now time.Time,
 			IssuedAt:  jwt.NewNumericDate(now),
 			NotBefore: jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(exp),
-			ID:        uuid.NewString(),
+			ID:        jti.String(),
 		},
 	}
 	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -112,7 +133,13 @@ func (j *JWT) Parse(token string) (*Claims, error) {
 			return nil, fmt.Errorf("%w: unexpected signing method %v", ErrInvalidToken, t.Header["alg"])
 		}
 		return j.secret, nil
-	}, jwt.WithTimeFunc(j.now))
+	},
+		jwt.WithTimeFunc(j.now),
+		jwt.WithIssuer(j.issuer),
+		jwt.WithLeeway(30*time.Second),
+		jwt.WithExpirationRequired(),
+		jwt.WithValidMethods([]string{"HS256"}),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrInvalidToken, err)
 	}

@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -25,6 +28,7 @@ import (
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/i18n"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/platform/postgres"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/platform/validation"
@@ -43,6 +47,11 @@ func main() {
 		log.Fatalf("config: %v", err)
 	}
 
+	trustedProxies, err := parseTrustedProxies(cfg.RateLimit.TrustedProxies)
+	if err != nil {
+		log.Fatalf("RATE_LIMIT_TRUSTED_PROXIES: %v", err)
+	}
+
 	logger, err := newLogger(cfg.Env)
 	if err != nil {
 		log.Fatalf("logger: %v", err)
@@ -52,7 +61,10 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	db, err := postgres.Connect(ctx, cfg.DB.DSN())
+	// Pass the metrics tracer into the pool so every SQL query gets counted.
+	// Repos progressively annotate their queries via metrics.WithDBOp(ctx,
+	// "<op>"); unannotated queries fall back to op="unknown".
+	db, err := postgres.Connect(ctx, cfg.DB.DSN(), metrics.NewDBTracer())
 	if err != nil {
 		logger.Fatal("postgres connect", zap.Error(err))
 	}
@@ -93,7 +105,8 @@ func main() {
 	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker).WithLogger(logger)
 	triggerEngine := notification.NewEngine(notificationSvc, notification.DefaultRules()).WithLogger(logger)
 
-	authSvc := auth.NewService(userRepo, hash, issuer)
+	refreshStore := auth.NewPostgresRefreshStore(db.Pool)
+	authSvc := auth.NewService(userRepo, hash, issuer, refreshStore, logger)
 	userSvc := user.NewService(userRepo, hash)
 	deviceSvc := device.NewService(deviceRepo, classroomSvc, factory, broker).
 		WithLogger(logger).
@@ -117,6 +130,7 @@ func main() {
 	factory.Register(homeassistant.New(nil, hassSvc))
 	logger.Info("device drivers registered", zap.Strings("drivers", factory.Names()))
 	go hassSvc.BootstrapWithRetry(ctx)
+	go purgeExpiredRefreshTokens(ctx, db, logger)
 
 	authH := auth.NewHandler(authSvc, valid, bundle)
 	userH := user.NewHandler(userSvc, valid, bundle)
@@ -129,13 +143,24 @@ func main() {
 	auditH := auditlog.NewHandler(auditSvc, bundle)
 	analyticsH := analytics.NewHandler(analyticsSvc, bundle)
 	hassH := hass.NewHandler(hassSvc, valid, bundle)
-	wsH := ws.NewHandler(hub, logger, bundle)
+
+	// Ticket store for WS upgrades. 60s TTL, single-use, in-memory.
+	// Cleanup goroutine started immediately; stop function deferred so it
+	// shuts down cleanly on signal.
+	wsTickets := ws.NewMemTicketStore(60 * time.Second)
+	stopTicketCleanup := wsTickets.Run(time.Minute)
+	defer stopTicketCleanup()
+
+	wsH := ws.NewHandler(hub, logger, bundle, classroomSvc, wsTickets, cfg.CORS.Origins, ctx)
+	wsTicketH := ws.NewTicketHandler(wsTickets, bundle)
 
 	srv := server.New(server.Deps{
 		Cfg:                 cfg,
 		Logger:              logger,
 		Bundle:              bundle,
 		Issuer:              issuer,
+		ReadinessChecks:     buildReadinessChecks(cfg, db),
+		TrustedProxies:      trustedProxies,
 		AuthHandler:         authH,
 		UserHandler:         userH,
 		ClassroomHandler:    classroomH,
@@ -148,6 +173,7 @@ func main() {
 		AnalyticsHandler:    analyticsH,
 		HassHandler:         hassH,
 		WSHandler:           wsH,
+		WSTicketHandler:     wsTicketH,
 	})
 
 	go func() {
@@ -170,9 +196,67 @@ func main() {
 	}
 }
 
+// purgeExpiredRefreshTokens runs every hour and deletes refresh_tokens rows
+// that expired more than 24 h ago. The 1-day grace window preserves tokens
+// that are expired but not yet replayed so replay detection still fires. The
+// goroutine exits cleanly when ctx is cancelled (server shutdown).
+func purgeExpiredRefreshTokens(ctx context.Context, db *postgres.DB, logger *zap.Logger) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			tag, err := db.Pool.Exec(ctx,
+				"DELETE FROM refresh_tokens WHERE expires_at < now() - interval '1 day'")
+			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					logger.Warn("purge refresh_tokens: delete failed", zap.Error(err))
+				}
+				continue
+			}
+			if tag.RowsAffected() > 0 {
+				logger.Info("purge refresh_tokens: deleted expired rows",
+					zap.Int64("rows", tag.RowsAffected()))
+			}
+		}
+	}
+}
+
 func newLogger(env string) (*zap.Logger, error) {
 	if env == "production" {
 		return zap.NewProduction()
 	}
 	return zap.NewDevelopment()
+}
+
+// buildReadinessChecks composes the list of checks exposed at /readyz.
+// Postgres is always present; HA is added when an HA URL is configured.
+// Including HA without a URL would surface a permanent "fail" entry that
+// confuses operators reading the report.
+func buildReadinessChecks(cfg config.Config, db *postgres.DB) []server.ReadinessCheck {
+	checks := []server.ReadinessCheck{server.PostgresCheck{DB: db}}
+	if cfg.Hass.URL != "" {
+		checks = append(checks, server.HassCheck{BaseURL: cfg.Hass.URL})
+	}
+	return checks
+}
+
+// parseTrustedProxies parses a slice of CIDR strings (from RATE_LIMIT_TRUSTED_PROXIES)
+// into netip.Prefix values. Returns an error on any invalid entry so the
+// process exits clearly at startup rather than silently misrouting traffic.
+func parseTrustedProxies(cidrs []string) ([]netip.Prefix, error) {
+	if len(cidrs) == 0 {
+		return nil, nil
+	}
+	out := make([]netip.Prefix, 0, len(cidrs))
+	for _, s := range cidrs {
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CIDR %q: %w", s, err)
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }

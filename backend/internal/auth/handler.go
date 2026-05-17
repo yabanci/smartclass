@@ -6,6 +6,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"smartclass/internal/platform/httpx"
+	"smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/platform/validation"
@@ -26,6 +27,27 @@ func (h *Handler) Routes(r chi.Router) {
 	r.Post("/register", h.register)
 	r.Post("/login", h.login)
 	r.Post("/refresh", h.refresh)
+}
+
+// AuthenticatedRoutes mounts endpoints that require a valid access token.
+// Logout lives here because the server uses the bearer token to identify
+// whose refresh tokens to revoke; we do not accept a userID in the body
+// because that would let any caller revoke any user's sessions.
+func (h *Handler) AuthenticatedRoutes(r chi.Router) {
+	r.Post("/logout", h.logout)
+}
+
+func (h *Handler) logout(w http.ResponseWriter, r *http.Request) {
+	p, ok := middleware.PrincipalFrom(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, h.bundle, httpx.ErrUnauthorized)
+		return
+	}
+	if err := h.svc.Logout(r.Context(), p.UserID); err != nil {
+		httpx.WriteError(w, r, h.bundle, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (h *Handler) register(w http.ResponseWriter, r *http.Request) {

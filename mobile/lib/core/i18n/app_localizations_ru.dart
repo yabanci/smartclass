@@ -313,6 +313,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get scheduleDayFri => 'Пт';
 
   @override
+  String get scheduleDaySat => 'Сб';
+
+  @override
+  String get scheduleDaySun => 'Вс';
+
+  @override
   String get scenesTitle => 'Сцены';
 
   @override
@@ -332,6 +338,30 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get scenesEmpty => 'Нет сцен';
+
+  @override
+  String scenesRunSuccess(int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total шагов выполнено',
+      few: '$total шага выполнено',
+      one: '1 шаг выполнен',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scenesRunPartial(int success, int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total шагов',
+      few: '$total шага',
+      one: '1 шаг',
+    );
+    return '$success/$_temp0 ОК';
+  }
 
   @override
   String get analyticsTitle => 'Аналитика';
@@ -386,4 +416,57 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileLocalUrlHint => 'например http://192.168.1.100:8080';
+
+  @override
+  String get offlineNoInternet => 'Нет подключения к интернету';
+
+  @override
+  String get offlineUnreachable => 'Сервер недоступен';
+
+  @override
+  String get commonCannotUndo => 'Это действие нельзя отменить.';
+
+  @override
+  String scenesStepCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count шагов',
+      few: '$count шага',
+      one: '1 шаг',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get analyticsNoData => 'Нет данных';
+
+  @override
+  String get analyticsNoUsageData => 'Нет данных об использовании';
+
+  @override
+  String get scenesAddAtLeastOneStep => 'Добавьте хотя бы один шаг';
+
+  @override
+  String get scenesNameRequired => 'Название сцены обязательно';
+
+  @override
+  String get commonRequired => 'Обязательное поле';
+
+  @override
+  String get profilePasswordChanged => 'Пароль успешно изменён';
+
+  @override
+  String get profilePasswordMin6 => 'Минимум 6 символов';
+
+  @override
+  String get commonNotSet => 'Не задан';
+
+  @override
+  String get scenesStepsLabel => 'Шаги';
+
+  @override
+  String iotWizardEntityState(String state) {
+    return 'Состояние: $state';
+  }
 }

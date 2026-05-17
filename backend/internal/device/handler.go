@@ -138,10 +138,7 @@ func (h *Handler) update(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, err)
 		return
 	}
-	d, err := h.svc.Update(r.Context(), p, id, UpdateInput{
-		Name: req.Name, Type: req.Type, Brand: req.Brand,
-		Driver: req.Driver, Config: req.Config,
-	})
+	d, err := h.svc.Update(r.Context(), p, id, UpdateInput(req))
 	if err != nil {
 		httpx.WriteError(w, r, h.bundle, err)
 		return

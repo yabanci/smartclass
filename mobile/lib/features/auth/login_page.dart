@@ -41,8 +41,16 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final loading = ref.watch(authProvider).loading;
+    final authState = ref.watch(authProvider);
+    final loading = authState.loading;
     final theme = Theme.of(context);
+
+    // C-022: show a spinner while init() is awaiting getMe().
+    if (authState.isInitializing) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       body: SafeArea(

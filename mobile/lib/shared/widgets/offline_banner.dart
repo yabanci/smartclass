@@ -4,6 +4,9 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../core/connection/connection_mode.dart';
+import '../../core/connection/resolver.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class OfflineBanner extends StatefulWidget {
   final Widget child;
@@ -15,6 +18,8 @@ class OfflineBanner extends StatefulWidget {
 
 class _OfflineBannerState extends State<OfflineBanner> {
   bool _offline = false;
+  // C-016: separate flag for when network is up but server is unreachable.
+  bool _unreachable = false;
   late StreamSubscription<List<ConnectivityResult>> _sub;
 
   @override
@@ -22,7 +27,26 @@ class _OfflineBannerState extends State<OfflineBanner> {
     super.initState();
     _sub = Connectivity().onConnectivityChanged.listen((results) {
       final isOffline = results.every((r) => r == ConnectivityResult.none);
-      if (mounted && isOffline != _offline) setState(() => _offline = isOffline);
+      if (!mounted) return;
+      if (isOffline) {
+        // No connectivity at all.
+        setState(() {
+          _offline = true;
+          _unreachable = false;
+        });
+      } else {
+        // Network is up — resolve server reachability.
+        _checkReachability();
+      }
+    });
+  }
+
+  Future<void> _checkReachability() async {
+    final state = await ConnectionResolver.instance.resolve();
+    if (!mounted) return;
+    setState(() {
+      _offline = false;
+      _unreachable = state.mode == ConnectionMode.unreachable;
     });
   }
 
@@ -34,17 +58,24 @@ class _OfflineBannerState extends State<OfflineBanner> {
 
   @override
   Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    final showBanner = _offline || _unreachable;
+    final message = _offline
+        ? l.offlineNoInternet
+        // C-016: distinct message when server is unreachable.
+        : l.offlineUnreachable;
+
     return Column(
       children: [
         AnimatedContainer(
           duration: const Duration(milliseconds: 300),
-          height: _offline ? 32 : 0,
+          height: showBanner ? 32 : 0,
           color: kDanger,
-          child: _offline
-              ? const Center(
+          child: showBanner
+              ? Center(
                   child: Text(
-                    'No internet connection',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
+                    message,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 )
               : null,

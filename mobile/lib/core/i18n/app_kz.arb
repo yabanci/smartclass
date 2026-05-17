@@ -100,6 +100,8 @@
   "scheduleDayWed": "Ср",
   "scheduleDayThu": "Бс",
   "scheduleDayFri": "Жм",
+  "scheduleDaySat": "Сн",
+  "scheduleDaySun": "Жс",
   "scenesTitle": "Сценалар",
   "scenesAdd": "Жаңа сцена",
   "scenesRun": "Іске қосу",
@@ -107,6 +109,19 @@
   "scenesDescription": "Сипаттама",
   "scenesAddStep": "Қадам қосу",
   "scenesEmpty": "Сценалар жоқ",
+  "scenesRunSuccess": "{total, plural, =1{1 қадам орындалды} other{{total} қадам орындалды}}",
+  "@scenesRunSuccess": {
+    "placeholders": {
+      "total": { "type": "int" }
+    }
+  },
+  "scenesRunPartial": "{success}/{total, plural, =1{1 қадам} other{{total} қадам}} ОК",
+  "@scenesRunPartial": {
+    "placeholders": {
+      "success": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
   "analyticsTitle": "Аналитика",
   "analyticsSensorsSeries": "Сенсор деректері",
   "analyticsDeviceUsage": "Құрылғы пайдалануы",
@@ -124,5 +139,29 @@
   "profileCurrentPassword": "Ағымдағы құпия сөз",
   "profileNewPassword": "Жаңа құпия сөз",
   "profileLocalUrl": "Жергілікті сервер URL",
-  "profileLocalUrlHint": "мысалы http://192.168.1.100:8080"
+  "profileLocalUrlHint": "мысалы http://192.168.1.100:8080",
+  "offlineNoInternet": "Интернетке қосылым жоқ",
+  "offlineUnreachable": "Сервер қолжетімсіз",
+  "commonCannotUndo": "Бұл әрекетті болдырмау мүмкін емес.",
+  "scenesStepCount": "{count, plural, =1{1 қадам} other{{count} қадам}}",
+  "@scenesStepCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "analyticsNoData": "Деректер жоқ",
+  "analyticsNoUsageData": "Пайдалану деректері жоқ",
+  "scenesAddAtLeastOneStep": "Кем дегенде бір қадам қосыңыз",
+  "scenesNameRequired": "Сцена атауы міндетті",
+  "commonRequired": "Міндетті өріс",
+  "profilePasswordChanged": "Құпия сөз сәтті өзгертілді",
+  "profilePasswordMin6": "Кемінде 6 таңба",
+  "commonNotSet": "Орнатылмаған",
+  "scenesStepsLabel": "Қадамдар",
+  "iotWizardEntityState": "Күйі: {state}",
+  "@iotWizardEntityState": {
+    "placeholders": {
+      "state": { "type": "String" }
+    }
+  }
 }

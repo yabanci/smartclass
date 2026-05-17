@@ -2,6 +2,7 @@ package analytics
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,6 +18,9 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 }
 
 func (r *PostgresRepository) SensorSeries(ctx context.Context, classroomID uuid.UUID, metric string, bucket Bucket, from, to time.Time) ([]TimePoint, error) {
+	if !bucket.Valid() {
+		return nil, fmt.Errorf("invalid bucket: %s", bucket)
+	}
 	const q = `
 SELECT date_trunc($1, sr.recorded_at) AS bucket,
        AVG(sr.value) AS avg,

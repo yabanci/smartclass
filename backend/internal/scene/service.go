@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/zap"
@@ -13,8 +14,16 @@ import (
 	"smartclass/internal/device"
 	"smartclass/internal/devicectl"
 	"smartclass/internal/platform/httpx"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/realtime"
 )
+
+// stepTimeout caps how long a single device command inside a scene may run.
+// Without a per-step ceiling, a single misbehaving device (slow network, dead
+// HA instance, locked physical device) holds up the entire scene; with it,
+// the scene degrades gracefully — the bad step fails fast and the next step
+// gets its full budget.
+const stepTimeout = 10 * time.Second
 
 var (
 	ErrDomainNotFound = httpx.NewDomainError("scene_not_found", http.StatusNotFound, "scene.not_found")
@@ -38,7 +47,7 @@ func NewService(repo Repository, cls *classroom.Service, devices *device.Service
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "scene"))
 	}
 	return s
 }
@@ -149,7 +158,9 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 	var firstErr error
 	for _, step := range sc.Steps {
 		cmd := devicectl.Command{Type: devicectl.CommandType(step.Command), Value: step.Value}
-		_, err := s.devices.Execute(ctx, p, step.DeviceID, cmd)
+		stepCtx, cancel := context.WithTimeout(ctx, stepTimeout)
+		_, err := s.devices.Execute(stepCtx, p, step.DeviceID, cmd)
+		cancel()
 		r := StepResult{Step: step, Success: err == nil}
 		if err != nil {
 			r.Error = err.Error()
@@ -158,11 +169,17 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 			}
 		}
 		results = append(results, r)
+		// Honour caller cancellation: if the request was cancelled mid-scene,
+		// stop spawning new step contexts.
+		if ctx.Err() != nil {
+			break
+		}
 	}
 
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("classroom:%s:scenes", sc.ClassroomID.String()),
-		Type:  "scene.ran",
+		Version: 1,
+		Topic:   fmt.Sprintf("classroom:%s:scenes", sc.ClassroomID.String()),
+		Type:    "scene.ran",
 		Payload: map[string]any{
 			"sceneId": sc.ID.String(),
 			"name":    sc.Name,
@@ -174,8 +191,20 @@ func (s *Service) Run(ctx context.Context, p classroom.Principal, id uuid.UUID) 
 
 	out := &RunResult{SceneID: sc.ID, Steps: results}
 	if firstErr != nil {
+		failedCount := 0
+		for _, r := range results {
+			if !r.Success {
+				failedCount++
+			}
+		}
+		if failedCount == len(results) {
+			metrics.ScenesRun.WithLabelValues("err").Inc()
+		} else {
+			metrics.ScenesRun.WithLabelValues("partial").Inc()
+		}
 		return out, fmt.Errorf("%w: %v", ErrStepFailed, firstErr)
 	}
+	metrics.ScenesRun.WithLabelValues("ok").Inc()
 	return out, nil
 }
 

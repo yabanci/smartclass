@@ -313,6 +313,12 @@ class AppLocalizationsKk extends AppLocalizations {
   String get scheduleDayFri => 'Жм';
 
   @override
+  String get scheduleDaySat => 'Сн';
+
+  @override
+  String get scheduleDaySun => 'Жс';
+
+  @override
   String get scenesTitle => 'Сценалар';
 
   @override
@@ -332,6 +338,28 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get scenesEmpty => 'Сценалар жоқ';
+
+  @override
+  String scenesRunSuccess(int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total қадам орындалды',
+      one: '1 қадам орындалды',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String scenesRunPartial(int success, int total) {
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total қадам',
+      one: '1 қадам',
+    );
+    return '$success/$_temp0 ОК';
+  }
 
   @override
   String get analyticsTitle => 'Аналитика';
@@ -386,4 +414,56 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get profileLocalUrlHint => 'мысалы http://192.168.1.100:8080';
+
+  @override
+  String get offlineNoInternet => 'Интернетке қосылым жоқ';
+
+  @override
+  String get offlineUnreachable => 'Сервер қолжетімсіз';
+
+  @override
+  String get commonCannotUndo => 'Бұл әрекетті болдырмау мүмкін емес.';
+
+  @override
+  String scenesStepCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count қадам',
+      one: '1 қадам',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get analyticsNoData => 'Деректер жоқ';
+
+  @override
+  String get analyticsNoUsageData => 'Пайдалану деректері жоқ';
+
+  @override
+  String get scenesAddAtLeastOneStep => 'Кем дегенде бір қадам қосыңыз';
+
+  @override
+  String get scenesNameRequired => 'Сцена атауы міндетті';
+
+  @override
+  String get commonRequired => 'Міндетті өріс';
+
+  @override
+  String get profilePasswordChanged => 'Құпия сөз сәтті өзгертілді';
+
+  @override
+  String get profilePasswordMin6 => 'Кемінде 6 таңба';
+
+  @override
+  String get commonNotSet => 'Орнатылмаған';
+
+  @override
+  String get scenesStepsLabel => 'Қадамдар';
+
+  @override
+  String iotWizardEntityState(String state) {
+    return 'Күйі: $state';
+  }
 }

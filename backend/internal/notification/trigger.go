@@ -46,13 +46,17 @@ func NewEngine(svc *Service, rules Rules) *Engine {
 
 func (e *Engine) WithLogger(l *zap.Logger) *Engine {
 	if l != nil {
-		e.log = l
+		e.log = l.With(zap.String("subsystem", "notification.trigger"))
 	}
 	return e
 }
 
 // throttle returns true if an alert for this key should be suppressed because
 // one was already fired within the cooldown window. Safe for concurrent use.
+//
+// Whenever the map crosses a high-water mark, expired entries are evicted in
+// the same critical section. Without that the map grew unbounded — every
+// (classroom, device, rule) tuple stayed forever, even after device deletion.
 func (e *Engine) throttle(classroomID, deviceID uuid.UUID, rule string) bool {
 	key := classroomID.String() + ":" + deviceID.String() + ":" + rule
 	now := time.Now()
@@ -62,6 +66,13 @@ func (e *Engine) throttle(classroomID, deviceID uuid.UUID, rule string) bool {
 		return true
 	}
 	e.lastAlert[key] = now
+	if len(e.lastAlert) > 4096 {
+		for k, t := range e.lastAlert {
+			if now.Sub(t) >= e.cooldown {
+				delete(e.lastAlert, k)
+			}
+		}
+	}
 	return false
 }
 

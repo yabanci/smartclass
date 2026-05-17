@@ -113,6 +113,74 @@ func TestEngine_Cooldown_DifferentDevicesFireIndependently(t *testing.T) {
 	assert.Len(t, list, 2, "each device should fire its own alert")
 }
 
+// TestEngine_ThresholdBoundary_ExactlyAt_NoFire verifies the threshold rule
+// is `>` not `>=`. A reading exactly at the threshold must NOT alert —
+// otherwise every borderline measurement spams the user.
+func TestEngine_ThresholdBoundary_ExactlyAt_NoFire(t *testing.T) {
+	repo := notificationtest.NewMemRepo()
+	member := uuid.New()
+	svc := notification.NewService(repo, staticMembers{ids: []uuid.UUID{member}}, realtime.Noop{})
+	eng := notification.NewEngine(svc, notification.DefaultRules())
+
+	// DefaultRules.TemperatureHighC == 30 (per package); equal must not fire.
+	eng.OnSensorReading(context.Background(), uuid.New(), uuid.New(), "temperature", 30.0, "C")
+
+	list, err := svc.List(context.Background(), member, false, 50, 0)
+	require.NoError(t, err)
+	assert.Empty(t, list,
+		"a reading exactly at the threshold must NOT fire — the rule is strictly greater (>), not >=, "+
+			"otherwise every borderline reading alerts")
+}
+
+// TestEngine_ThresholdBoundary_JustAbove_Fires verifies the smallest possible
+// reading above the threshold is enough to trigger — no hidden epsilon.
+func TestEngine_ThresholdBoundary_JustAbove_Fires(t *testing.T) {
+	repo := notificationtest.NewMemRepo()
+	member := uuid.New()
+	svc := notification.NewService(repo, staticMembers{ids: []uuid.UUID{member}}, realtime.Noop{})
+	eng := notification.NewEngine(svc, notification.DefaultRules())
+
+	eng.OnSensorReading(context.Background(), uuid.New(), uuid.New(), "temperature", 30.001, "C")
+
+	list, err := svc.List(context.Background(), member, false, 50, 0)
+	require.NoError(t, err)
+	assert.Len(t, list, 1,
+		"the smallest possible reading above the threshold must fire — that's what the alert is for")
+}
+
+// TestEngine_LowTemperatureFires covers the symmetric `<` rule for cold
+// readings. Without this we'd only catch overheating, not freezing.
+func TestEngine_LowTemperatureFires(t *testing.T) {
+	repo := notificationtest.NewMemRepo()
+	member := uuid.New()
+	svc := notification.NewService(repo, staticMembers{ids: []uuid.UUID{member}}, realtime.Noop{})
+	eng := notification.NewEngine(svc, notification.DefaultRules())
+
+	// DefaultRules.TemperatureLowC == 14 in DefaultRules (a chilly classroom).
+	eng.OnSensorReading(context.Background(), uuid.New(), uuid.New(), "temperature", 5.0, "C")
+
+	list, err := svc.List(context.Background(), member, false, 50, 0)
+	require.NoError(t, err)
+	require.Len(t, list, 1, "5°C is well below the cold threshold and must fire")
+	assert.Contains(t, list[0].Message, "Low temperature")
+}
+
+// TestEngine_HighHumidityFires covers the humidity rule. DefaultRules sets
+// HumidityHigh = 80; readings above must alert.
+func TestEngine_HighHumidityFires(t *testing.T) {
+	repo := notificationtest.NewMemRepo()
+	member := uuid.New()
+	svc := notification.NewService(repo, staticMembers{ids: []uuid.UUID{member}}, realtime.Noop{})
+	eng := notification.NewEngine(svc, notification.DefaultRules())
+
+	eng.OnSensorReading(context.Background(), uuid.New(), uuid.New(), "humidity", 90.0, "%")
+
+	list, err := svc.List(context.Background(), member, false, 50, 0)
+	require.NoError(t, err)
+	require.Len(t, list, 1, "90%% humidity is above the threshold and must fire")
+	assert.Contains(t, list[0].Message, "High humidity")
+}
+
 func TestService_MarkRead(t *testing.T) {
 	repo := notificationtest.NewMemRepo()
 	user := uuid.New()

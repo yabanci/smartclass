@@ -187,7 +187,11 @@ class _DeviceCardState extends ConsumerState<DeviceCard> {
 
   Widget _buildControls(Device device, AppLocalizations l) {
     final t = device.type.toLowerCase();
-    final configVal = (device.config['lastValue'] as num?)?.toDouble();
+    // B-105: type-check before cast — lastValue may arrive as String from some drivers
+    final lastValueRaw = device.config['lastValue'];
+    final configVal = lastValueRaw is num
+        ? lastValueRaw.toDouble()
+        : double.tryParse(lastValueRaw?.toString() ?? '');
 
     if (t.contains('light')) {
       return _SliderControl(
@@ -293,6 +297,15 @@ class _SliderControlState extends State<_SliderControl> {
   void initState() {
     super.initState();
     _val = widget.value.clamp(widget.min, widget.max);
+  }
+
+  @override
+  void didUpdateWidget(_SliderControl oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // B-305: sync local state when the external value changes (e.g. WS update)
+    if (oldWidget.value != widget.value) {
+      _val = widget.value.clamp(widget.min, widget.max);
+    }
   }
 
   @override

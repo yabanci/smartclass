@@ -4,15 +4,29 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/gorilla/websocket"
+
+	"smartclass/internal/platform/metrics"
 )
+
+// flowIDPattern restricts HA config-flow IDs to the characters HA itself emits
+// (32-char hex tokens). Rejecting `/`, `?`, `..` etc. closes the SSRF / path-
+// traversal vector flagged by gosec G704: an authenticated admin cannot use a
+// crafted flowID to redirect the URL at a different HA endpoint.
+var flowIDPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,128}$`)
+
+// ErrInvalidFlowID is returned when a caller passes a flow ID that does not
+// match the allowed character set.
+var ErrInvalidFlowID = errors.New("hass: invalid flow id")
 
 // clientID used for HA's OAuth2 indieauth flow during onboarding. HA validates
 // that the client_id is a parseable URL but doesn't care about its value
@@ -47,7 +61,7 @@ func (c *Client) OnboardingStatus(ctx context.Context) (OnboardingStatus, error)
 	if err != nil {
 		return OnboardingStatus{}, fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// HA unloads the /api/onboarding route entirely once onboarding completes
 	// (owner created via UI), so a 404 here means "already done".
 	if resp.StatusCode == http.StatusNotFound {
@@ -95,6 +109,7 @@ type onboardUserResp struct {
 // be exchanged for tokens. Fails with ErrAlreadyOnboarded if someone already
 // completed this step (HA returns 403 in that case).
 func (c *Client) CreateOwner(ctx context.Context, name, username, password, lang string) (string, error) {
+	// #nosec G117 -- HA's onboarding API requires a password field by contract; this is the wire format.
 	body, _ := json.Marshal(onboardUserReq{
 		ClientID: oauthClientID,
 		Name:     name, Username: username, Password: password, Language: lang,
@@ -108,7 +123,7 @@ func (c *Client) CreateOwner(ctx context.Context, name, username, password, lang
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode == http.StatusForbidden {
 		return "", ErrAlreadyOnboarded
@@ -248,7 +263,7 @@ func (c *Client) tokenRequest(ctx context.Context, form url.Values) (*TokenSet, 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("%w: token %d: %s", ErrOnboardingFailed, resp.StatusCode, string(raw))
@@ -326,7 +341,15 @@ func (c *Client) FinishOnboarding(ctx context.Context, accessToken string) error
 	if lastErr != nil {
 		return fmt.Errorf("%w: %v", ErrOnboardingFailed, lastErr)
 	}
-	return fmt.Errorf("%w: onboarding did not complete after %d attempts", ErrOnboardingFailed, maxAttempts)
+	// lastErr == nil but we never got a clean all-done status response inside
+	// the loop (each attempt either hit an error or posted steps but didn't
+	// see all flags set on that same pass). Do one final status check instead
+	// of returning ErrOnboardingFailed unconditionally (G-302).
+	status, err := c.OnboardingStatus(ctx)
+	if err == nil && status.CoreConfigDone && status.IntegrationDone && status.AnalyticsDone {
+		return nil
+	}
+	return fmt.Errorf("%w: status never reported done after %d attempts", ErrOnboardingFailed, maxAttempts)
 }
 
 func (c *Client) postOnboardingStep(ctx context.Context, token, path string, body any) error {
@@ -341,7 +364,7 @@ func (c *Client) postOnboardingStep(ctx context.Context, token, path string, bod
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<14))
 	// 403 with body "unknown_step" means HA already marked this step done —
 	// success from our perspective. Any other 4xx/5xx is surfaced so the
@@ -387,7 +410,7 @@ func (c *Client) ListInProgressFlows(ctx context.Context, token string) ([]FlowP
 	if err != nil {
 		return nil, fmt.Errorf("%w: ws dial: %v", ErrUpstream, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	deadline, _ := ctx.Deadline()
 	if deadline.IsZero() {
 		deadline = time.Now().Add(10 * time.Second)
@@ -458,6 +481,9 @@ func (c *Client) StartFlow(ctx context.Context, token, handler string) (*FlowSte
 }
 
 func (c *Client) StepFlow(ctx context.Context, token, flowID string, data map[string]any) (*FlowStep, error) {
+	if !flowIDPattern.MatchString(flowID) {
+		return nil, ErrInvalidFlowID
+	}
 	if data == nil {
 		data = map[string]any{}
 	}
@@ -470,23 +496,29 @@ func (c *Client) StepFlow(ctx context.Context, token, flowID string, data map[st
 }
 
 func (c *Client) AbortFlow(ctx context.Context, token, flowID string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/api/config/config_entries/flow/"+flowID, nil)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
+	if !flowIDPattern.MatchString(flowID) {
+		return ErrInvalidFlowID
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	_ = resp.Body.Close()
-	if resp.StatusCode == http.StatusNotFound {
-		return ErrFlowNotFound
-	}
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("%w: abort %d", ErrUpstream, resp.StatusCode)
-	}
-	return nil
+	return metrics.TrackHass(ctx, "AbortFlow", func(ctx context.Context) error {
+		// #nosec G704 -- baseURL is operator-configured (HA endpoint); flowID is regex-validated above.
+		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/api/config/config_entries/flow/"+flowID, nil)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode == http.StatusNotFound {
+			return ErrFlowNotFound
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("%w: abort %d", ErrUpstream, resp.StatusCode)
+		}
+		return nil
+	})
 }
 
 type haState struct {
@@ -523,33 +555,36 @@ func (c *Client) getJSON(ctx context.Context, token, path string, out any) error
 }
 
 func (c *Client) requestJSON(ctx context.Context, method, token, path string, body io.Reader, out any) error {
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
-	}
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrUpstream, err)
-	}
-	defer resp.Body.Close()
-	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if resp.StatusCode == http.StatusNotFound {
-		return ErrFlowNotFound
-	}
-	if resp.StatusCode >= 400 {
-		return fmt.Errorf("%w: %s %d: %s", ErrUpstream, path, resp.StatusCode, truncate(string(raw), 240))
-	}
-	if out == nil || len(raw) == 0 {
+	return metrics.TrackHass(ctx, "requestJSON", func(ctx context.Context) error {
+		// #nosec G704 -- baseURL is operator-configured (HA endpoint), path is internal/validated input.
+		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+		if body != nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
+		resp, err := c.http.Do(req) // #nosec G704 -- target is operator-configured HA, not user input
+		if err != nil {
+			return fmt.Errorf("%w: %v", ErrUpstream, err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+		if resp.StatusCode == http.StatusNotFound {
+			return ErrFlowNotFound
+		}
+		if resp.StatusCode >= 400 {
+			return fmt.Errorf("%w: %s %d: %s", ErrUpstream, path, resp.StatusCode, truncate(string(raw), 240))
+		}
+		if out == nil || len(raw) == 0 {
+			return nil
+		}
+		if err := json.Unmarshal(raw, out); err != nil {
+			return fmt.Errorf("%w: decode %s: %v", ErrUpstream, path, err)
+		}
 		return nil
-	}
-	if err := json.Unmarshal(raw, out); err != nil {
-		return fmt.Errorf("%w: decode %s: %v", ErrUpstream, path, err)
-	}
-	return nil
+	})
 }
 
 func truncate(s string, n int) string {

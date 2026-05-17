@@ -37,11 +37,13 @@ class DeviceListNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   Future<void> sendCommand(String deviceId, String type, {dynamic value}) async {
     final updated = await _endpoints.sendCommand(deviceId, type, value: value);
+    // B-106: update optimistic state first, then reload unconditionally
     state.whenData((devices) {
       state = AsyncValue.data([
         for (final d in devices) if (d.id == deviceId) updated else d
       ]);
     });
+    await load();
   }
 
   Future<Device> create({
@@ -65,7 +67,8 @@ class DeviceListNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   Future<void> delete(String id) async {
     await _endpoints.delete(id);
-    load();
+    // B-107: await load() so callers know when the list is refreshed
+    await load();
   }
 
   void updateDevice(Device updated) {

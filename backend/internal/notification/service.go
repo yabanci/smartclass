@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	"smartclass/internal/platform/httpx"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/realtime"
 )
 
@@ -34,7 +36,7 @@ func NewService(repo Repository, members MemberLookup, broker realtime.Broker) *
 
 func (s *Service) WithLogger(l *zap.Logger) *Service {
 	if l != nil {
-		s.log = l
+		s.log = l.With(zap.String("subsystem", "notification"))
 	}
 	return s
 }
@@ -56,6 +58,7 @@ func (s *Service) CreateForUser(ctx context.Context, in Input) (*Notification, e
 	if err := s.repo.Create(ctx, n); err != nil {
 		return nil, err
 	}
+	metrics.NotificationsCreated.WithLabelValues(string(in.Type)).Inc()
 	s.publish(ctx, n)
 	return n, nil
 }
@@ -82,6 +85,9 @@ func (s *Service) CreateForClassroom(ctx context.Context, classroomID uuid.UUID,
 	if err := s.repo.CreateBatch(ctx, items); err != nil {
 		return nil, err
 	}
+	for range items {
+		metrics.NotificationsCreated.WithLabelValues(string(in.Type)).Inc()
+	}
 	for _, n := range items {
 		s.publish(ctx, n)
 	}
@@ -98,7 +104,10 @@ func (s *Service) CountUnread(ctx context.Context, userID uuid.UUID) (int, error
 
 func (s *Service) MarkRead(ctx context.Context, userID, id uuid.UUID) error {
 	if err := s.repo.MarkRead(ctx, userID, id); err != nil {
-		return ErrDomainNotFound
+		if errors.Is(err, ErrNotFound) {
+			return ErrDomainNotFound
+		}
+		return err
 	}
 	return nil
 }
@@ -121,8 +130,9 @@ func toNotification(in Input) *Notification {
 
 func (s *Service) publish(ctx context.Context, n *Notification) {
 	if err := s.broker.Publish(ctx, realtime.Event{
-		Topic: fmt.Sprintf("user:%s:notifications", n.UserID.String()),
-		Type:  "notification.created",
+		Version: 1,
+		Topic:   fmt.Sprintf("user:%s:notifications", n.UserID.String()),
+		Type:    "notification.created",
 		Payload: map[string]any{
 			"id":        n.ID.String(),
 			"type":      string(n.Type),

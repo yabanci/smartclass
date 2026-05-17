@@ -18,28 +18,57 @@ func NewPostgresRepository(pool *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{pool: pool}
 }
 
-func (r *PostgresRepository) Insert(ctx context.Context, entries []Entry) error {
-	if len(entries) == 0 {
-		return nil
+// insertColumns lists the columns in the exact order that buildInsertArgs appends
+// values. Both must stay in sync — insertColumns is the source of truth for the
+// column count; insertColCount is derived from it automatically so the two
+// can never drift.
+const insertColumns = "actor_id, entity_type, entity_id, action, metadata, created_at"
+
+// insertColCount is computed from insertColumns so it tracks changes to the
+// column list without requiring a manual update. TestInsertSQLColCount
+// validates that buildInsertArgs produces exactly N*insertColCount arguments.
+var insertColCount = strings.Count(insertColumns, ",") + 1
+
+func buildInsertSQL(n int) string {
+	values := make([]string, 0, n)
+	for i := range n {
+		base := i * insertColCount
+		values = append(values,
+			"($"+strconv.Itoa(base+1)+
+				",$"+strconv.Itoa(base+2)+
+				",$"+strconv.Itoa(base+3)+
+				",$"+strconv.Itoa(base+4)+
+				",$"+strconv.Itoa(base+5)+
+				",$"+strconv.Itoa(base+6)+")")
 	}
-	const cols = 6
-	args := make([]any, 0, len(entries)*cols)
-	values := make([]string, 0, len(entries))
-	for i, e := range entries {
+	return "INSERT INTO action_logs (" + insertColumns + ") VALUES " + strings.Join(values, ",")
+}
+
+func buildInsertArgs(entries []Entry) ([]any, error) {
+	args := make([]any, 0, len(entries)*insertColCount)
+	for _, e := range entries {
 		if e.CreatedAt.IsZero() {
 			e.CreatedAt = time.Now().UTC()
 		}
 		meta, err := json.Marshal(e.Metadata)
 		if err != nil {
-			return err
+			return nil, err
 		}
-		base := i * cols
-		values = append(values,
-			"($"+strconv.Itoa(base+1)+",$"+strconv.Itoa(base+2)+",$"+strconv.Itoa(base+3)+",$"+strconv.Itoa(base+4)+",$"+strconv.Itoa(base+5)+",$"+strconv.Itoa(base+6)+")")
+		// Order must match insertColumns exactly.
 		args = append(args, e.ActorID, string(e.EntityType), e.EntityID, string(e.Action), meta, e.CreatedAt)
 	}
-	q := "INSERT INTO action_logs (actor_id, entity_type, entity_id, action, metadata, created_at) VALUES " + strings.Join(values, ",")
-	_, err := r.pool.Exec(ctx, q, args...)
+	return args, nil
+}
+
+func (r *PostgresRepository) Insert(ctx context.Context, entries []Entry) error {
+	if len(entries) == 0 {
+		return nil
+	}
+	args, err := buildInsertArgs(entries)
+	if err != nil {
+		return err
+	}
+	_, err = r.pool.Exec(ctx, buildInsertSQL(len(entries)), args...)
 	return err
 }
 

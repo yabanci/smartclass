@@ -694,6 +694,18 @@ abstract class AppLocalizations {
   /// **'Fri'**
   String get scheduleDayFri;
 
+  /// No description provided for @scheduleDaySat.
+  ///
+  /// In en, this message translates to:
+  /// **'Sat'**
+  String get scheduleDaySat;
+
+  /// No description provided for @scheduleDaySun.
+  ///
+  /// In en, this message translates to:
+  /// **'Sun'**
+  String get scheduleDaySun;
+
   /// No description provided for @scenesTitle.
   ///
   /// In en, this message translates to:
@@ -735,6 +747,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No scenes yet'**
   String get scenesEmpty;
+
+  /// No description provided for @scenesRunSuccess.
+  ///
+  /// In en, this message translates to:
+  /// **'{total, plural, =1{1 step succeeded} other{{total} steps succeeded}}'**
+  String scenesRunSuccess(int total);
+
+  /// No description provided for @scenesRunPartial.
+  ///
+  /// In en, this message translates to:
+  /// **'{success}/{total, plural, =1{1 step} other{{total} steps}} OK'**
+  String scenesRunPartial(int success, int total);
 
   /// No description provided for @analyticsTitle.
   ///
@@ -843,6 +867,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'e.g. http://192.168.1.100:8080'**
   String get profileLocalUrlHint;
+
+  /// No description provided for @offlineNoInternet.
+  ///
+  /// In en, this message translates to:
+  /// **'No internet connection'**
+  String get offlineNoInternet;
+
+  /// No description provided for @offlineUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Server unreachable'**
+  String get offlineUnreachable;
+
+  /// No description provided for @commonCannotUndo.
+  ///
+  /// In en, this message translates to:
+  /// **'This action cannot be undone.'**
+  String get commonCannotUndo;
+
+  /// No description provided for @scenesStepCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 step} other{{count} steps}}'**
+  String scenesStepCount(int count);
+
+  /// No description provided for @analyticsNoData.
+  ///
+  /// In en, this message translates to:
+  /// **'No data'**
+  String get analyticsNoData;
+
+  /// No description provided for @analyticsNoUsageData.
+  ///
+  /// In en, this message translates to:
+  /// **'No usage data'**
+  String get analyticsNoUsageData;
+
+  /// No description provided for @scenesAddAtLeastOneStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Add at least one step'**
+  String get scenesAddAtLeastOneStep;
+
+  /// No description provided for @scenesNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Scene name is required'**
+  String get scenesNameRequired;
+
+  /// No description provided for @commonRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required'**
+  String get commonRequired;
+
+  /// No description provided for @profilePasswordChanged.
+  ///
+  /// In en, this message translates to:
+  /// **'Password changed successfully'**
+  String get profilePasswordChanged;
+
+  /// No description provided for @profilePasswordMin6.
+  ///
+  /// In en, this message translates to:
+  /// **'Min 6 characters'**
+  String get profilePasswordMin6;
+
+  /// No description provided for @commonNotSet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set'**
+  String get commonNotSet;
+
+  /// No description provided for @scenesStepsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps'**
+  String get scenesStepsLabel;
+
+  /// No description provided for @iotWizardEntityState.
+  ///
+  /// In en, this message translates to:
+  /// **'State: {state}'**
+  String iotWizardEntityState(String state);
 }
 
 class _AppLocalizationsDelegate

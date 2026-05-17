@@ -16,7 +16,7 @@ class SensorReading {
   });
 
   factory SensorReading.fromJson(Map<String, dynamic> json) => SensorReading(
-        id: json['id'] as String?,
+        id: (json['id'] as num?)?.toInt().toString(),
         deviceId: json['deviceId'] as String,
         metric: json['metric'] as String,
         value: (json['value'] as num).toDouble(),

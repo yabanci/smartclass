@@ -1,3 +1,4 @@
+import '../../core/api/envelope.dart';
 import '../../core/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -123,7 +124,8 @@ class _SceneCard extends ConsumerWidget {
                   Text(scene.name,
                       style:
                           const TextStyle(fontWeight: FontWeight.w600)),
-                  Text('${scene.steps.length} steps',
+                  // B-204: use l10n key with placeholder for step count
+                  Text(l.scenesStepCount(scene.steps.length),
                       style: const TextStyle(
                           fontSize: 12, color: Colors.grey)),
                   if (scene.description != null)
@@ -157,9 +159,11 @@ class _SceneCard extends ConsumerWidget {
           .read(sceneListProvider(classroomId).notifier)
           .run(scene.id);
       if (context.mounted) {
+        final l = AppLocalizations.of(context);
+        // B-304: use l10n keys instead of hardcoded English strings
         final msg = result.successCount == result.total
-            ? '${result.total} steps completed'
-            : '${result.successCount}/${result.total} steps OK';
+            ? l.scenesRunSuccess(result.total)
+            : l.scenesRunPartial(result.successCount, result.total);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(msg),
@@ -174,7 +178,8 @@ class _SceneCard extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(friendlyError(e)),
-            backgroundColor: Colors.red,
+            backgroundColor:
+                e is PartialFailureException ? Colors.orange : Colors.red,
           ),
         );
       }
@@ -243,8 +248,9 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
     if (_steps.isEmpty) {
+      final l = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Add at least one step')),
+        SnackBar(content: Text(l.scenesAddAtLeastOneStep)),
       );
       return;
     }
@@ -300,7 +306,7 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
                   border: const OutlineInputBorder(),
                 ),
                 validator: (v) =>
-                    v == null || v.isEmpty ? '${l.scenesName} is required' : null,
+                    v == null || v.isEmpty ? l.scenesNameRequired : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
@@ -314,8 +320,8 @@ class _AddSceneSheetState extends ConsumerState<_AddSceneSheet> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Steps',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
+                  Text(l.scenesStepsLabel,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
                   TextButton.icon(
                     icon: const Icon(Icons.add, size: 16),
                     label: Text(l.scenesAddStep),

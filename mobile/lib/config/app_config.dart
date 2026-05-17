@@ -3,14 +3,14 @@ enum AppFlavor { dev, prod }
 class AppConfig {
   final AppFlavor flavor;
   final String apiBaseUrl;
-  final String wsBaseUrl;
+  // B-306: wsBaseUrl removed — ConnectionResolver.wsBaseUrl derives the WS URL
+  // from apiBaseUrl at runtime, so a separate field here is dead code.
   final String appName;
   final bool debugBanner;
 
   const AppConfig({
     required this.flavor,
     required this.apiBaseUrl,
-    required this.wsBaseUrl,
     required this.appName,
     this.debugBanner = false,
   });
@@ -18,7 +18,6 @@ class AppConfig {
   static const dev = AppConfig(
     flavor: AppFlavor.dev,
     apiBaseUrl: 'http://localhost:8080/api/v1',
-    wsBaseUrl: 'ws://localhost:8080/api/v1',
     appName: 'SmartClass Dev',
     debugBanner: true,
   );
@@ -26,7 +25,6 @@ class AppConfig {
   static const prod = AppConfig(
     flavor: AppFlavor.prod,
     apiBaseUrl: 'https://api.smartclass.kz/api/v1',
-    wsBaseUrl: 'wss://api.smartclass.kz/api/v1',
     appName: 'Smart Classroom',
     debugBanner: false,
   );

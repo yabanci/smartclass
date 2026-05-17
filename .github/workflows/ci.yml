@@ -33,11 +33,47 @@ jobs:
       - name: go vet
         run: go vet ./...
 
+      # Security/lint scanners. Each is a separate step so one failing tool
+      # doesn't mask the rest. All four (vet, staticcheck, govulncheck, gosec)
+      # are kept blocking — any new finding fails the build.
+      - name: staticcheck
+        run: |
+          go install honnef.co/go/tools/cmd/staticcheck@latest
+          staticcheck ./...
+
+      - name: govulncheck
+        run: |
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck ./...
+
+      - name: gosec
+        run: |
+          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          gosec -quiet ./...
+
       - name: Unit tests (race + coverage)
         run: go test ./... -count=1 -race -coverprofile=coverage.out -covermode=atomic
 
+      - name: hass slow tests (build tag)
+        run: go test -tags=slow -race -count=1 ./internal/hass/...
+
       - name: Coverage summary
         run: go tool cover -func=coverage.out | tail -n 1
+
+      - name: Coverage gate
+        # Threshold inline; bump as test coverage grows. See
+        # docs/superpowers/specs/2026-05-01-test-coverage-design.md for the rationale.
+        run: |
+          pct=$(go tool cover -func=coverage.out | awk '/^total:/ {gsub("%","",$NF); print int($NF)}')
+          echo "Total coverage: $pct%"
+          if [ -z "$pct" ]; then
+            echo "::error::could not parse coverage from coverage.out"
+            exit 1
+          fi
+          if [ "$pct" -lt 30 ]; then
+            echo "::error::Total coverage $pct% is below threshold 30%"
+            exit 1
+          fi
 
       - name: Build
         run: go build -trimpath -o bin/server ./cmd/server

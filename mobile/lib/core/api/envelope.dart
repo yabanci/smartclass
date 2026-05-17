@@ -32,3 +32,16 @@ class ApiException implements Exception {
   @override
   String toString() => 'ApiException($statusCode): $message';
 }
+
+// C-020: thrown when a scene run completes but some steps failed (HTTP 207).
+class PartialFailureException implements Exception {
+  final String message;
+  final int success;
+  final int total;
+
+  const PartialFailureException(this.message,
+      {required this.success, required this.total});
+
+  @override
+  String toString() => 'PartialFailureException: $message';
+}

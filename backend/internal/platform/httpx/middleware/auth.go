@@ -48,21 +48,27 @@ func Authn(issuer tokens.Issuer, bundle *i18n.Bundle) func(http.Handler) http.Ha
 			}
 			ctx := context.WithValue(r.Context(), ctxKeyUserID, claims.UserID)
 			ctx = context.WithValue(ctx, ctxKeyRole, claims.Role)
+			// Mirror the principal into the slot so the outer RequestLogger
+			// can include user_id+role on the log line. Downstream
+			// PrincipalFrom helper still reads from the immutable ctx values.
+			if slot := PrincipalSlotFrom(r.Context()); slot != nil {
+				slot.Principal = Principal{UserID: claims.UserID, Role: claims.Role}
+				slot.Set = true
+			}
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
 }
 
-// extractToken reads the access JWT from the standard Authorization header, and
-// falls back to the "access_token" query parameter — required for WebSocket
-// upgrades where browsers cannot set custom headers.
+// extractToken reads the access JWT from the standard Authorization header.
+// The previous `?access_token=` query-string fallback was intentional for
+// browser WebSocket upgrades, but it leaked JWTs into reverse-proxy access
+// logs. WebSocket upgrades now use the single-use ticket flow under
+// /api/v1/ws/ticket; nothing else needed the fallback.
 func extractToken(r *http.Request) string {
 	const prefix = "Bearer "
 	if raw := r.Header.Get("Authorization"); strings.HasPrefix(raw, prefix) {
 		return strings.TrimPrefix(raw, prefix)
-	}
-	if q := r.URL.Query().Get("access_token"); q != "" {
-		return q
 	}
 	return ""
 }
@@ -86,4 +92,13 @@ func RequireRole(bundle *i18n.Bundle, roles ...string) func(http.Handler) http.H
 			next.ServeHTTP(w, r)
 		})
 	}
+}
+
+// WithPrincipalForTest installs a Principal directly in the context, used by
+// handler tests that don't go through the real Authn middleware. Production
+// code never calls this — use Authn instead.
+func WithPrincipalForTest(ctx context.Context, p Principal) context.Context {
+	ctx = context.WithValue(ctx, ctxKeyUserID, p.UserID)
+	ctx = context.WithValue(ctx, ctxKeyRole, p.Role)
+	return ctx
 }

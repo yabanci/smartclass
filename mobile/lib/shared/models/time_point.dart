@@ -18,6 +18,6 @@ class TimePoint {
         avg: (json['avg'] as num).toDouble(),
         min: (json['min'] as num).toDouble(),
         max: (json['max'] as num).toDouble(),
-        count: json['count'] as int,
+        count: (json['count'] as num).toInt(),
       );
 }

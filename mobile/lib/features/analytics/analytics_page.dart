@@ -128,11 +128,12 @@ class _AnalyticsBody extends ConsumerWidget {
               ErrorView(message: friendlyError(e)),
           data: (points) {
             if (points.isEmpty) {
-              return const Center(
+              // B-205: use l10n key instead of hardcoded English
+              return Center(
                   child: Padding(
-                padding: EdgeInsets.all(32),
-                child:
-                    Text('No data', style: TextStyle(color: Colors.grey)),
+                padding: const EdgeInsets.all(32),
+                child: Text(l.analyticsNoData,
+                    style: const TextStyle(color: Colors.grey)),
               ));
             }
             return SizedBox(
@@ -184,11 +185,12 @@ class _AnalyticsBody extends ConsumerWidget {
               ErrorView(message: friendlyError(e)),
           data: (usages) {
             if (usages.isEmpty) {
-              return const Center(
+              // B-205: use l10n key for usage data empty state
+              return Center(
                   child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Text('No usage data',
-                    style: TextStyle(color: Colors.grey)),
+                padding: const EdgeInsets.all(16),
+                child: Text(l.analyticsNoUsageData,
+                    style: const TextStyle(color: Colors.grey)),
               ));
             }
             final devices = devicesAsync.valueOrNull ?? [];
