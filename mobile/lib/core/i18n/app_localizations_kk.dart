@@ -503,4 +503,7 @@ class AppLocalizationsKk extends AppLocalizations {
   @override
   String get classroomDeleteBody =>
       'Бұл сынып пен оның барлық деректерін жояды. Бұл әрекетті болдырмау мүмкін емес.';
+
+  @override
+  String get serverUrlMustBeHttps => 'Шығарылым нұсқасында HTTPS қажет';
 }

@@ -175,5 +175,6 @@
   "classroomRenameTitle": "Rename classroom",
   "classroomNameLabel": "Name",
   "classroomDeleteTitle": "Delete classroom?",
-  "classroomDeleteBody": "This will remove the classroom and all its data. This cannot be undone."
+  "classroomDeleteBody": "This will remove the classroom and all its data. This cannot be undone.",
+  "serverUrlMustBeHttps": "HTTPS is required in release builds"
 }

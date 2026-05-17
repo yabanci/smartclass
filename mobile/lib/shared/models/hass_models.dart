@@ -25,8 +25,9 @@ class HassFlowHandler {
   final String? integration;
   final String? iotClass;
   final bool configFlow;
-  // Y-4: backend sends supported_by and depends_on — preserved, not exposed in UI yet.
-  final List<String> supportedBy;
+  // Y-4: backend sends supported_by (string, omitempty) and depends_on ([]string, omitempty)
+  // — preserved, not exposed in UI yet.
+  final String supportedBy;
   final List<String> dependsOn;
 
   const HassFlowHandler({
@@ -35,7 +36,7 @@ class HassFlowHandler {
     this.integration,
     this.iotClass,
     required this.configFlow,
-    this.supportedBy = const [],
+    this.supportedBy = '',
     this.dependsOn = const [],
   });
 
@@ -46,10 +47,7 @@ class HassFlowHandler {
         integration: json['integration'] as String?,
         iotClass: json['iot_class'] as String?,
         configFlow: json['config_flow'] as bool? ?? false,
-        supportedBy: (json['supported_by'] as List<dynamic>?)
-                ?.map((e) => e as String)
-                .toList() ??
-            [],
+        supportedBy: (json['supported_by'] as String?) ?? '',
         dependsOn: (json['depends_on'] as List<dynamic>?)
                 ?.map((e) => e as String)
                 .toList() ??
