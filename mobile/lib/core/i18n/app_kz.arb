@@ -163,5 +163,6 @@
     "placeholders": {
       "state": { "type": "String" }
     }
-  }
+  },
+  "cachedDataLabel": "Кэш деректері"
 }

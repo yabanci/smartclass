@@ -9,6 +9,7 @@ import '../../shared/models/scene.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../shared/providers/scene_provider.dart';
+import '../../shared/widgets/cached_banner.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_indicator.dart';
 
@@ -53,37 +54,48 @@ class _SceneList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final scenesAsync = ref.watch(sceneListProvider(classroomId));
+    final isFromCache = ref.watch(sceneFromCacheProvider(classroomId));
 
-    return scenesAsync.when(
-      loading: () => const LoadingIndicator(),
-      error: (e, _) => ErrorView(
-        message: friendlyError(e),
-        onRetry: () => ref.read(sceneListProvider(classroomId).notifier).load(),
-      ),
-      data: (scenes) {
-        if (scenes.isEmpty) {
-          return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.auto_awesome, size: 64, color: Colors.grey),
-                const SizedBox(height: 16),
-                Text(l.scenesEmpty,
-                    style: const TextStyle(fontSize: 16, color: Colors.grey)),
-              ],
+    return Column(
+      children: [
+        if (isFromCache) const CachedBanner(),
+        Expanded(
+          child: scenesAsync.when(
+            loading: () => const LoadingIndicator(),
+            error: (e, _) => ErrorView(
+              message: friendlyError(e),
+              onRetry: () =>
+                  ref.read(sceneListProvider(classroomId).notifier).load(),
             ),
-          );
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.all(16),
-          itemCount: scenes.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
-          itemBuilder: (context, i) => _SceneCard(
-            scene: scenes[i],
-            classroomId: classroomId,
+            data: (scenes) {
+              if (scenes.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.auto_awesome,
+                          size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(l.scenesEmpty,
+                          style: const TextStyle(
+                              fontSize: 16, color: Colors.grey)),
+                    ],
+                  ),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: scenes.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 8),
+                itemBuilder: (context, i) => _SceneCard(
+                  scene: scenes[i],
+                  classroomId: classroomId,
+                ),
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

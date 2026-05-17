@@ -6,6 +6,7 @@ import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/lesson.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/schedule_provider.dart';
+import '../../shared/widgets/cached_banner.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import 'add_lesson_sheet.dart';
@@ -56,46 +57,54 @@ class _WeekView extends ConsumerWidget {
       7: l.scheduleDaySun,
     };
     final scheduleAsync = ref.watch(scheduleProvider(classroomId));
+    final isFromCache = ref.watch(scheduleFromCacheProvider(classroomId));
 
-    return scheduleAsync.when(
-      loading: () => const LoadingIndicator(),
-      error: (e, _) => ErrorView(
-        message: friendlyError(e),
-        onRetry: () =>
-            ref.read(scheduleProvider(classroomId).notifier).load(),
-      ),
-      data: (schedule) {
-        final now = DateTime.now();
-        final todayKey = now.weekday.toString();
+    return Column(
+      children: [
+        if (isFromCache) const CachedBanner(),
+        Expanded(
+          child: scheduleAsync.when(
+            loading: () => const LoadingIndicator(),
+            error: (e, _) => ErrorView(
+              message: friendlyError(e),
+              onRetry: () =>
+                  ref.read(scheduleProvider(classroomId).notifier).load(),
+            ),
+            data: (schedule) {
+              final now = DateTime.now();
+              final todayKey = now.weekday.toString();
 
-        return RefreshIndicator(
-          onRefresh: () =>
-              ref.read(scheduleProvider(classroomId).notifier).load(),
-          child: ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              for (int day = 1; day <= 7; day++)
-                if (schedule.containsKey(day.toString()) &&
-                    schedule[day.toString()]!.isNotEmpty)
-                  _DaySection(
-                    day: day,
-                    dayName: dayNames[day] ?? 'Day $day',
-                    lessons: schedule[day.toString()] ?? [],
-                    isToday: day.toString() == todayKey,
-                    classroomId: classroomId,
-                  ),
-              if (schedule.values.every((l) => l.isEmpty))
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(32),
-                    child: Text(l.commonEmpty,
-                        style: const TextStyle(color: Colors.grey)),
-                  ),
+              return RefreshIndicator(
+                onRefresh: () =>
+                    ref.read(scheduleProvider(classroomId).notifier).load(),
+                child: ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    for (int day = 1; day <= 7; day++)
+                      if (schedule.containsKey(day.toString()) &&
+                          schedule[day.toString()]!.isNotEmpty)
+                        _DaySection(
+                          day: day,
+                          dayName: dayNames[day] ?? 'Day $day',
+                          lessons: schedule[day.toString()] ?? [],
+                          isToday: day.toString() == todayKey,
+                          classroomId: classroomId,
+                        ),
+                    if (schedule.values.every((l) => l.isEmpty))
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.all(32),
+                          child: Text(l.commonEmpty,
+                              style: const TextStyle(color: Colors.grey)),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
+              );
+            },
           ),
-        );
-      },
+        ),
+      ],
     );
   }
 }

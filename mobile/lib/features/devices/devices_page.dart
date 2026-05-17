@@ -9,6 +9,7 @@ import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/device.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
+import '../../shared/widgets/cached_banner.dart';
 import '../../shared/widgets/error_view.dart';
 import '../../shared/widgets/loading_indicator.dart';
 import 'device_card.dart';
@@ -67,8 +68,13 @@ class _DeviceList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final devicesAsync = ref.watch(deviceListProvider(classroomId));
+    final isFromCache = ref.watch(deviceFromCacheProvider(classroomId));
 
-    return devicesAsync.when(
+    return Column(
+      children: [
+        if (isFromCache) const CachedBanner(),
+        Expanded(
+          child: devicesAsync.when(
       loading: () => const LoadingIndicator(),
       error: (e, _) => ErrorView(
         message: friendlyError(e),
@@ -115,6 +121,9 @@ class _DeviceList extends ConsumerWidget {
           ),
         );
       },
+          ),
+        ),
+      ],
     );
   }
 

@@ -466,4 +466,7 @@ class AppLocalizationsKk extends AppLocalizations {
   String iotWizardEntityState(String state) {
     return 'Күйі: $state';
   }
+
+  @override
+  String get cachedDataLabel => 'Кэш деректері';
 }
