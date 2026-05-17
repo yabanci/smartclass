@@ -171,7 +171,9 @@ jobs:
           sudo apt-get install -y --no-install-recommends lcov
           summary=$(lcov --summary coverage/lcov.info 2>&1)
           echo "$summary"
-          pct=$(echo "$summary" | awk '/lines\.\.+/{gsub("%","",$NF); print int($NF)}')
+          # lcov line format: "  lines......: 14.8% (593 of 4018 lines)"
+          # — the percent is $2, not $NF (which is "lines)").
+          pct=$(echo "$summary" | awk '/lines\.\.+/{gsub("%","",$2); print int($2)}')
           if [ -z "$pct" ]; then
             echo "::error::could not parse line coverage from lcov.info"
             exit 1
