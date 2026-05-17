@@ -234,18 +234,50 @@ func (s *Service) Credentials(ctx context.Context) (*Credentials, error) {
 		return nil, err
 	}
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.creds.Token = tokens.AccessToken
 	s.creds.RefreshToken = tokens.RefreshToken
 	s.creds.ExpiresAt = tokens.ExpiresAt
 	s.creds.UpdatedAt = time.Now().UTC()
-	if err := s.repo.Save(ctx, s.creds); err != nil && s.logger != nil {
-		// Token is returned to caller despite DB failure; retry should be implemented
-		// in a future iteration to avoid stale token in persistent store.
-		s.logger.Error("hass: persist refreshed token failed — token in memory may drift from DB", zap.Error(err))
+	credsSnapshot := *s.creds
+	s.mu.Unlock()
+
+	// Persist the refreshed token with a short retry so transient DB blips
+	// don't leave a permanently stale row. Backoffs: 100 ms → 500 ms → 2 s.
+	saveBackoffs := []time.Duration{100 * time.Millisecond, 500 * time.Millisecond, 2 * time.Second}
+	var saveErr error
+	for attempt := 1; attempt <= len(saveBackoffs)+1; attempt++ {
+		if saveErr = s.repo.Save(ctx, &credsSnapshot); saveErr == nil {
+			break
+		}
+		if attempt <= len(saveBackoffs) {
+			if s.logger != nil {
+				s.logger.Error("hass: persist refreshed token failed; will retry",
+					zap.Error(saveErr),
+					zap.Int("attempt", attempt),
+				)
+			}
+			select {
+			case <-ctx.Done():
+				// Context cancelled during retry backoff; return the in-memory
+				// snapshot — the token is live even though DB persistence failed.
+				return &credsSnapshot, nil
+			case <-time.After(saveBackoffs[attempt-1]):
+			}
+		}
 	}
-	c := *s.creds
-	return &c, nil
+	if saveErr != nil {
+		if s.logger != nil {
+			s.logger.Error("hass: persist refreshed token failed after all attempts; in-memory token may drift from DB",
+				zap.Error(saveErr),
+				zap.Int("attempts", len(saveBackoffs)+1),
+			)
+		}
+		s.mu.Lock()
+		s.bootstrapErr = saveErr
+		s.mu.Unlock()
+	}
+
+	return &credsSnapshot, nil
 }
 
 // Status reports whether HA is reachable and we have a usable token.

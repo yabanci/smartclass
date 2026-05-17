@@ -186,13 +186,13 @@ func (h *Handler) week(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, err)
 		return
 	}
-	out := make(map[int][]DTO, len(week))
+	out := make(map[string][]DTO, len(week))
 	for d, lessons := range week {
 		dto := make([]DTO, 0, len(lessons))
 		for _, l := range lessons {
 			dto = append(dto, ToDTO(l))
 		}
-		out[int(d)] = dto
+		out[strconv.Itoa(int(d))] = dto
 	}
 	httpx.JSON(w, http.StatusOK, out)
 }

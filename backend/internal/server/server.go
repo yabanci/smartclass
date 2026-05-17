@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"net/http"
+	"net/netip"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -41,6 +42,9 @@ type Deps struct {
 	Bundle              *i18n.Bundle
 	Issuer              tokens.Issuer
 	ReadinessChecks     []ReadinessCheck
+	// TrustedProxies restricts X-Forwarded-For trust to these CIDRs.
+	// Empty = any loopback/private address is trusted (default).
+	TrustedProxies      []netip.Prefix
 	AuthHandler         *auth.Handler
 	UserHandler         *user.Handler
 	ClassroomHandler    *classroom.Handler
@@ -59,9 +63,11 @@ type Deps struct {
 func New(d Deps) *Server {
 	r := chi.NewRouter()
 
-	rl := mw.NewRateLimiter(d.Cfg.RateLimit.RPS, d.Cfg.RateLimit.Burst)
+	rl := mw.NewRateLimiter(d.Cfg.RateLimit.RPS, d.Cfg.RateLimit.Burst).
+		WithTrustedProxies(d.TrustedProxies)
 	// Strict limiter for auth endpoints: 5 RPS burst 10 per IP prevents brute-force.
-	authRL := mw.NewRateLimiter(5, 10)
+	// Auth limiter inherits the same proxy trust configuration.
+	authRL := mw.NewRateLimiter(5, 10).WithTrustedProxies(d.TrustedProxies)
 
 	r.Use(mw.Recoverer(d.Logger))
 	r.Use(mw.RequestID)

@@ -2,13 +2,15 @@ package main
 
 import (
 	"context"
-	"time"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"net/netip"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -43,6 +45,11 @@ func main() {
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("config: %v", err)
+	}
+
+	trustedProxies, err := parseTrustedProxies(cfg.RateLimit.TrustedProxies)
+	if err != nil {
+		log.Fatalf("RATE_LIMIT_TRUSTED_PROXIES: %v", err)
 	}
 
 	logger, err := newLogger(cfg.Env)
@@ -153,6 +160,7 @@ func main() {
 		Bundle:              bundle,
 		Issuer:              issuer,
 		ReadinessChecks:     buildReadinessChecks(cfg, db),
+		TrustedProxies:      trustedProxies,
 		AuthHandler:         authH,
 		UserHandler:         userH,
 		ClassroomHandler:    classroomH,
@@ -233,4 +241,22 @@ func buildReadinessChecks(cfg config.Config, db *postgres.DB) []server.Readiness
 		checks = append(checks, server.HassCheck{BaseURL: cfg.Hass.URL})
 	}
 	return checks
+}
+
+// parseTrustedProxies parses a slice of CIDR strings (from RATE_LIMIT_TRUSTED_PROXIES)
+// into netip.Prefix values. Returns an error on any invalid entry so the
+// process exits clearly at startup rather than silently misrouting traffic.
+func parseTrustedProxies(cidrs []string) ([]netip.Prefix, error) {
+	if len(cidrs) == 0 {
+		return nil, nil
+	}
+	out := make([]netip.Prefix, 0, len(cidrs))
+	for _, s := range cidrs {
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid CIDR %q: %w", s, err)
+		}
+		out = append(out, p)
+	}
+	return out, nil
 }

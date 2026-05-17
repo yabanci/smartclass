@@ -145,7 +145,9 @@ func (h *Handler) entities(w http.ResponseWriter, r *http.Request) {
 }
 
 type adoptReq struct {
-	EntityID    string `json:"entityId" validate:"required"`
+	// EntityID must be a fully-qualified HA entity_id (e.g. "light.living_room").
+	// The dot separator is mandatory — HA always formats entity IDs as "<domain>.<object_id>".
+	EntityID    string `json:"entityId" validate:"required,contains=."`
 	ClassroomID string `json:"classroomId" validate:"required,uuid"`
 	Name        string `json:"name"`
 	Brand       string `json:"brand"`
