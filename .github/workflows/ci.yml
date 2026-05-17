@@ -210,6 +210,9 @@ jobs:
         with:
           context: ./backend
           push: false
+          # load=true exports the build result into the local docker daemon
+          # so the trivy scan step can find smartclass-backend:ci.
+          load: true
           tags: smartclass-backend:ci
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
