@@ -113,7 +113,8 @@ func runMigrations(dsn string) error {
 		return fmt.Errorf("testsupport: runtime.Caller failed")
 	}
 	// thisFile = .../backend/internal/platform/testsupport/pgcontainer.go
-	migrationsDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "..", "migrations")
+	// Three "..": testsupport → platform → internal → backend, then + migrations.
+	migrationsDir := filepath.Join(filepath.Dir(thisFile), "..", "..", "..", "migrations")
 
 	sqlDB, err := sql.Open("pgx", dsn)
 	if err != nil {
