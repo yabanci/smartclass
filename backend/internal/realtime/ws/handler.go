@@ -14,6 +14,7 @@ import (
 	"smartclass/internal/platform/httpx"
 	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/i18n"
+	"smartclass/internal/platform/metrics"
 	"smartclass/internal/user"
 )
 
@@ -96,6 +97,14 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	}
 	tkt, err := h.tickets.Consume(r.Context(), raw)
 	if err != nil {
+		log := h.log
+		if log == nil {
+			log = zap.NewNop()
+		}
+		log.Warn("ws: ticket consume failed",
+			zap.Error(err),
+			zap.String("remote", r.RemoteAddr))
+		metrics.WSTicketInvalid.Inc()
 		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketInvalid)
 		return
 	}

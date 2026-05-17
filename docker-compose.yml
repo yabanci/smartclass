@@ -144,7 +144,7 @@ services:
       JWT_REFRESH_TTL: 720h
       BCRYPT_COST: "10"
       RATE_LIMIT_RPS: "50"
-      CORS_ORIGINS: "${CORS_ORIGINS:-*}"
+      CORS_ORIGINS: "${CORS_ORIGINS:-http://localhost:5173,http://localhost:8080}"
       HASS_URL: "http://homeassistant:8123"
       HASS_OWNER_PASSWORD: "${HASS_OWNER_PASSWORD:-smartclass1234}"
       MIGRATIONS_DIR: /app/migrations

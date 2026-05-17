@@ -50,12 +50,12 @@ jobs:
 
       - name: staticcheck
         run: |
-          go install honnef.co/go/tools/cmd/staticcheck@latest
+          go install honnef.co/go/tools/cmd/staticcheck@v0.5.1
           staticcheck ./...
 
       - name: govulncheck
         run: |
-          go install golang.org/x/vuln/cmd/govulncheck@latest
+          go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           govulncheck ./...
 
       - name: gosec
@@ -165,6 +165,22 @@ jobs:
           path: mobile/coverage/lcov.info
           retention-days: 14
 
+      - name: Coverage gate
+        run: |
+          sudo apt-get install -y --no-install-recommends lcov
+          summary=$(lcov --summary coverage/lcov.info 2>&1)
+          echo "$summary"
+          pct=$(echo "$summary" | awk '/lines\.\.+/{gsub("%","",$NF); print int($NF)}')
+          if [ -z "$pct" ]; then
+            echo "::error::could not parse line coverage from lcov.info"
+            exit 1
+          fi
+          echo "Total line coverage: $pct%"
+          if [ "$pct" -lt 30 ]; then
+            echo "::error::Mobile line coverage $pct% is below threshold 30%"
+            exit 1
+          fi
+
       - name: Build APK (release, debug-signed)
         run: flutter build apk --release --no-pub
 
@@ -193,3 +209,11 @@ jobs:
           tags: smartclass-backend:ci
           cache-from: type=gha,scope=backend
           cache-to: type=gha,mode=max,scope=backend
+
+      - name: Scan image for vulnerabilities
+        uses: aquasecurity/trivy-action@0.24.0
+        with:
+          image-ref: smartclass-backend:ci
+          severity: HIGH,CRITICAL
+          exit-code: '1'
+          ignore-unfixed: true

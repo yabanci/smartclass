@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -25,7 +27,7 @@ func (r *PostgresRepository) Create(ctx context.Context, c *Classroom) error {
 	now := time.Now().UTC()
 	c.CreatedAt, c.UpdatedAt = now, now
 
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.pool.Begin(metrics.WithDBOp(ctx, "classroom.Create"))
 	if err != nil {
 		return err
 	}
@@ -46,7 +48,7 @@ func (r *PostgresRepository) Create(ctx context.Context, c *Classroom) error {
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Classroom, error) {
 	const q = `SELECT id, name, description, created_by, created_at, updated_at FROM classrooms WHERE id=$1`
 	c := &Classroom{}
-	err := r.pool.QueryRow(ctx, q, id).Scan(&c.ID, &c.Name, &c.Description, &c.CreatedBy, &c.CreatedAt, &c.UpdatedAt)
+	err := r.pool.QueryRow(metrics.WithDBOp(ctx, "classroom.GetByID"), q, id).Scan(&c.ID, &c.Name, &c.Description, &c.CreatedBy, &c.CreatedAt, &c.UpdatedAt)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrNotFound
@@ -58,7 +60,7 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Classr
 
 func (r *PostgresRepository) List(ctx context.Context, limit, offset int) ([]*Classroom, error) {
 	const q = `SELECT id, name, description, created_by, created_at, updated_at FROM classrooms ORDER BY created_at DESC LIMIT $1 OFFSET $2`
-	return r.queryList(ctx, q, limit, offset)
+	return r.queryList(metrics.WithDBOp(ctx, "classroom.List"), q, limit, offset)
 }
 
 func (r *PostgresRepository) ListForUser(ctx context.Context, userID uuid.UUID, limit, offset int) ([]*Classroom, error) {
@@ -69,7 +71,7 @@ JOIN classroom_users cu ON cu.classroom_id = c.id
 WHERE cu.user_id = $1
 ORDER BY c.created_at DESC
 LIMIT $2 OFFSET $3`
-	return r.queryList(ctx, q, userID, limit, offset)
+	return r.queryList(metrics.WithDBOp(ctx, "classroom.ListForUser"), q, userID, limit, offset)
 }
 
 func (r *PostgresRepository) queryList(ctx context.Context, q string, args ...any) ([]*Classroom, error) {
@@ -93,7 +95,7 @@ func (r *PostgresRepository) queryList(ctx context.Context, q string, args ...an
 func (r *PostgresRepository) Update(ctx context.Context, c *Classroom) error {
 	const q = `UPDATE classrooms SET name=$2, description=$3, updated_at=$4 WHERE id=$1`
 	c.UpdatedAt = time.Now().UTC()
-	tag, err := r.pool.Exec(ctx, q, c.ID, c.Name, c.Description, c.UpdatedAt)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "classroom.Update"), q, c.ID, c.Name, c.Description, c.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -105,7 +107,7 @@ func (r *PostgresRepository) Update(ctx context.Context, c *Classroom) error {
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	const q = `DELETE FROM classrooms WHERE id=$1`
-	tag, err := r.pool.Exec(ctx, q, id)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "classroom.Delete"), q, id)
 	if err != nil {
 		return err
 	}
@@ -117,26 +119,26 @@ func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 
 func (r *PostgresRepository) Assign(ctx context.Context, classroomID, userID uuid.UUID) error {
 	const q = `INSERT INTO classroom_users (classroom_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`
-	_, err := r.pool.Exec(ctx, q, classroomID, userID)
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "classroom.Assign"), q, classroomID, userID)
 	return err
 }
 
 func (r *PostgresRepository) Unassign(ctx context.Context, classroomID, userID uuid.UUID) error {
 	const q = `DELETE FROM classroom_users WHERE classroom_id=$1 AND user_id=$2`
-	_, err := r.pool.Exec(ctx, q, classroomID, userID)
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "classroom.Unassign"), q, classroomID, userID)
 	return err
 }
 
 func (r *PostgresRepository) IsMember(ctx context.Context, classroomID, userID uuid.UUID) (bool, error) {
 	const q = `SELECT EXISTS(SELECT 1 FROM classroom_users WHERE classroom_id=$1 AND user_id=$2)`
 	var ok bool
-	err := r.pool.QueryRow(ctx, q, classroomID, userID).Scan(&ok)
+	err := r.pool.QueryRow(metrics.WithDBOp(ctx, "classroom.IsMember"), q, classroomID, userID).Scan(&ok)
 	return ok, err
 }
 
 func (r *PostgresRepository) Members(ctx context.Context, classroomID uuid.UUID) ([]uuid.UUID, error) {
 	const q = `SELECT user_id FROM classroom_users WHERE classroom_id=$1 ORDER BY assigned_at`
-	rows, err := r.pool.Query(ctx, q, classroomID)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "classroom.Members"), q, classroomID)
 	if err != nil {
 		return nil, err
 	}

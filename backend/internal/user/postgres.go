@@ -55,19 +55,26 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 	return r.getByColumn(metrics.WithDBOp(ctx, "users.GetByEmail"), "email", email)
 }
 
-// getByColumn fetches a single user by a known-safe column name. The column
-// parameter is restricted to an explicit allowlist to prevent SQL injection
-// from future callers inadvertently passing user-controlled input.
+// queriesByColumn maps each supported column to its pre-built SQL string.
+// All queries are declared as constants — no string concatenation is possible,
+// removing any SQL-injection vector regardless of how callers evolve.
+var queriesByColumn = map[string]string{
+	"id": `
+SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
+FROM users WHERE id = $1 LIMIT 1`,
+	"email": `
+SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
+FROM users WHERE email = $1 LIMIT 1`,
+}
+
+// getByColumn fetches a single user by a known-safe column name.
+// The map is the only source of valid columns — there is no string
+// concatenation path, so passing arbitrary input cannot alter the query.
 func (r *PostgresRepository) getByColumn(ctx context.Context, column string, value any) (*User, error) {
-	switch column {
-	case "id", "email":
-		// allowed
-	default:
+	q, ok := queriesByColumn[column]
+	if !ok {
 		return nil, fmt.Errorf("users: getByColumn: unknown column %q", column)
 	}
-	q := `
-SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
-FROM users WHERE ` + column + ` = $1 LIMIT 1`
 	u := &User{}
 	var roleStr string
 	err := r.pool.QueryRow(ctx, q, value).Scan(

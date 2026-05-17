@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -32,7 +34,7 @@ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)`
 	if err != nil {
 		return err
 	}
-	_, err = r.pool.Exec(ctx, q,
+	_, err = r.pool.Exec(metrics.WithDBOp(ctx, "device.Create"), q,
 		d.ID, d.ClassroomID, d.Name, d.Type, d.Brand, d.Driver, cfg,
 		d.Status, d.Online, d.LastSeenAt, d.CreatedAt, d.UpdatedAt,
 	)
@@ -43,14 +45,14 @@ func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Device
 	const q = `
 SELECT id, classroom_id, name, type, brand, driver, config, status, online, last_seen_at, created_at, updated_at
 FROM devices WHERE id=$1`
-	return r.scanOne(r.pool.QueryRow(ctx, q, id))
+	return r.scanOne(r.pool.QueryRow(metrics.WithDBOp(ctx, "device.GetByID"), q, id))
 }
 
 func (r *PostgresRepository) ListByClassroom(ctx context.Context, classroomID uuid.UUID) ([]*Device, error) {
 	const q = `
 SELECT id, classroom_id, name, type, brand, driver, config, status, online, last_seen_at, created_at, updated_at
 FROM devices WHERE classroom_id=$1 ORDER BY created_at DESC`
-	rows, err := r.pool.Query(ctx, q, classroomID)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "device.ListByClassroom"), q, classroomID)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +98,7 @@ UPDATE devices SET name=$2, type=$3, brand=$4, driver=$5, config=$6, updated_at=
 	if err != nil {
 		return err
 	}
-	tag, err := r.pool.Exec(ctx, q, d.ID, d.Name, d.Type, d.Brand, d.Driver, cfg, d.UpdatedAt)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "device.Update"), q, d.ID, d.Name, d.Type, d.Brand, d.Driver, cfg, d.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -108,7 +110,7 @@ UPDATE devices SET name=$2, type=$3, brand=$4, driver=$5, config=$6, updated_at=
 
 func (r *PostgresRepository) UpdateState(ctx context.Context, id uuid.UUID, status string, online bool, lastSeen *time.Time) error {
 	const q = `UPDATE devices SET status=$2, online=$3, last_seen_at=$4, updated_at=$5 WHERE id=$1`
-	tag, err := r.pool.Exec(ctx, q, id, status, online, lastSeen, time.Now().UTC())
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "device.UpdateState"), q, id, status, online, lastSeen, time.Now().UTC())
 	if err != nil {
 		return err
 	}
@@ -120,7 +122,7 @@ func (r *PostgresRepository) UpdateState(ctx context.Context, id uuid.UUID, stat
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	const q = `DELETE FROM devices WHERE id=$1`
-	tag, err := r.pool.Exec(ctx, q, id)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "device.Delete"), q, id)
 	if err != nil {
 		return err
 	}

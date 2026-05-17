@@ -1,5 +1,7 @@
 class TimePoint {
-  final String bucket;
+  // FA-4: backend sends RFC3339 time.Time strings; parse to DateTime so
+  // callers can format with intl.DateFormat rather than using raw strings.
+  final DateTime bucket;
   final double avg;
   final double min;
   final double max;
@@ -14,7 +16,7 @@ class TimePoint {
   });
 
   factory TimePoint.fromJson(Map<String, dynamic> json) => TimePoint(
-        bucket: json['bucket'] as String,
+        bucket: DateTime.parse(json['bucket'] as String),
         avg: (json['avg'] as num).toDouble(),
         min: (json['min'] as num).toDouble(),
         max: (json['max'] as num).toDouble(),

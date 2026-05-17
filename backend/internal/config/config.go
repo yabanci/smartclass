@@ -86,5 +86,15 @@ func Load() (Config, error) {
 	if len(cfg.JWT.Secret) < 32 {
 		return Config{}, fmt.Errorf("config: JWT_SECRET must be at least 32 characters")
 	}
+	if cfg.Env == "production" {
+		for _, o := range cfg.CORS.Origins {
+			if o == "*" || o == "" {
+				return Config{}, fmt.Errorf("config: CORS_ORIGINS must be set explicitly in production (got %q)", o)
+			}
+		}
+		if len(cfg.CORS.Origins) == 0 {
+			return Config{}, fmt.Errorf("config: CORS_ORIGINS must be set explicitly in production")
+		}
+	}
 	return cfg, nil
 }

@@ -15,11 +15,17 @@ class WsClient {
   StreamSubscription? _sub;
   Timer? _reconnectTimer;
 
-  final _controller = StreamController<WsEvent>.broadcast();
+  // FA-2: use a broadcast StreamController that is recreated on each connect()
+  // so that calling close() then connect() does not add events to a closed
+  // stream. The public `events` getter always returns the current controller's
+  // stream; listeners that survive a reconnect will re-subscribe automatically
+  // via wsEventsProvider (a StreamProvider that re-reads this getter).
+  StreamController<WsEvent> _controller = StreamController<WsEvent>.broadcast();
   Stream<WsEvent> get events => _controller.stream;
 
   String? _wsBaseUrl;
   String? _classroomId;
+  String? _userId;
   TicketFactory? _ticketFactory;
 
   bool _disposed = false;
@@ -33,6 +39,7 @@ class WsClient {
   Future<void> connect({
     required String wsBaseUrl,
     required String classroomId,
+    required String userId,
     required TicketFactory ticketFactory,
   }) async {
     _disposed = false;
@@ -51,16 +58,18 @@ class WsClient {
     try {
       _wsBaseUrl = wsBaseUrl;
       _classroomId = classroomId;
+      _userId = userId;
       _ticketFactory = ticketFactory;
       _reconnectAttempt = 0;
       _dispose();
+      // FA-2: if the controller was closed by a previous close() call, create a
+      // fresh one so _connectUrl can add events without hitting a closed sink.
+      if (_controller.isClosed) {
+        _controller = StreamController<WsEvent>.broadcast();
+      }
       // C-006: always mint a fresh ticket on (re)connect via the factory.
       final ticket = await ticketFactory();
-      final url = '$wsBaseUrl/ws'
-          '?topic=classroom:$classroomId:devices'
-          '&topic=classroom:$classroomId:sensors'
-          '&topic=classroom:$classroomId:scenes'
-          '&ticket=$ticket';
+      final url = _buildUrl(wsBaseUrl, classroomId, userId, ticket);
       _connectUrl(url);
     } finally {
       _connecting = null;
@@ -68,9 +77,20 @@ class WsClient {
     }
   }
 
+  static String _buildUrl(
+      String wsBaseUrl, String classroomId, String userId, String ticket) {
+    return '$wsBaseUrl/ws'
+        '?topic=classroom:$classroomId:devices'
+        '&topic=classroom:$classroomId:sensors'
+        '&topic=classroom:$classroomId:scenes'
+        '&topic=user:$userId:notifications'
+        '&ticket=$ticket';
+  }
+
   void disconnect() {
     _wsBaseUrl = null;
     _classroomId = null;
+    _userId = null;
     _ticketFactory = null;
     _dispose();
   }
@@ -134,14 +154,11 @@ class WsClient {
       final factory = _ticketFactory;
       final base = _wsBaseUrl;
       final room = _classroomId;
-      if (factory == null || base == null || room == null) return;
+      final user = _userId;
+      if (factory == null || base == null || room == null || user == null) return;
       try {
         final ticket = await factory();
-        final url = '$base/ws'
-            '?topic=classroom:$room:devices'
-            '&topic=classroom:$room:sensors'
-            '&topic=classroom:$room:scenes'
-            '&ticket=$ticket';
+        final url = _buildUrl(base, room, user, ticket);
         if (_wsBaseUrl == base && _classroomId == room) {
           _connectUrl(url);
         }
@@ -152,9 +169,22 @@ class WsClient {
     });
   }
 
+  /// Stops the socket and reconnect timers without closing the StreamController.
+  /// After close(), connect() can be called again safely (FA-2).
   void close() {
     _disposed = true;
     _dispose();
-    _controller.close();
+    // Do NOT close _controller here — it would permanently break the stream.
+    // Use dispose() for final app teardown.
+  }
+
+  /// Final teardown — closes the StreamController permanently.
+  /// Should only be called when the app is shutting down.
+  void dispose() {
+    _disposed = true;
+    _dispose();
+    if (!_controller.isClosed) {
+      _controller.close();
+    }
   }
 }

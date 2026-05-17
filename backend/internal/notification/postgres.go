@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -47,7 +49,7 @@ func (r *PostgresRepository) CreateBatch(ctx context.Context, items []*Notificat
 		args = append(args, n.ID, n.UserID, n.ClassroomID, string(n.Type), n.Title, n.Message, meta, n.CreatedAt)
 	}
 	q := "INSERT INTO notifications (id, user_id, classroom_id, type, title, message, metadata, created_at) VALUES " + strings.Join(values, ",")
-	_, err := r.pool.Exec(ctx, q, args...)
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "notification.CreateBatch"), q, args...)
 	return err
 }
 
@@ -69,7 +71,7 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) ([]*Notific
 		args = append(args, f.Offset)
 		sb.WriteString(" OFFSET $" + strconv.Itoa(len(args)))
 	}
-	rows, err := r.pool.Query(ctx, sb.String(), args...)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "notification.List"), sb.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -93,12 +95,12 @@ func (r *PostgresRepository) List(ctx context.Context, f ListFilter) ([]*Notific
 
 func (r *PostgresRepository) CountUnread(ctx context.Context, userID uuid.UUID) (int, error) {
 	var n int
-	err := r.pool.QueryRow(ctx, "SELECT COUNT(*) FROM notifications WHERE user_id=$1 AND read_at IS NULL", userID).Scan(&n)
+	err := r.pool.QueryRow(metrics.WithDBOp(ctx, "notification.CountUnread"), "SELECT COUNT(*) FROM notifications WHERE user_id=$1 AND read_at IS NULL", userID).Scan(&n)
 	return n, err
 }
 
 func (r *PostgresRepository) MarkRead(ctx context.Context, userID, id uuid.UUID) error {
-	tag, err := r.pool.Exec(ctx, "UPDATE notifications SET read_at=now() WHERE id=$1 AND user_id=$2 AND read_at IS NULL", id, userID)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "notification.MarkRead"), "UPDATE notifications SET read_at=now() WHERE id=$1 AND user_id=$2 AND read_at IS NULL", id, userID)
 	if err != nil {
 		return err
 	}
@@ -109,6 +111,6 @@ func (r *PostgresRepository) MarkRead(ctx context.Context, userID, id uuid.UUID)
 }
 
 func (r *PostgresRepository) MarkAllRead(ctx context.Context, userID uuid.UUID) error {
-	_, err := r.pool.Exec(ctx, "UPDATE notifications SET read_at=now() WHERE user_id=$1 AND read_at IS NULL", userID)
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "notification.MarkAllRead"), "UPDATE notifications SET read_at=now() WHERE user_id=$1 AND read_at IS NULL", userID)
 	return err
 }

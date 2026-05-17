@@ -32,7 +32,8 @@ class WsConnectionNotifier extends StateNotifier<bool> {
   /// C-007: classroom:<id>:scenes topic added.
   /// C-019: state is only set to true after the connect Future resolves without
   ///         throwing, so a failed socket doesn't falsely advertise "connected".
-  Future<void> connectToClassroom(String classroomId) async {
+  /// FA-3: userId passed so user:<id>:notifications topic is subscribed.
+  Future<void> connectToClassroom(String classroomId, String userId) async {
     final baseWs = _resolver.wsBaseUrl;
 
     // Factory captures classroomId only for ticket scoping; the ticket itself
@@ -45,6 +46,7 @@ class WsConnectionNotifier extends StateNotifier<bool> {
       await _ws.connect(
         wsBaseUrl: baseWs,
         classroomId: classroomId,
+        userId: userId,
         ticketFactory: ticketFactory,
       );
       // C-019: only set true after connect succeeds.

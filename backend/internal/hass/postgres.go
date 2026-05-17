@@ -7,6 +7,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type pgRepo struct {
@@ -16,7 +18,7 @@ type pgRepo struct {
 func NewPostgresRepository(pool *pgxpool.Pool) Repository { return &pgRepo{pool: pool} }
 
 func (r *pgRepo) Load(ctx context.Context) (*Credentials, error) {
-	row := r.pool.QueryRow(ctx, `SELECT base_url, token, refresh_token, expires_at, onboarded, updated_at FROM hass_config WHERE id = 1`)
+	row := r.pool.QueryRow(metrics.WithDBOp(ctx, "hass.Load"), `SELECT base_url, token, refresh_token, expires_at, onboarded, updated_at FROM hass_config WHERE id = 1`)
 	c := &Credentials{}
 	var expires *time.Time
 	if err := row.Scan(&c.BaseURL, &c.Token, &c.RefreshToken, &expires, &c.Onboarded, &c.UpdatedAt); err != nil {
@@ -39,7 +41,7 @@ func (r *pgRepo) Save(ctx context.Context, c *Credentials) error {
 	if !c.ExpiresAt.IsZero() {
 		expires = c.ExpiresAt
 	}
-	_, err := r.pool.Exec(ctx, `
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "hass.Save"), `
 INSERT INTO hass_config (id, base_url, token, refresh_token, expires_at, onboarded, updated_at)
 VALUES (1, $1, $2, $3, $4, $5, $6)
 ON CONFLICT (id) DO UPDATE SET
