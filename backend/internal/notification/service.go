@@ -2,6 +2,7 @@ package notification
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -103,7 +104,10 @@ func (s *Service) CountUnread(ctx context.Context, userID uuid.UUID) (int, error
 
 func (s *Service) MarkRead(ctx context.Context, userID, id uuid.UUID) error {
 	if err := s.repo.MarkRead(ctx, userID, id); err != nil {
-		return ErrDomainNotFound
+		if errors.Is(err, ErrNotFound) {
+			return ErrDomainNotFound
+		}
+		return err
 	}
 	return nil
 }

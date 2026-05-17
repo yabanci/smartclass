@@ -145,7 +145,7 @@ func TestHandler_Serve_ConsumedTicketReusedOnceMore_Fails(t *testing.T) {
 		bundle: handlerTestBundle(), log: nopLog(),
 	}
 
-	tkt, err := store.Issue(context.Background(), uuid.New())
+	tkt, err := store.Issue(context.Background(), uuid.New(), "teacher")
 	require.NoError(t, err)
 
 	// First Serve will fail at the upgrader (httptest.ResponseRecorder doesn't

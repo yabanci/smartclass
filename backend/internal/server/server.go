@@ -30,8 +30,9 @@ import (
 )
 
 type Server struct {
-	http *http.Server
-	cfg  config.Config
+	http     *http.Server
+	cfg      config.Config
+	stopRLs  []func() // cleanup functions for rate-limiter goroutines
 }
 
 type Deps struct {
@@ -83,15 +84,24 @@ func New(d Deps) *Server {
 	}))
 
 	r.Route("/api/v1", func(r chi.Router) {
-		r.Group(func(r chi.Router) {
-			r.Use(authRL.Middleware())
-			r.Route("/auth", d.AuthHandler.Routes)
+		// /auth has two distinct middleware regimes that both need to live at
+		// the same URL prefix: the unauthenticated entry points (register/
+		// login/refresh, behind the strict authRL limiter) and the
+		// authenticated ones (logout). chi panics if you call r.Route("/auth")
+		// twice on the same mux, so both groups nest INSIDE one /auth Route.
+		r.Route("/auth", func(r chi.Router) {
+			r.Group(func(r chi.Router) {
+				r.Use(authRL.Middleware())
+				d.AuthHandler.Routes(r)
+			})
+			r.Group(func(r chi.Router) {
+				r.Use(mw.Authn(d.Issuer, d.Bundle))
+				d.AuthHandler.AuthenticatedRoutes(r)
+			})
 		})
 
 		r.Group(func(r chi.Router) {
 			r.Use(mw.Authn(d.Issuer, d.Bundle))
-
-			r.Route("/auth", d.AuthHandler.AuthenticatedRoutes)
 
 			r.Route("/users", d.UserHandler.Routes)
 
@@ -142,12 +152,21 @@ func New(d Deps) *Server {
 		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	return &Server{http: srv, cfg: d.Cfg}
+	return &Server{
+		http:    srv,
+		cfg:     d.Cfg,
+		stopRLs: []func(){rl.Stop, authRL.Stop},
+	}
 }
 
 func (s *Server) ListenAndServe() error { return s.http.ListenAndServe() }
 
-func (s *Server) Shutdown(ctx context.Context) error { return s.http.Shutdown(ctx) }
+func (s *Server) Shutdown(ctx context.Context) error {
+	for _, stop := range s.stopRLs {
+		stop()
+	}
+	return s.http.Shutdown(ctx)
+}
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
 	httpx.JSON(w, http.StatusOK, map[string]string{"status": "ok"})

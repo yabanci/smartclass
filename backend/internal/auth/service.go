@@ -156,7 +156,10 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 		// refresh token for this user; force them to log in again.
 		s.logger.Warn("refresh replay detected — revoking all sessions",
 			zap.Stringer("user_id", status.UserID), zap.Stringer("jti", jti))
-		_ = s.store.RevokeUser(ctx, status.UserID)
+		if err := s.store.RevokeUser(ctx, status.UserID); err != nil {
+			s.logger.Warn("refresh replay: RevokeUser failed",
+				zap.Stringer("user_id", status.UserID), zap.Error(err))
+		}
 		metrics.AuthRefresh.WithLabelValues("replay").Inc()
 		metrics.AuthReplayDetected.Inc()
 		return nil, ErrInvalidRefresh
@@ -172,7 +175,10 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 			// concurrent replay). Revoke and reject.
 			s.logger.Warn("refresh race lost — revoking all sessions",
 				zap.Stringer("user_id", status.UserID), zap.Stringer("jti", jti))
-			_ = s.store.RevokeUser(ctx, status.UserID)
+			if revokeErr := s.store.RevokeUser(ctx, status.UserID); revokeErr != nil {
+				s.logger.Warn("refresh race: RevokeUser failed",
+					zap.Stringer("user_id", status.UserID), zap.Error(revokeErr))
+			}
 			metrics.AuthRefresh.WithLabelValues("replay").Inc()
 			metrics.AuthReplayDetected.Inc()
 			return nil, ErrInvalidRefresh

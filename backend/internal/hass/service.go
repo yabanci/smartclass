@@ -84,7 +84,7 @@ func (s *Service) Bootstrap(ctx context.Context) (*Credentials, error) {
 		// welcome wizard (then every brand in our UI comes back greyed because
 		// /api/config/config_entries/flow_handlers 404s).
 		if st, err := s.client.OnboardingStatus(ctx); err == nil &&
-			!(st.CoreConfigDone && st.IntegrationDone && st.AnalyticsDone) {
+			(!st.CoreConfigDone || !st.IntegrationDone || !st.AnalyticsDone) {
 			if err := s.client.FinishOnboarding(ctx, stored.Token); err != nil && s.logger != nil {
 				s.logger.Warn("hass: resume finish onboarding failed", zap.Error(err))
 			}
@@ -169,7 +169,10 @@ func (s *Service) BootstrapWithRetry(ctx context.Context) {
 		}
 		// Stop retrying on ErrAlreadyOnboarded — it's a permanent state that
 		// requires admin intervention (SetToken) to resolve.
-		if errors.Is(s.bootstrapErr, ErrAlreadyOnboarded) {
+		s.mu.Lock()
+		bootstrapErr := s.bootstrapErr
+		s.mu.Unlock()
+		if errors.Is(bootstrapErr, ErrAlreadyOnboarded) {
 			return
 		}
 		select {
@@ -237,7 +240,9 @@ func (s *Service) Credentials(ctx context.Context) (*Credentials, error) {
 	s.creds.ExpiresAt = tokens.ExpiresAt
 	s.creds.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, s.creds); err != nil && s.logger != nil {
-		s.logger.Warn("hass: persist refreshed token failed", zap.Error(err))
+		// Token is returned to caller despite DB failure; retry should be implemented
+		// in a future iteration to avoid stale token in persistent store.
+		s.logger.Error("hass: persist refreshed token failed — token in memory may drift from DB", zap.Error(err))
 	}
 	c := *s.creds
 	return &c, nil

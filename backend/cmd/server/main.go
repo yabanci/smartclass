@@ -123,6 +123,7 @@ func main() {
 	factory.Register(homeassistant.New(nil, hassSvc))
 	logger.Info("device drivers registered", zap.Strings("drivers", factory.Names()))
 	go hassSvc.BootstrapWithRetry(ctx)
+	go purgeExpiredRefreshTokens(ctx, db, logger)
 
 	authH := auth.NewHandler(authSvc, valid, bundle)
 	userH := user.NewHandler(userSvc, valid, bundle)
@@ -143,7 +144,7 @@ func main() {
 	stopTicketCleanup := wsTickets.Run(time.Minute)
 	defer stopTicketCleanup()
 
-	wsH := ws.NewHandler(hub, logger, bundle, classroomSvc, wsTickets, cfg.CORS.Origins)
+	wsH := ws.NewHandler(hub, logger, bundle, classroomSvc, wsTickets, cfg.CORS.Origins, ctx)
 	wsTicketH := ws.NewTicketHandler(wsTickets, bundle)
 
 	srv := server.New(server.Deps{
@@ -184,6 +185,34 @@ func main() {
 	}
 	if err := auditSvc.FlushSync(shutdownCtx); err != nil {
 		logger.Warn("audit flush", zap.Error(err))
+	}
+}
+
+// purgeExpiredRefreshTokens runs every hour and deletes refresh_tokens rows
+// that expired more than 24 h ago. The 1-day grace window preserves tokens
+// that are expired but not yet replayed so replay detection still fires. The
+// goroutine exits cleanly when ctx is cancelled (server shutdown).
+func purgeExpiredRefreshTokens(ctx context.Context, db *postgres.DB, logger *zap.Logger) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			tag, err := db.Pool.Exec(ctx,
+				"DELETE FROM refresh_tokens WHERE expires_at < now() - interval '1 day'")
+			if err != nil {
+				if !errors.Is(err, context.Canceled) {
+					logger.Warn("purge refresh_tokens: delete failed", zap.Error(err))
+				}
+				continue
+			}
+			if tag.RowsAffected() > 0 {
+				logger.Info("purge refresh_tokens: deleted expired rows",
+					zap.Int64("rows", tag.RowsAffected()))
+			}
+		}
 	}
 }
 

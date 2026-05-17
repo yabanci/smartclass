@@ -29,7 +29,7 @@ func (r *PostgresRepository) Create(ctx context.Context, c *Classroom) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer func() { _ = tx.Rollback(ctx) }()
 
 	const insertClassroom = `INSERT INTO classrooms (id, name, description, created_by, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6)`
 	if _, err := tx.Exec(ctx, insertClassroom, c.ID, c.Name, c.Description, c.CreatedBy, c.CreatedAt, c.UpdatedAt); err != nil {

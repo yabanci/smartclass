@@ -218,7 +218,7 @@ func (d *Driver) do(ctx context.Context, method string, cfg *config, path string
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("%w: SmartThings %d: %s", devicectl.ErrUnavailable, resp.StatusCode, string(raw))

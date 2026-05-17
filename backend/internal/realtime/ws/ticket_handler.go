@@ -28,7 +28,7 @@ func (h *TicketHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, httpx.ErrUnauthorized)
 		return
 	}
-	tkt, err := h.store.Issue(r.Context(), p.UserID)
+	tkt, err := h.store.Issue(r.Context(), p.UserID, p.Role)
 	if err != nil {
 		httpx.WriteError(w, r, h.bundle, err)
 		return

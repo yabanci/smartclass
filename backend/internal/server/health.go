@@ -105,7 +105,7 @@ func (h HassCheck) Check(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("homeassistant: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 500 {
 		return fmt.Errorf("homeassistant: status %d", resp.StatusCode)
 	}

@@ -16,9 +16,9 @@ func TestMemTicketStore_Issue_ReturnsRandomBase64(t *testing.T) {
 	s := NewMemTicketStore(60 * time.Second)
 	uid := uuid.New()
 
-	t1, err := s.Issue(context.Background(), uid)
+	t1, err := s.Issue(context.Background(), uid, "teacher")
 	require.NoError(t, err)
-	t2, err := s.Issue(context.Background(), uid)
+	t2, err := s.Issue(context.Background(), uid, "teacher")
 	require.NoError(t, err)
 
 	assert.NotEqual(t, t1.Raw, t2.Raw, "two consecutive Issue calls must produce distinct tickets")
@@ -27,18 +27,20 @@ func TestMemTicketStore_Issue_ReturnsRandomBase64(t *testing.T) {
 	assert.WithinDuration(t, time.Now().Add(60*time.Second), t1.ExpiresAt, time.Second,
 		"expires-at must be ~now+TTL")
 	assert.Equal(t, uid, t1.UserID)
+	assert.Equal(t, "teacher", t1.Role)
 }
 
 func TestMemTicketStore_Consume_OnceOnly_SecondCallFails(t *testing.T) {
 	s := NewMemTicketStore(60 * time.Second)
 	uid := uuid.New()
 
-	tkt, err := s.Issue(context.Background(), uid)
+	tkt, err := s.Issue(context.Background(), uid, "teacher")
 	require.NoError(t, err)
 
-	gotUID, err := s.Consume(context.Background(), tkt.Raw)
+	got, err := s.Consume(context.Background(), tkt.Raw)
 	require.NoError(t, err)
-	assert.Equal(t, uid, gotUID)
+	assert.Equal(t, uid, got.UserID)
+	assert.Equal(t, "teacher", got.Role)
 
 	_, err = s.Consume(context.Background(), tkt.Raw)
 	assert.ErrorIs(t, err, ErrTicketUnknown,
@@ -49,7 +51,7 @@ func TestMemTicketStore_Consume_ExpiredFails(t *testing.T) {
 	s := NewMemTicketStore(60 * time.Second)
 	uid := uuid.New()
 
-	tkt, err := s.Issue(context.Background(), uid)
+	tkt, err := s.Issue(context.Background(), uid, "teacher")
 	require.NoError(t, err)
 
 	// Force expiry by reaching into the implementation. We deliberately
@@ -77,7 +79,7 @@ func TestMemTicketStore_Cleanup_PrunesExpired(t *testing.T) {
 	s := NewMemTicketStore(60 * time.Second)
 
 	for i := 0; i < 100; i++ {
-		_, err := s.Issue(context.Background(), uuid.New())
+		_, err := s.Issue(context.Background(), uuid.New(), "teacher")
 		require.NoError(t, err)
 	}
 

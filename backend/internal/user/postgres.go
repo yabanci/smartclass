@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -47,20 +48,29 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*User, error) {
-	return r.getOne(metrics.WithDBOp(ctx, "users.GetByID"), "id = $1", id)
+	return r.getByColumn(metrics.WithDBOp(ctx, "users.GetByID"), "id", id)
 }
 
 func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*User, error) {
-	return r.getOne(metrics.WithDBOp(ctx, "users.GetByEmail"), "email = $1", email)
+	return r.getByColumn(metrics.WithDBOp(ctx, "users.GetByEmail"), "email", email)
 }
 
-func (r *PostgresRepository) getOne(ctx context.Context, where string, arg any) (*User, error) {
+// getByColumn fetches a single user by a known-safe column name. The column
+// parameter is restricted to an explicit allowlist to prevent SQL injection
+// from future callers inadvertently passing user-controlled input.
+func (r *PostgresRepository) getByColumn(ctx context.Context, column string, value any) (*User, error) {
+	switch column {
+	case "id", "email":
+		// allowed
+	default:
+		return nil, fmt.Errorf("users: getByColumn: unknown column %q", column)
+	}
 	q := `
 SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
-FROM users WHERE ` + where + ` LIMIT 1`
+FROM users WHERE ` + column + ` = $1 LIMIT 1`
 	u := &User{}
 	var roleStr string
-	err := r.pool.QueryRow(ctx, q, arg).Scan(
+	err := r.pool.QueryRow(ctx, q, value).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &roleStr,
 		&u.Language, &u.AvatarURL, &u.Phone, &u.BirthDate, &u.FCMToken, &u.CreatedAt, &u.UpdatedAt,
 	)

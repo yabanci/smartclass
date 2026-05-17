@@ -61,7 +61,7 @@ func (c *Client) OnboardingStatus(ctx context.Context) (OnboardingStatus, error)
 	if err != nil {
 		return OnboardingStatus{}, fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	// HA unloads the /api/onboarding route entirely once onboarding completes
 	// (owner created via UI), so a 404 here means "already done".
 	if resp.StatusCode == http.StatusNotFound {
@@ -123,7 +123,7 @@ func (c *Client) CreateOwner(ctx context.Context, name, username, password, lang
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode == http.StatusForbidden {
 		return "", ErrAlreadyOnboarded
@@ -263,7 +263,7 @@ func (c *Client) tokenRequest(ctx context.Context, form url.Values) (*TokenSet, 
 	if err != nil {
 		return nil, fmt.Errorf("%w: %v", ErrUpstream, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("%w: token %d: %s", ErrOnboardingFailed, resp.StatusCode, string(raw))
@@ -341,7 +341,15 @@ func (c *Client) FinishOnboarding(ctx context.Context, accessToken string) error
 	if lastErr != nil {
 		return fmt.Errorf("%w: %v", ErrOnboardingFailed, lastErr)
 	}
-	return fmt.Errorf("%w: onboarding did not complete after %d attempts", ErrOnboardingFailed, maxAttempts)
+	// lastErr == nil but we never got a clean all-done status response inside
+	// the loop (each attempt either hit an error or posted steps but didn't
+	// see all flags set on that same pass). Do one final status check instead
+	// of returning ErrOnboardingFailed unconditionally (G-302).
+	status, err := c.OnboardingStatus(ctx)
+	if err == nil && status.CoreConfigDone && status.IntegrationDone && status.AnalyticsDone {
+		return nil
+	}
+	return fmt.Errorf("%w: status never reported done after %d attempts", ErrOnboardingFailed, maxAttempts)
 }
 
 func (c *Client) postOnboardingStep(ctx context.Context, token, path string, body any) error {
@@ -356,7 +364,7 @@ func (c *Client) postOnboardingStep(ctx context.Context, token, path string, bod
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<14))
 	// 403 with body "unknown_step" means HA already marked this step done —
 	// success from our perspective. Any other 4xx/5xx is surfaced so the
@@ -402,7 +410,7 @@ func (c *Client) ListInProgressFlows(ctx context.Context, token string) ([]FlowP
 	if err != nil {
 		return nil, fmt.Errorf("%w: ws dial: %v", ErrUpstream, err)
 	}
-	defer conn.Close()
+	defer func() { _ = conn.Close() }()
 	deadline, _ := ctx.Deadline()
 	if deadline.IsZero() {
 		deadline = time.Now().Add(10 * time.Second)
@@ -561,7 +569,7 @@ func (c *Client) requestJSON(ctx context.Context, method, token, path string, bo
 		if err != nil {
 			return fmt.Errorf("%w: %v", ErrUpstream, err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 		if resp.StatusCode == http.StatusNotFound {
 			return ErrFlowNotFound

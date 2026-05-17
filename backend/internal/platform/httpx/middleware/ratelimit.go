@@ -21,6 +21,7 @@ type RateLimiter struct {
 	rps      rate.Limit
 	burst    int
 	ttl      time.Duration
+	done     chan struct{}
 }
 
 func NewRateLimiter(rps, burst int) *RateLimiter {
@@ -29,9 +30,16 @@ func NewRateLimiter(rps, burst int) *RateLimiter {
 		rps:      rate.Limit(rps),
 		burst:    burst,
 		ttl:      5 * time.Minute,
+		done:     make(chan struct{}),
 	}
 	go rl.cleanupLoop()
 	return rl
+}
+
+// Stop terminates the background cleanup goroutine. Call during graceful
+// shutdown to prevent the goroutine from leaking for the process lifetime.
+func (rl *RateLimiter) Stop() {
+	close(rl.done)
 }
 
 func (rl *RateLimiter) get(key string) *rate.Limiter {
@@ -49,14 +57,19 @@ func (rl *RateLimiter) get(key string) *rate.Limiter {
 func (rl *RateLimiter) cleanupLoop() {
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
-	for range t.C {
-		rl.mu.Lock()
-		for k, v := range rl.visitors {
-			if time.Since(v.lastSeen) > rl.ttl {
-				delete(rl.visitors, k)
+	for {
+		select {
+		case <-rl.done:
+			return
+		case <-t.C:
+			rl.mu.Lock()
+			for k, v := range rl.visitors {
+				if time.Since(v.lastSeen) > rl.ttl {
+					delete(rl.visitors, k)
+				}
 			}
+			rl.mu.Unlock()
 		}
-		rl.mu.Unlock()
 	}
 }
 

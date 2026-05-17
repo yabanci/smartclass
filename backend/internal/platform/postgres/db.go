@@ -70,7 +70,7 @@ func (db *DB) Migrate(dir string) error {
 	if err != nil {
 		return fmt.Errorf("postgres: open for migrate: %w", err)
 	}
-	defer sqlDB.Close()
+	defer func() { _ = sqlDB.Close() }()
 
 	goose.SetBaseFS(nil)
 	if err := goose.SetDialect("postgres"); err != nil {

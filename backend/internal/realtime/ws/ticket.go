@@ -19,6 +19,7 @@ import (
 type Ticket struct {
 	Raw       string
 	UserID    uuid.UUID
+	Role      string
 	ExpiresAt time.Time
 }
 
@@ -29,8 +30,8 @@ type Ticket struct {
 // server validates with Consume — once-only, so a ticket leaked into a log
 // or shoulder-surfed off the URL bar is useless.
 type TicketStore interface {
-	Issue(ctx context.Context, userID uuid.UUID) (Ticket, error)
-	Consume(ctx context.Context, raw string) (uuid.UUID, error)
+	Issue(ctx context.Context, userID uuid.UUID, role string) (Ticket, error)
+	Consume(ctx context.Context, raw string) (Ticket, error)
 }
 
 // ErrTicketUnknown collapses three failure modes into one: ticket never
@@ -48,6 +49,7 @@ type MemTicketStore struct {
 
 type ticketEntry struct {
 	userID    uuid.UUID
+	role      string
 	expiresAt time.Time
 	used      atomic.Bool
 }
@@ -64,37 +66,38 @@ func NewMemTicketStore(ttl time.Duration) *MemTicketStore {
 // Issue generates a fresh random ticket. 24 random bytes encode to 32 URL-safe
 // base64 chars without padding — small enough for a query string, large
 // enough to resist guessing.
-func (s *MemTicketStore) Issue(_ context.Context, userID uuid.UUID) (Ticket, error) {
+func (s *MemTicketStore) Issue(_ context.Context, userID uuid.UUID, role string) (Ticket, error) {
 	var buf [24]byte
 	if _, err := rand.Read(buf[:]); err != nil {
 		return Ticket{}, fmt.Errorf("ws: ticket entropy: %w", err)
 	}
 	raw := base64.RawURLEncoding.EncodeToString(buf[:])
 	expiresAt := time.Now().Add(s.ttl)
-	s.entries.Store(raw, &ticketEntry{userID: userID, expiresAt: expiresAt})
-	return Ticket{Raw: raw, UserID: userID, ExpiresAt: expiresAt}, nil
+	s.entries.Store(raw, &ticketEntry{userID: userID, role: role, expiresAt: expiresAt})
+	return Ticket{Raw: raw, UserID: userID, Role: role, ExpiresAt: expiresAt}, nil
 }
 
-// Consume marks a ticket used and returns the userID. Returns ErrTicketUnknown
-// for unknown / expired / already-used tickets — single error path so the
-// caller's response is identical regardless of which case matched.
-func (s *MemTicketStore) Consume(_ context.Context, raw string) (uuid.UUID, error) {
+// Consume marks a ticket used and returns the Ticket (including userID and
+// role). Returns ErrTicketUnknown for unknown / expired / already-used tickets
+// — single error path so the caller's response is identical regardless of
+// which case matched.
+func (s *MemTicketStore) Consume(_ context.Context, raw string) (Ticket, error) {
 	v, ok := s.entries.Load(raw)
 	if !ok {
-		return uuid.Nil, ErrTicketUnknown
+		return Ticket{}, ErrTicketUnknown
 	}
 	entry := v.(*ticketEntry)
 	if time.Now().After(entry.expiresAt) {
 		s.entries.Delete(raw)
-		return uuid.Nil, ErrTicketUnknown
+		return Ticket{}, ErrTicketUnknown
 	}
 	if !entry.used.CompareAndSwap(false, true) {
-		return uuid.Nil, ErrTicketUnknown
+		return Ticket{}, ErrTicketUnknown
 	}
 	// Drop from the map immediately — once-used is forever-used; keeping
 	// it around just wastes memory until cleanup.
 	s.entries.Delete(raw)
-	return entry.userID, nil
+	return Ticket{Raw: raw, UserID: entry.userID, Role: entry.role, ExpiresAt: entry.expiresAt}, nil
 }
 
 // Run starts a background goroutine that prunes expired entries on `interval`.

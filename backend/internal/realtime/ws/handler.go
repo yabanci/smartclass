@@ -39,6 +39,13 @@ type Handler struct {
 	tickets      TicketStore
 	allowedOrigs []string
 	upgrader     websocket.Upgrader
+	// shutdownCtx is cancelled when the server begins graceful shutdown.
+	// writePump selects on it to send a CloseGoingAway frame and exit cleanly.
+	// We cannot use r.Context() here because the http.Handler returns
+	// immediately after launching the pump goroutines, which would cancel the
+	// request context and tear down every WS connection right after the
+	// handshake.
+	shutdownCtx context.Context
 }
 
 // NewHandler builds a WebSocket Handler. Authentication is the *ticket flow*:
@@ -48,14 +55,26 @@ type Handler struct {
 //
 // allowedOrigs becomes the WebSocket CheckOrigin allow-list. Pass `[]string{"*"}`
 // for dev / tests; production should pass cfg.CORS.Origins.
+//
+// shutdownCtx should be the server's graceful-shutdown context (i.e. the
+// context.Background() derivative that is cancelled on SIGTERM). writePump
+// selects on it to send a CloseGoingAway frame and exit. Do NOT pass
+// r.Context() here — that context is cancelled as soon as Serve returns, which
+// would kill every WS connection immediately after the handshake.
 func NewHandler(hub *Hub, log *zap.Logger, bundle *i18n.Bundle,
-	authz TopicAuthorizer, tickets TicketStore, allowedOrigs []string) *Handler {
+	authz TopicAuthorizer, tickets TicketStore, allowedOrigs []string,
+	shutdownCtx ...context.Context) *Handler {
 	if log == nil {
 		log = zap.NewNop()
+	}
+	sctx := context.Background()
+	if len(shutdownCtx) > 0 && shutdownCtx[0] != nil {
+		sctx = shutdownCtx[0]
 	}
 	return &Handler{
 		hub: hub, log: log.With(zap.String("subsystem", "ws")),
 		bundle: bundle, authz: authz, tickets: tickets, allowedOrigs: allowedOrigs,
+		shutdownCtx: sctx,
 		upgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
@@ -75,16 +94,13 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketInvalid)
 		return
 	}
-	userID, err := h.tickets.Consume(r.Context(), raw)
+	tkt, err := h.tickets.Consume(r.Context(), raw)
 	if err != nil {
 		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketInvalid)
 		return
 	}
 
-	// The principal we know about is just userID; role isn't carried on the
-	// ticket. For topic-authz we only need userID + role-string; lookups in
-	// classroom.Service treat "" as "non-admin" which is the safest default.
-	p := mw.Principal{UserID: userID, Role: ""}
+	p := mw.Principal{UserID: tkt.UserID, Role: tkt.Role}
 
 	topics, err := h.authorizeTopics(r.Context(), p, r.URL.Query()["topic"])
 	if err != nil {
@@ -104,10 +120,12 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 	client := newClient(uuid.NewString(), topics)
 	h.hub.Register(client)
 
-	// Pass the server shutdown context so writePump can exit cleanly when the
-	// server is shutting down, rather than waiting for the 60s pong timeout.
+	// Pass the server's shutdown context — NOT r.Context() — so writePump
+	// stays alive for the lifetime of the connection. r.Context() is cancelled
+	// as soon as Serve returns (Go HTTP server cancels it on handler exit),
+	// which would close every WS connection immediately after the handshake.
 	go h.readPump(conn, client)
-	go h.writePump(conn, client, r.Context())
+	go h.writePump(conn, client, h.shutdownCtx)
 }
 
 // makeCheckOrigin returns a CheckOrigin that consults the CORS allow-list.

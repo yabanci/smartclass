@@ -201,7 +201,7 @@ func (d *Driver) Probe(ctx context.Context, t devicectl.Target) (devicectl.Resul
 	if err != nil {
 		return devicectl.Result{Online: false}, fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode >= 400 {
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 		return devicectl.Result{Online: false}, fmt.Errorf("%w: HA %d: %s", devicectl.ErrUnavailable, resp.StatusCode, string(raw))
@@ -237,7 +237,7 @@ func (d *Driver) callService(ctx context.Context, baseURL, token, domain, servic
 	if err != nil {
 		return fmt.Errorf("%w: %v", devicectl.ErrUnavailable, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	raw, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<16))
 	if resp.StatusCode >= 400 {
 		return fmt.Errorf("%w: HA %d: %s", devicectl.ErrUnavailable, resp.StatusCode, string(raw))
