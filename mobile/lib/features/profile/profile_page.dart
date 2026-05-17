@@ -275,10 +275,20 @@ class _ServerUrlTileState extends ConsumerState<_ServerUrlTile> {
             IconButton(
               icon: const Icon(Icons.check),
               onPressed: () async {
-                await ConnectionResolver.instance.setLocalUrl(_ctrl.text.trim());
-                // B-113: update ApiClient base URL after resolver switches mode
-                ref.read(apiClientProvider).updateBaseUrl();
-                setState(() => _editing = false);
+                try {
+                  await ConnectionResolver.instance.setLocalUrl(_ctrl.text.trim());
+                  // B-113: update ApiClient base URL after resolver switches mode
+                  ref.read(apiClientProvider).updateBaseUrl();
+                  setState(() => _editing = false);
+                } on ArgumentError {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(AppLocalizations.of(context).serverUrlMustBeHttps),
+                      ),
+                    );
+                  }
+                }
               },
             ),
             IconButton(

@@ -60,10 +60,10 @@ func (r *PostgresRepository) GetByEmail(ctx context.Context, email string) (*Use
 // removing any SQL-injection vector regardless of how callers evolve.
 var queriesByColumn = map[string]string{
 	"id": `
-SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
+SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, created_at, updated_at
 FROM users WHERE id = $1 LIMIT 1`,
 	"email": `
-SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, fcm_token, created_at, updated_at
+SELECT id, email, password_hash, full_name, role, language, avatar_url, phone, birth_date, created_at, updated_at
 FROM users WHERE email = $1 LIMIT 1`,
 }
 
@@ -79,7 +79,7 @@ func (r *PostgresRepository) getByColumn(ctx context.Context, column string, val
 	var roleStr string
 	err := r.pool.QueryRow(ctx, q, value).Scan(
 		&u.ID, &u.Email, &u.PasswordHash, &u.FullName, &roleStr,
-		&u.Language, &u.AvatarURL, &u.Phone, &u.BirthDate, &u.FCMToken, &u.CreatedAt, &u.UpdatedAt,
+		&u.Language, &u.AvatarURL, &u.Phone, &u.BirthDate, &u.CreatedAt, &u.UpdatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

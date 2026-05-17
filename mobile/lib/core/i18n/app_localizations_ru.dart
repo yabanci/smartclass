@@ -506,4 +506,7 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get classroomDeleteBody =>
       'Это удалит класс и все его данные. Действие нельзя отменить.';
+
+  @override
+  String get serverUrlMustBeHttps => 'В релизной сборке требуется HTTPS';
 }

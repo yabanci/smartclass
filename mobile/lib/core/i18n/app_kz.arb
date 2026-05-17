@@ -175,5 +175,6 @@
   "classroomRenameTitle": "Сынып атауын өзгерту",
   "classroomNameLabel": "Атауы",
   "classroomDeleteTitle": "Сыныпты жою?",
-  "classroomDeleteBody": "Бұл сынып пен оның барлық деректерін жояды. Бұл әрекетті болдырмау мүмкін емес."
+  "classroomDeleteBody": "Бұл сынып пен оның барлық деректерін жояды. Бұл әрекетті болдырмау мүмкін емес.",
+  "serverUrlMustBeHttps": "Шығарылым нұсқасында HTTPS қажет"
 }

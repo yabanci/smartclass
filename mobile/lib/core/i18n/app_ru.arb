@@ -175,5 +175,6 @@
   "classroomRenameTitle": "Переименовать класс",
   "classroomNameLabel": "Название",
   "classroomDeleteTitle": "Удалить класс?",
-  "classroomDeleteBody": "Это удалит класс и все его данные. Действие нельзя отменить."
+  "classroomDeleteBody": "Это удалит класс и все его данные. Действие нельзя отменить.",
+  "serverUrlMustBeHttps": "В релизной сборке требуется HTTPS"
 }

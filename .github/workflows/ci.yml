@@ -61,7 +61,7 @@ jobs:
 
       - name: gosec
         run: |
-          go install github.com/securego/gosec/v2/cmd/gosec@latest
+          go install github.com/securego/gosec/v2/cmd/gosec@v2.26.1
           gosec -quiet ./...
 
       - name: Unit tests (race + coverage)

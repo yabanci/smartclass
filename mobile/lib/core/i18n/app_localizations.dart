@@ -958,17 +958,77 @@ abstract class AppLocalizations {
   /// **'Offline data'**
   String get cachedDataLabel;
 
+  /// No description provided for @authEmailRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Email is required'**
   String get authEmailRequired;
+
+  /// No description provided for @authPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Password is required'**
   String get authPasswordRequired;
+
+  /// No description provided for @authFullNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Full name is required'**
   String get authFullNameRequired;
+
+  /// No description provided for @devicesNameRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Name is required'**
   String get devicesNameRequired;
+
+  /// No description provided for @classroomRename.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename'**
   String get classroomRename;
+
+  /// No description provided for @classroomDelete.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
   String get classroomDelete;
+
+  /// No description provided for @classroomOptions.
+  ///
+  /// In en, this message translates to:
+  /// **'Classroom options'**
   String get classroomOptions;
+
+  /// No description provided for @classroomRenameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename classroom'**
   String get classroomRenameTitle;
+
+  /// No description provided for @classroomNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
   String get classroomNameLabel;
+
+  /// No description provided for @classroomDeleteTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete classroom?'**
   String get classroomDeleteTitle;
+
+  /// No description provided for @classroomDeleteBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This will remove the classroom and all its data. This cannot be undone.'**
   String get classroomDeleteBody;
+
+  /// No description provided for @serverUrlMustBeHttps.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTPS is required in release builds'**
+  String get serverUrlMustBeHttps;
 }
 
 class _AppLocalizationsDelegate

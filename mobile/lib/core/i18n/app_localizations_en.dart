@@ -503,4 +503,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get classroomDeleteBody =>
       'This will remove the classroom and all its data. This cannot be undone.';
+
+  @override
+  String get serverUrlMustBeHttps => 'HTTPS is required in release builds';
 }

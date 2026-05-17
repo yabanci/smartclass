@@ -32,7 +32,6 @@ type User struct {
 	AvatarURL    string
 	Phone        string
 	BirthDate    *time.Time
-	FCMToken     string
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
 }
