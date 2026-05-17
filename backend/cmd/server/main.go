@@ -24,6 +24,7 @@ import (
 	"smartclass/internal/devicectl/drivers/generic"
 	"smartclass/internal/devicectl/drivers/homeassistant"
 	"smartclass/internal/devicectl/drivers/smartthings"
+	"smartclass/internal/devicetoken"
 	"smartclass/internal/hass"
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/hasher"
@@ -32,6 +33,7 @@ import (
 	"smartclass/internal/platform/postgres"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/platform/validation"
+	"smartclass/internal/pushnotif"
 	"smartclass/internal/realtime"
 	"smartclass/internal/realtime/ws"
 	"smartclass/internal/scene"
@@ -84,9 +86,17 @@ func main() {
 	sceneRepo := scene.NewPostgresRepository(db.Pool)
 	sensorRepo := sensor.NewPostgresRepository(db.Pool)
 	notificationRepo := notification.NewPostgresRepository(db.Pool)
+	deviceTokenRepo := devicetoken.NewPostgresRepository(db.Pool)
 	auditRepo := auditlog.NewPostgresRepository(db.Pool)
 	analyticsRepo := analytics.NewPostgresRepository(db.Pool)
 	hassRepo := hass.NewPostgresRepository(db.Pool)
+
+	deviceTokenSvc := devicetoken.NewService(deviceTokenRepo)
+
+	pushCfg := pushnotif.ConfigFromEnv()
+	pushClient := pushnotif.NewClient(pushCfg, logger)
+	notifPusher := pushnotif.NewNotifPusher(
+		pushnotif.NewNotificationPusher(pushClient, deviceTokenSvc, logger))
 
 	hash := hasher.NewBcrypt(cfg.Bcrypt.Cost)
 	issuer := tokens.NewJWT(cfg.JWT.Secret, cfg.JWT.AccessTTL, cfg.JWT.RefreshTTL, cfg.JWT.Issuer)
@@ -102,7 +112,9 @@ func main() {
 	auditSvc := auditlog.NewService(auditRepo, logger)
 
 	classroomSvc := classroom.NewService(classroomRepo)
-	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker).WithLogger(logger)
+	notificationSvc := notification.NewService(notificationRepo, classroomRepo, broker).
+		WithLogger(logger).
+		WithPusher(notifPusher)
 	triggerEngine := notification.NewEngine(notificationSvc, notification.DefaultRules()).WithLogger(logger)
 
 	refreshStore := auth.NewPostgresRefreshStore(db.Pool)
@@ -140,6 +152,7 @@ func main() {
 	sceneH := scene.NewHandler(sceneSvc, valid, bundle)
 	sensorH := sensor.NewHandler(sensorSvc, valid, bundle)
 	notificationH := notification.NewHandler(notificationSvc, bundle)
+	deviceTokenH := devicetoken.NewHandler(deviceTokenSvc, valid, bundle)
 	auditH := auditlog.NewHandler(auditSvc, bundle)
 	analyticsH := analytics.NewHandler(analyticsSvc, bundle)
 	hassH := hass.NewHandler(hassSvc, valid, bundle)
@@ -170,6 +183,7 @@ func main() {
 		SensorHandler:       sensorH,
 		NotificationHandler: notificationH,
 		AuditHandler:        auditH,
+		DeviceTokenHandler:  deviceTokenH,
 		AnalyticsHandler:    analyticsH,
 		HassHandler:         hassH,
 		WSHandler:           wsH,

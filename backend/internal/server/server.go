@@ -16,6 +16,7 @@ import (
 	"smartclass/internal/classroom"
 	"smartclass/internal/config"
 	"smartclass/internal/device"
+	"smartclass/internal/devicetoken"
 	"smartclass/internal/hass"
 	"smartclass/internal/notification"
 	"smartclass/internal/platform/httpx"
@@ -56,6 +57,7 @@ type Deps struct {
 	AuditHandler        *auditlog.Handler
 	AnalyticsHandler    *analytics.Handler
 	HassHandler         *hass.Handler
+	DeviceTokenHandler  *devicetoken.Handler
 	WSHandler           *ws.Handler
 	WSTicketHandler     http.Handler
 }
@@ -130,6 +132,9 @@ func New(d Deps) *Server {
 			r.Route("/sensors", d.SensorHandler.Routes)
 			r.Route("/notifications", d.NotificationHandler.Routes)
 			r.Route("/logs", d.AuditHandler.Routes)
+			if d.DeviceTokenHandler != nil {
+				r.Route("/me/device-tokens", d.DeviceTokenHandler.Routes)
+			}
 			if d.HassHandler != nil {
 				r.Route("/hass", d.HassHandler.Routes)
 			}

@@ -38,8 +38,20 @@ class UserEndpoints {
         (_) {},
       );
 
-  Future<void> saveFcmToken(String token) => _client.unwrap(
-        _client.post('/users/me/fcm-token', data: {'token': token}),
+  Future<void> registerDeviceToken({
+    required String token,
+    required String platform,
+  }) =>
+      _client.unwrap(
+        _client.post(
+          '/me/device-tokens',
+          data: {'token': token, 'platform': platform},
+        ),
+        (_) {},
+      );
+
+  Future<void> unregisterDeviceToken(String token) => _client.unwrap(
+        _client.delete('/me/device-tokens/$token'),
         (_) {},
       );
 }
