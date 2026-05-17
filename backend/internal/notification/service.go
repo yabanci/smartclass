@@ -83,6 +83,9 @@ func (s *Service) CreateForUser(ctx context.Context, in Input) (*Notification, e
 	metrics.NotificationsCreated.WithLabelValues(string(in.Type)).Inc()
 	s.publish(ctx, n)
 	if s.pusher != nil {
+		// #nosec G118 — push fan-out intentionally outlives the request scope:
+		// the HTTP 201 must return immediately while FCM round-trips complete
+		// in the background. sendPush manages its own context with a 10s timeout.
 		go s.sendPush(n)
 	}
 	return n, nil
@@ -119,6 +122,7 @@ func (s *Service) CreateForClassroom(ctx context.Context, classroomID uuid.UUID,
 	if s.pusher != nil {
 		for _, n := range items {
 			n := n // capture loop var
+			// #nosec G118 — see CreateForUser; same reasoning applies per item.
 			go s.sendPush(n)
 		}
 	}

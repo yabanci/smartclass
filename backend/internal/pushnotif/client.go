@@ -50,6 +50,7 @@ func ConfigFromEnv() PushConfig {
 	if len(raw) == 0 {
 		if path := os.Getenv("FIREBASE_SERVICE_ACCOUNT_PATH"); path != "" {
 			var err error
+			// #nosec G304,G703 — path is operator-controlled via env var, used once at startup.
 			raw, err = os.ReadFile(path)
 			if err != nil {
 				raw = nil
