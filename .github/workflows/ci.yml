@@ -215,7 +215,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=backend
 
       - name: Scan image for vulnerabilities
-        uses: aquasecurity/trivy-action@0.24.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: smartclass-backend:ci
           severity: HIGH,CRITICAL
