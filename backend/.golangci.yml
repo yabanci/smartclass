@@ -1,0 +1,43 @@
+version: "2"
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - ineffassign
+    - staticcheck
+    - unused
+    - gosec
+    - misspell
+    - unconvert
+    - bodyclose
+    - rowserrcheck
+    - sqlclosecheck
+
+  settings:
+    gosec:
+      excludes:
+        - G104
+    staticcheck:
+      checks:
+        - all
+        - "-ST1000"
+        - "-ST1003"
+        - "-ST1020"
+        - "-ST1021"
+        - "-ST1022"
+
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+
+issues:
+  max-same-issues: 0
+  max-issues-per-linter: 0
+
+run:
+  timeout: 5m
