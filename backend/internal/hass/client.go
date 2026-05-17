@@ -406,7 +406,10 @@ func (c *Client) ListInProgressFlows(ctx context.Context, token string) ([]FlowP
 	wsURL := strings.Replace(c.baseURL, "http://", "ws://", 1)
 	wsURL = strings.Replace(wsURL, "https://", "wss://", 1) + "/api/websocket"
 	dialer := websocket.Dialer{HandshakeTimeout: 10 * time.Second}
-	conn, _, err := dialer.DialContext(ctx, wsURL, nil)
+	conn, httpResp, err := dialer.DialContext(ctx, wsURL, nil)
+	if httpResp != nil && httpResp.Body != nil {
+		_ = httpResp.Body.Close()
+	}
 	if err != nil {
 		return nil, fmt.Errorf("%w: ws dial: %v", ErrUpstream, err)
 	}

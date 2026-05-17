@@ -30,12 +30,24 @@ jobs:
       - name: Download modules
         run: go mod download
 
+      - name: go mod tidy is clean
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
       - name: go vet
         run: go vet ./...
 
       # Security/lint scanners. Each is a separate step so one failing tool
-      # doesn't mask the rest. All four (vet, staticcheck, govulncheck, gosec)
-      # are kept blocking — any new finding fails the build.
+      # doesn't mask the rest. All five (vet, golangci-lint, staticcheck,
+      # govulncheck, gosec) are kept blocking — any new finding fails the build.
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.5.0
+          working-directory: backend
+          args: --timeout=5m
+
       - name: staticcheck
         run: |
           go install honnef.co/go/tools/cmd/staticcheck@latest
@@ -74,6 +86,13 @@ jobs:
             echo "::error::Total coverage $pct% is below threshold 30%"
             exit 1
           fi
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: backend/coverage.out
+          retention-days: 14
 
       - name: Build
         run: go build -trimpath -o bin/server ./cmd/server
@@ -136,8 +155,15 @@ jobs:
       - name: Analyze
         run: flutter analyze
 
-      - name: Unit tests
-        run: flutter test --reporter expanded
+      - name: Unit tests (with coverage)
+        run: flutter test --reporter expanded --coverage
+
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-coverage
+          path: mobile/coverage/lcov.info
+          retention-days: 14
 
       - name: Build APK (release, debug-signed)
         run: flutter build apk --release --no-pub
