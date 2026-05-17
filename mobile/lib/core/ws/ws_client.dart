@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'ws_event.dart';
@@ -180,6 +181,28 @@ class WsClient {
     _dispose();
     // Do NOT close _controller here — it would permanently break the stream.
     // Use dispose() for final app teardown.
+  }
+
+  /// Resets ALL mutable fields to their initial state.
+  /// Must only be called from tests — never from production code.
+  @visibleForTesting
+  void resetForTest() {
+    _disposed = false;
+    _wsBaseUrl = null;
+    _classroomId = null;
+    _ticketFactory = null;
+    _reconnectAttempt = 0;
+    _connecting = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
+    _sub?.cancel();
+    _sub = null;
+    _channel?.sink.close();
+    _channel = null;
+    if (!_controller.isClosed) {
+      _controller.close();
+    }
+    _controller = StreamController<WsEvent>.broadcast();
   }
 
   /// Final teardown — closes the StreamController permanently.
