@@ -90,7 +90,7 @@ jobs:
           fi
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7.0.1
         with:
           name: backend-coverage
           path: backend/coverage.out
@@ -100,7 +100,7 @@ jobs:
         run: go build -trimpath -o bin/server ./cmd/server
 
       - name: Upload build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7.0.1
         with:
           name: backend-server
           path: backend/bin/server
@@ -161,7 +161,7 @@ jobs:
         run: flutter test --reporter expanded --coverage
 
       - name: Upload coverage artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7.0.1
         with:
           name: mobile-coverage
           path: mobile/coverage/lcov.info
@@ -190,7 +190,7 @@ jobs:
         run: flutter build apk --release --no-pub
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7.0.1
         with:
           name: smartclass-release.apk
           path: mobile/build/app/outputs/flutter-apk/app-release.apk
@@ -235,7 +235,7 @@ jobs:
           exit-code: '0'
 
       - name: Upload SBOM artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # actions/upload-artifact@v7.0.1
         with:
           name: backend-sbom
           path: sbom.cyclonedx.json
