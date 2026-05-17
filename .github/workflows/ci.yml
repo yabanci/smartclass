@@ -42,7 +42,7 @@ jobs:
       # doesn't mask the rest. All five (vet, golangci-lint, staticcheck,
       # govulncheck, gosec) are kept blocking — any new finding fails the build.
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v7
         with:
           version: v2.5.0
           working-directory: backend
