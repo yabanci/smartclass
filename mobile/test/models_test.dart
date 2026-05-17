@@ -8,6 +8,7 @@ import 'package:smartclass/shared/models/lesson.dart';
 import 'package:smartclass/shared/models/notification.dart';
 import 'package:smartclass/shared/models/scene.dart';
 import 'package:smartclass/shared/models/sensor_reading.dart';
+import 'package:smartclass/shared/models/time_point.dart';
 
 void main() {
   // ─── Device ───────────────────────────────────────────────────────────────
@@ -352,6 +353,68 @@ void main() {
       );
       expect(env.ok, isTrue);
       expect(env.data, 42);
+    });
+  });
+
+  // ─── TimePoint ────────────────────────────────────────────────────────────
+  group('TimePoint.fromJson', () {
+    test('parses RFC3339 bucket string to DateTime', () {
+      final tp = TimePoint.fromJson({
+        'bucket': '2026-01-15T09:00:00Z',
+        'avg': 22.5,
+        'min': 20.0,
+        'max': 25.0,
+        'count': 12,
+      });
+      expect(tp.bucket, isA<DateTime>());
+      expect(tp.bucket.year, 2026);
+      expect(tp.bucket.month, 1);
+      expect(tp.bucket.day, 15);
+      expect(tp.avg, 22.5);
+      expect(tp.min, 20.0);
+      expect(tp.max, 25.0);
+      expect(tp.count, 12);
+    });
+
+    test('parses RFC3339 with timezone offset', () {
+      final tp = TimePoint.fromJson({
+        'bucket': '2026-03-10T14:30:00+05:00',
+        'avg': 1.0,
+        'min': 0.5,
+        'max': 1.5,
+        'count': 3,
+      });
+      // DateTime.parse handles offset — result is a valid DateTime.
+      expect(tp.bucket, isA<DateTime>());
+      expect(tp.bucket.year, 2026);
+    });
+
+    test('throws FormatException for malformed bucket string', () {
+      // DateTime.parse throws FormatException on invalid input.
+      // Callers should treat this as a contract violation from the backend.
+      expect(
+        () => TimePoint.fromJson({
+          'bucket': 'not-a-date',
+          'avg': 1.0,
+          'min': 0.0,
+          'max': 2.0,
+          'count': 1,
+        }),
+        throwsA(isA<FormatException>()),
+      );
+    });
+
+    test('throws when bucket key is missing', () {
+      // Missing 'bucket' → null → cast to String throws TypeError.
+      expect(
+        () => TimePoint.fromJson({
+          'avg': 1.0,
+          'min': 0.0,
+          'max': 2.0,
+          'count': 1,
+        }),
+        throwsA(isA<TypeError>()),
+      );
     });
   });
 

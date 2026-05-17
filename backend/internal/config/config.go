@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
@@ -87,13 +88,15 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: JWT_SECRET must be at least 32 characters")
 	}
 	if cfg.Env == "production" {
-		for _, o := range cfg.CORS.Origins {
-			if o == "*" || o == "" {
-				return Config{}, fmt.Errorf("config: CORS_ORIGINS must be set explicitly in production (got %q)", o)
-			}
-		}
 		if len(cfg.CORS.Origins) == 0 {
 			return Config{}, fmt.Errorf("config: CORS_ORIGINS must be set explicitly in production")
+		}
+		for _, o := range cfg.CORS.Origins {
+			if o == "" || o == "*" ||
+				strings.HasPrefix(o, "http://localhost") ||
+				strings.HasPrefix(o, "http://127.0.0.1") {
+				return Config{}, fmt.Errorf("config: CORS_ORIGINS=%q is not safe for production", cfg.CORS.Origins)
+			}
 		}
 	}
 	return cfg, nil

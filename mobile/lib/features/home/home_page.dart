@@ -7,7 +7,6 @@ import '../../app.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/classroom.dart';
 import '../../shared/models/device.dart';
-import '../../shared/providers/auth_provider.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../shared/providers/notification_provider.dart';
@@ -41,10 +40,9 @@ class HomePage extends ConsumerWidget {
     // Connect WebSocket when classroom CHANGES (not on every rebuild)
     ref.listen(activeClassroomProvider, (prev, next) {
       if (next != null && next.id != prev?.id) {
-        final userId = ref.read(authProvider).user?.id ?? '';
         ref
             .read(wsConnectionProvider.notifier)
-            .connectToClassroom(next.id, userId);
+            .connectToClassroom(next.id);
       } else if (next == null) {
         ref.read(wsConnectionProvider.notifier).disconnect();
       }
