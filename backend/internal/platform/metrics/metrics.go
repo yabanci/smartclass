@@ -36,6 +36,7 @@ var (
 	HassDuration         *prometheus.HistogramVec
 	WSConnected          prometheus.Gauge
 	WSMessagesPublished  *prometheus.CounterVec
+	WSTicketInvalid      prometheus.Counter
 	AuthLogins           *prometheus.CounterVec
 	AuthRefresh          *prometheus.CounterVec
 	AuthReplayDetected   prometheus.Counter
@@ -127,6 +128,12 @@ func build() {
 		},
 		[]string{"topic_kind"},
 	)
+	WSTicketInvalid = prometheus.NewCounter(
+		prometheus.CounterOpts{
+			Namespace: namespace, Subsystem: "ws", Name: "ticket_invalid_total",
+			Help: "WebSocket upgrade attempts rejected due to invalid or expired ticket.",
+		},
+	)
 
 	AuthLogins = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
@@ -170,7 +177,7 @@ func build() {
 		DBQueries, DBDuration,
 		DriverCalls, DriverDuration,
 		HassCalls, HassDuration,
-		WSConnected, WSMessagesPublished,
+		WSConnected, WSMessagesPublished, WSTicketInvalid,
 		AuthLogins, AuthRefresh, AuthReplayDetected,
 		NotificationsCreated, ScenesRun,
 	)

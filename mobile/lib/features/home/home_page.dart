@@ -7,8 +7,10 @@ import '../../app.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/classroom.dart';
 import '../../shared/models/device.dart';
+import '../../shared/providers/auth_provider.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
+import '../../shared/providers/notification_provider.dart';
 import '../../shared/providers/scene_provider.dart';
 import '../../shared/providers/schedule_provider.dart';
 import '../../shared/providers/sensor_provider.dart';
@@ -39,7 +41,10 @@ class HomePage extends ConsumerWidget {
     // Connect WebSocket when classroom CHANGES (not on every rebuild)
     ref.listen(activeClassroomProvider, (prev, next) {
       if (next != null && next.id != prev?.id) {
-        ref.read(wsConnectionProvider.notifier).connectToClassroom(next.id);
+        final userId = ref.read(authProvider).user?.id ?? '';
+        ref
+            .read(wsConnectionProvider.notifier)
+            .connectToClassroom(next.id, userId);
       } else if (next == null) {
         ref.read(wsConnectionProvider.notifier).disconnect();
       }
@@ -53,8 +58,10 @@ class HomePage extends ConsumerWidget {
             ref.read(deviceListProvider(classroom.id).notifier).load();
           } else if (event.type == 'sensor.reading') {
             ref.read(sensorNotifierProvider(classroom.id).notifier).load();
-          } else if (event.type.startsWith('scenes.')) {
+          } else if (event.type.startsWith('scene.')) {
             ref.read(sceneListProvider(classroom.id).notifier).load();
+          } else if (event.type.startsWith('notification.')) {
+            ref.read(notificationListProvider.notifier).load();
           }
         });
       });

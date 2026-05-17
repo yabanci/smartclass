@@ -6,6 +6,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -34,13 +36,13 @@ RETURNING id, created_at, last_seen_at`
 	}
 	t.LastSeenAt = now
 
-	return r.pool.QueryRow(ctx, q,
+	return r.pool.QueryRow(metrics.WithDBOp(ctx, "devicetoken.Save"), q,
 		t.ID, t.UserID, t.Token, string(t.Platform), t.CreatedAt, t.LastSeenAt,
 	).Scan(&t.ID, &t.CreatedAt, &t.LastSeenAt)
 }
 
 func (r *PostgresRepository) DeleteByToken(ctx context.Context, userID uuid.UUID, token string) error {
-	_, err := r.pool.Exec(ctx,
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "devicetoken.DeleteByToken"),
 		"DELETE FROM device_tokens WHERE user_id=$1 AND token=$2",
 		userID, token)
 	return err
@@ -53,7 +55,7 @@ FROM device_tokens
 WHERE user_id=$1
 ORDER BY last_seen_at DESC`
 
-	rows, err := r.pool.Query(ctx, q, userID)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "devicetoken.ListByUser"), q, userID)
 	if err != nil {
 		return nil, err
 	}

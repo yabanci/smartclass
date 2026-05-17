@@ -7,6 +7,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -34,7 +36,7 @@ WHERE d.classroom_id = $2
   AND sr.recorded_at BETWEEN $4 AND $5
 GROUP BY 1
 ORDER BY 1`
-	rows, err := r.pool.Query(ctx, q, string(bucket), classroomID, metric, from, to)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "analytics.SensorSeries"), q, string(bucket), classroomID, metric, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +63,7 @@ WHERE al.entity_type = 'device'
   AND al.created_at BETWEEN $2 AND $3
 GROUP BY al.entity_id
 ORDER BY cnt DESC`
-	rows, err := r.pool.Query(ctx, q, classroomID, from, to)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "analytics.DeviceUsage"), q, classroomID, from, to)
 	if err != nil {
 		return nil, err
 	}
@@ -86,6 +88,6 @@ WHERE d.classroom_id = $1
   AND sr.metric = 'energy'
   AND sr.recorded_at BETWEEN $2 AND $3`
 	var total float64
-	err := r.pool.QueryRow(ctx, q, classroomID, from, to).Scan(&total)
+	err := r.pool.QueryRow(metrics.WithDBOp(ctx, "analytics.EnergyTotal"), q, classroomID, from, to).Scan(&total)
 	return total, err
 }

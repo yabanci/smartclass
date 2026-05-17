@@ -41,7 +41,11 @@ type PushConfig struct {
 // Priority: FIREBASE_SERVICE_ACCOUNT_JSON > FIREBASE_SERVICE_ACCOUNT_PATH.
 // If FIREBASE_PROJECT_ID is empty or credentials are absent, returns a zero
 // config which causes Client to operate in no-op mode.
-func ConfigFromEnv() PushConfig {
+// log may be nil (a nop logger is used in that case).
+func ConfigFromEnv(log *zap.Logger) PushConfig {
+	if log == nil {
+		log = zap.NewNop()
+	}
 	projectID := os.Getenv("FIREBASE_PROJECT_ID")
 	if projectID == "" {
 		return PushConfig{}
@@ -53,6 +57,9 @@ func ConfigFromEnv() PushConfig {
 			// #nosec G304,G703 — path is operator-controlled via env var, used once at startup.
 			raw, err = os.ReadFile(path)
 			if err != nil {
+				log.Warn("pushnotif: FIREBASE_SERVICE_ACCOUNT_PATH is set but unreadable; FCM will run in no-op mode",
+					zap.String("path", path),
+					zap.Error(err))
 				raw = nil
 			}
 		}

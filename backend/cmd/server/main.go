@@ -93,7 +93,7 @@ func main() {
 
 	deviceTokenSvc := devicetoken.NewService(deviceTokenRepo)
 
-	pushCfg := pushnotif.ConfigFromEnv()
+	pushCfg := pushnotif.ConfigFromEnv(logger)
 	pushClient := pushnotif.NewClient(pushCfg, logger)
 	notifPusher := pushnotif.NewNotifPusher(
 		pushnotif.NewNotificationPusher(pushClient, deviceTokenSvc, logger))

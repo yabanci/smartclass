@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -39,7 +41,7 @@ func (r *PostgresRepository) Insert(ctx context.Context, readings []Reading) err
 		args = append(args, rd.DeviceID, string(rd.Metric), rd.Value, rd.Unit, rd.RecordedAt, raw)
 	}
 	q := "INSERT INTO sensor_readings (device_id, metric, value, unit, recorded_at, raw) VALUES " + strings.Join(values, ",")
-	_, err := r.pool.Exec(ctx, q, args...)
+	_, err := r.pool.Exec(metrics.WithDBOp(ctx, "sensor.Insert"), q, args...)
 	return err
 }
 
@@ -71,7 +73,7 @@ func (r *PostgresRepository) List(ctx context.Context, q Query) ([]Reading, erro
 	sb.WriteString(" LIMIT $")
 	sb.WriteString(itoa(len(args)))
 
-	rows, err := r.pool.Query(ctx, sb.String(), args...)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "sensor.List"), sb.String(), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -102,7 +104,7 @@ FROM sensor_readings sr
 JOIN devices d ON d.id = sr.device_id
 WHERE d.classroom_id = $1
 ORDER BY sr.device_id, sr.metric, sr.recorded_at DESC`
-	rows, err := r.pool.Query(ctx, q, classroomID)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "sensor.LatestByClassroom"), q, classroomID)
 	if err != nil {
 		return nil, err
 	}

@@ -9,6 +9,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -30,18 +32,18 @@ func (r *PostgresRepository) Create(ctx context.Context, s *Scene) error {
 	if err != nil {
 		return err
 	}
-	_, err = r.pool.Exec(ctx, q, s.ID, s.ClassroomID, s.Name, s.Description, steps, s.CreatedAt, s.UpdatedAt)
+	_, err = r.pool.Exec(metrics.WithDBOp(ctx, "scene.Create"), q, s.ID, s.ClassroomID, s.Name, s.Description, steps, s.CreatedAt, s.UpdatedAt)
 	return err
 }
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Scene, error) {
 	const q = `SELECT id, classroom_id, name, description, steps, created_at, updated_at FROM scenes WHERE id=$1`
-	return r.scan(r.pool.QueryRow(ctx, q, id))
+	return r.scan(r.pool.QueryRow(metrics.WithDBOp(ctx, "scene.GetByID"), q, id))
 }
 
 func (r *PostgresRepository) ListByClassroom(ctx context.Context, classroomID uuid.UUID) ([]*Scene, error) {
 	const q = `SELECT id, classroom_id, name, description, steps, created_at, updated_at FROM scenes WHERE classroom_id=$1 ORDER BY created_at DESC`
-	rows, err := r.pool.Query(ctx, q, classroomID)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "scene.ListByClassroom"), q, classroomID)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +66,7 @@ func (r *PostgresRepository) Update(ctx context.Context, s *Scene) error {
 	if err != nil {
 		return err
 	}
-	tag, err := r.pool.Exec(ctx, q, s.ID, s.Name, s.Description, steps, s.UpdatedAt)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "scene.Update"), q, s.ID, s.Name, s.Description, steps, s.UpdatedAt)
 	if err != nil {
 		return err
 	}
@@ -76,7 +78,7 @@ func (r *PostgresRepository) Update(ctx context.Context, s *Scene) error {
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	const q = `DELETE FROM scenes WHERE id=$1`
-	tag, err := r.pool.Exec(ctx, q, id)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "scene.Delete"), q, id)
 	if err != nil {
 		return err
 	}

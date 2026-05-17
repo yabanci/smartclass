@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -8,6 +9,28 @@ import (
 	"smartclass/internal/platform/i18n"
 	"smartclass/internal/platform/validation"
 )
+
+// errorSlotKey is the context key for the internal error slot written by
+// WriteError and read by RequestLogger to emit ERROR-level logs on 5xx.
+type errorSlotKey struct{}
+
+// ErrorSlot holds the unhandled error that produced a 5xx response.
+// RequestLogger calls ErrorSlotFrom after the handler returns.
+type ErrorSlot struct {
+	Err error
+}
+
+// WithErrorSlot returns a context carrying the slot pointer.
+// RequestLogger installs this before calling the handler.
+func WithErrorSlot(ctx context.Context, slot *ErrorSlot) context.Context {
+	return context.WithValue(ctx, errorSlotKey{}, slot)
+}
+
+// ErrorSlotFrom returns the slot, or nil if not installed.
+func ErrorSlotFrom(ctx context.Context) *ErrorSlot {
+	slot, _ := ctx.Value(errorSlotKey{}).(*ErrorSlot)
+	return slot
+}
 
 type DomainError struct {
 	Code       string
@@ -48,6 +71,12 @@ func WriteError(w http.ResponseWriter, r *http.Request, bundle *i18n.Bundle, err
 		return
 	}
 
+	// Unhandled error — will produce 500. Stash it in the context slot so the
+	// surrounding RequestLogger middleware can emit an ERROR log with full
+	// context (request_id, path, method) without threading a logger into here.
+	if slot := ErrorSlotFrom(r.Context()); slot != nil {
+		slot.Err = err
+	}
 	Fail(w, http.StatusInternalServerError, "internal_error", bundle.T(lang, "internal_error"), nil)
 }
 

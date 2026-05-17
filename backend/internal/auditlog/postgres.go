@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -68,7 +70,7 @@ func (r *PostgresRepository) Insert(ctx context.Context, entries []Entry) error 
 	if err != nil {
 		return err
 	}
-	_, err = r.pool.Exec(ctx, buildInsertSQL(len(entries)), args...)
+	_, err = r.pool.Exec(metrics.WithDBOp(ctx, "auditlog.Insert"), buildInsertSQL(len(entries)), args...)
 	return err
 }
 
@@ -111,7 +113,7 @@ func (r *PostgresRepository) List(ctx context.Context, q Query) ([]Entry, error)
 		args = append(args, q.Offset)
 		sb.WriteString(" OFFSET $" + strconv.Itoa(len(args)))
 	}
-	rows, err := r.pool.Query(ctx, sb.String(), args...)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "auditlog.List"), sb.String(), args...)
 	if err != nil {
 		return nil, err
 	}

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"go.uber.org/zap"
+
+	"smartclass/internal/platform/httpx"
 )
 
 type statusRecorder struct {
@@ -55,7 +57,9 @@ func RequestLogger(logger *zap.Logger) func(http.Handler) http.Handler {
 			// Install a mutable slot so an inner Authn middleware can write
 			// the principal, and we read it back here for log enrichment.
 			slot := &PrincipalSlot{}
+			errSlot := &httpx.ErrorSlot{}
 			ctx := WithPrincipalSlot(r.Context(), slot)
+			ctx = httpx.WithErrorSlot(ctx, errSlot)
 			next.ServeHTTP(rec, r.WithContext(ctx))
 			fields := []zap.Field{
 				zap.String("method", r.Method),
@@ -72,6 +76,12 @@ func RequestLogger(logger *zap.Logger) func(http.Handler) http.Handler {
 				fields = append(fields,
 					zap.Stringer("user_id", slot.Principal.UserID),
 					zap.String("role", slot.Principal.Role))
+			}
+			// Emit ERROR for unhandled errors that produced a 5xx response so
+			// that database failures and unexpected panics surface in logs.
+			if errSlot.Err != nil {
+				logger.Error("http: unhandled error", append(fields, zap.Error(errSlot.Err))...)
+				return
 			}
 			logger.Info("http", fields...)
 		})

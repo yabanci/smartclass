@@ -8,6 +8,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"smartclass/internal/platform/metrics"
 )
 
 type PostgresRepository struct {
@@ -24,7 +26,7 @@ func (r *PostgresRepository) CreateIfNoOverlap(ctx context.Context, l *Lesson) e
 	}
 	now := time.Now().UTC()
 	l.CreatedAt, l.UpdatedAt = now, now
-	return r.withOverlapCheck(ctx, l, uuid.Nil, func(tx pgx.Tx) error {
+	return r.withOverlapCheck(metrics.WithDBOp(ctx, "schedule.CreateIfNoOverlap"), l, uuid.Nil, func(tx pgx.Tx) error {
 		const q = `INSERT INTO lessons (id, classroom_id, subject, teacher_id, day_of_week, starts_at, ends_at, notes, created_at, updated_at) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`
 		_, err := tx.Exec(ctx, q,
 			l.ID, l.ClassroomID, l.Subject, l.TeacherID,
@@ -37,7 +39,7 @@ func (r *PostgresRepository) CreateIfNoOverlap(ctx context.Context, l *Lesson) e
 
 func (r *PostgresRepository) UpdateIfNoOverlap(ctx context.Context, l *Lesson) error {
 	l.UpdatedAt = time.Now().UTC()
-	return r.withOverlapCheck(ctx, l, l.ID, func(tx pgx.Tx) error {
+	return r.withOverlapCheck(metrics.WithDBOp(ctx, "schedule.UpdateIfNoOverlap"), l, l.ID, func(tx pgx.Tx) error {
 		const q = `UPDATE lessons SET subject=$2, teacher_id=$3, day_of_week=$4, starts_at=$5, ends_at=$6, notes=$7, updated_at=$8 WHERE id=$1`
 		tag, err := tx.Exec(ctx, q, l.ID, l.Subject, l.TeacherID, int(l.DayOfWeek),
 			minutesToPgTime(l.StartsAt), minutesToPgTime(l.EndsAt), l.Notes, l.UpdatedAt)
@@ -105,13 +107,13 @@ func (r *PostgresRepository) withOverlapCheck(ctx context.Context, l *Lesson, ex
 
 func (r *PostgresRepository) GetByID(ctx context.Context, id uuid.UUID) (*Lesson, error) {
 	const q = `SELECT id, classroom_id, subject, teacher_id, day_of_week, starts_at, ends_at, notes, created_at, updated_at FROM lessons WHERE id=$1`
-	return r.scan(r.pool.QueryRow(ctx, q, id))
+	return r.scan(r.pool.QueryRow(metrics.WithDBOp(ctx, "schedule.GetByID"), q, id))
 }
 
 func (r *PostgresRepository) ListByClassroom(ctx context.Context, classroomID uuid.UUID) ([]*Lesson, error) {
 	const q = `SELECT id, classroom_id, subject, teacher_id, day_of_week, starts_at, ends_at, notes, created_at, updated_at
 FROM lessons WHERE classroom_id=$1 ORDER BY day_of_week, starts_at`
-	rows, err := r.pool.Query(ctx, q, classroomID)
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "schedule.ListByClassroom"), q, classroomID)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +124,7 @@ FROM lessons WHERE classroom_id=$1 ORDER BY day_of_week, starts_at`
 func (r *PostgresRepository) ListByClassroomAndDay(ctx context.Context, classroomID uuid.UUID, day DayOfWeek) ([]*Lesson, error) {
 	const q = `SELECT id, classroom_id, subject, teacher_id, day_of_week, starts_at, ends_at, notes, created_at, updated_at
 FROM lessons WHERE classroom_id=$1 AND day_of_week=$2 ORDER BY starts_at`
-	rows, err := r.pool.Query(ctx, q, classroomID, int(day))
+	rows, err := r.pool.Query(metrics.WithDBOp(ctx, "schedule.ListByClassroomAndDay"), q, classroomID, int(day))
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +134,7 @@ FROM lessons WHERE classroom_id=$1 AND day_of_week=$2 ORDER BY starts_at`
 
 func (r *PostgresRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	const q = `DELETE FROM lessons WHERE id=$1`
-	tag, err := r.pool.Exec(ctx, q, id)
+	tag, err := r.pool.Exec(metrics.WithDBOp(ctx, "schedule.Delete"), q, id)
 	if err != nil {
 		return err
 	}
