@@ -108,12 +108,13 @@ void main() {
       expect(c.description, 'Test room');
     });
 
-    test('accepts null description', () {
+    // C-009: description is non-nullable String; null from JSON maps to ''.
+    test('maps null description to empty string', () {
       final c = Classroom.fromJson({
         'id': 'c', 'name': 'n', 'description': null,
         'createdBy': 'u', 'createdAt': '', 'updatedAt': '',
       });
-      expect(c.description, isNull);
+      expect(c.description, '');
     });
   });
 

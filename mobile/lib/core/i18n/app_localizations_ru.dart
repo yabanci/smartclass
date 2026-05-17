@@ -341,12 +341,26 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String scenesRunSuccess(int total) {
-    return '$total шагов выполнено';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total шагов выполнено',
+      few: '$total шага выполнено',
+      one: '1 шаг выполнен',
+    );
+    return '$_temp0';
   }
 
   @override
   String scenesRunPartial(int success, int total) {
-    return '$success/$total шагов ОК';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total шагов',
+      few: '$total шага',
+      one: '1 шаг',
+    );
+    return '$success/$_temp0 ОК';
   }
 
   @override
@@ -405,6 +419,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get offlineNoInternet => 'Нет подключения к интернету';
+
+  @override
+  String get offlineUnreachable => 'Сервер недоступен';
 
   @override
   String get commonCannotUndo => 'Это действие нельзя отменить.';

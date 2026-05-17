@@ -9,6 +9,6 @@ class DeviceUsage {
 
   factory DeviceUsage.fromJson(Map<String, dynamic> json) => DeviceUsage(
         deviceId: json['deviceId'] as String,
-        commandCount: json['commandCount'] as int,
+        commandCount: (json['commandCount'] as num).toInt(),
       );
 }

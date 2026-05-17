@@ -751,13 +751,13 @@ abstract class AppLocalizations {
   /// No description provided for @scenesRunSuccess.
   ///
   /// In en, this message translates to:
-  /// **'{total} steps completed'**
+  /// **'{total, plural, =1{1 step succeeded} other{{total} steps succeeded}}'**
   String scenesRunSuccess(int total);
 
   /// No description provided for @scenesRunPartial.
   ///
   /// In en, this message translates to:
-  /// **'{success}/{total} steps OK'**
+  /// **'{success}/{total, plural, =1{1 step} other{{total} steps}} OK'**
   String scenesRunPartial(int success, int total);
 
   /// No description provided for @analyticsTitle.
@@ -873,6 +873,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No internet connection'**
   String get offlineNoInternet;
+
+  /// No description provided for @offlineUnreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Server unreachable'**
+  String get offlineUnreachable;
 
   /// No description provided for @commonCannotUndo.
   ///

@@ -35,9 +35,26 @@ class ConnectionResolver {
       }
     }
 
+    // C-016: check whether the remote is reachable. If not, expose Unreachable
+    // state so callers (e.g. offline_banner) can show a distinct message.
+    final remoteBase = appConfig.apiBaseUrl;
+    // Strip /api/v1 suffix to ping the bare health endpoint.
+    final remoteRoot = remoteBase.endsWith('/api/v1')
+        ? remoteBase.substring(0, remoteBase.length - '/api/v1'.length)
+        : remoteBase;
+    final remoteReachable = await _ping(remoteRoot);
+
+    if (!remoteReachable) {
+      _current = ConnectionState(
+        mode: ConnectionMode.unreachable,
+        baseUrl: remoteBase,
+      );
+      return _current!;
+    }
+
     _current = ConnectionState(
       mode: ConnectionMode.remote,
-      baseUrl: appConfig.apiBaseUrl,
+      baseUrl: remoteBase,
     );
     return _current!;
   }

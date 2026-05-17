@@ -109,13 +109,13 @@
   "scenesDescription": "Сипаттама",
   "scenesAddStep": "Қадам қосу",
   "scenesEmpty": "Сценалар жоқ",
-  "scenesRunSuccess": "{total} қадам орындалды",
+  "scenesRunSuccess": "{total, plural, =1{1 қадам орындалды} other{{total} қадам орындалды}}",
   "@scenesRunSuccess": {
     "placeholders": {
       "total": { "type": "int" }
     }
   },
-  "scenesRunPartial": "{success}/{total} қадам ОК",
+  "scenesRunPartial": "{success}/{total, plural, =1{1 қадам} other{{total} қадам}} ОК",
   "@scenesRunPartial": {
     "placeholders": {
       "success": { "type": "int" },
@@ -141,8 +141,9 @@
   "profileLocalUrl": "Жергілікті сервер URL",
   "profileLocalUrlHint": "мысалы http://192.168.1.100:8080",
   "offlineNoInternet": "Интернетке қосылым жоқ",
+  "offlineUnreachable": "Сервер қолжетімсіз",
   "commonCannotUndo": "Бұл әрекетті болдырмау мүмкін емес.",
-  "scenesStepCount": "{count} қадам",
+  "scenesStepCount": "{count, plural, =1{1 қадам} other{{count} қадам}}",
   "@scenesStepCount": {
     "placeholders": {
       "count": { "type": "int" }

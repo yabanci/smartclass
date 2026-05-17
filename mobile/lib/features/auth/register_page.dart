@@ -49,7 +49,16 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
   @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
-    final loading = ref.watch(authProvider).loading;
+    final authState = ref.watch(authProvider);
+    final loading = authState.loading;
+
+    // C-022: show a spinner while init() is awaiting getMe().
+    if (authState.isInitializing) {
+      return Scaffold(
+        appBar: AppBar(title: Text(l.authRegister)),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(title: Text(l.authRegister)),

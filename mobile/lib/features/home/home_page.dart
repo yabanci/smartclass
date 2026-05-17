@@ -9,6 +9,7 @@ import '../../shared/models/classroom.dart';
 import '../../shared/models/device.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
+import '../../shared/providers/scene_provider.dart';
 import '../../shared/providers/schedule_provider.dart';
 import '../../shared/providers/sensor_provider.dart';
 import '../../shared/providers/ws_provider.dart';
@@ -50,6 +51,8 @@ class HomePage extends ConsumerWidget {
             ref.read(deviceListProvider(classroom.id).notifier).load();
           } else if (event.type == 'sensor.reading') {
             ref.read(sensorNotifierProvider(classroom.id).notifier).load();
+          } else if (event.type.startsWith('scenes.')) {
+            ref.read(sceneListProvider(classroom.id).notifier).load();
           }
         });
       });

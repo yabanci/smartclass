@@ -1,8 +1,13 @@
 import 'package:dio/dio.dart';
 
+import '../api/envelope.dart';
+
 /// Extracts a short, user-readable message from any exception.
 /// Strips DioException boilerplate and raw stack info.
 String friendlyError(Object e) {
+  if (e is PartialFailureException) {
+    return '${e.success}/${e.total} steps succeeded';
+  }
   if (e is DioException) {
     final code = e.response?.statusCode;
     final body = e.response?.data;

@@ -109,13 +109,13 @@
   "scenesDescription": "Описание",
   "scenesAddStep": "Добавить шаг",
   "scenesEmpty": "Нет сцен",
-  "scenesRunSuccess": "{total} шагов выполнено",
+  "scenesRunSuccess": "{total, plural, =1{1 шаг выполнен} few{{total} шага выполнено} other{{total} шагов выполнено}}",
   "@scenesRunSuccess": {
     "placeholders": {
       "total": { "type": "int" }
     }
   },
-  "scenesRunPartial": "{success}/{total} шагов ОК",
+  "scenesRunPartial": "{success}/{total, plural, =1{1 шаг} few{{total} шага} other{{total} шагов}} ОК",
   "@scenesRunPartial": {
     "placeholders": {
       "success": { "type": "int" },
@@ -141,6 +141,7 @@
   "profileLocalUrl": "Локальный URL сервера",
   "profileLocalUrlHint": "например http://192.168.1.100:8080",
   "offlineNoInternet": "Нет подключения к интернету",
+  "offlineUnreachable": "Сервер недоступен",
   "commonCannotUndo": "Это действие нельзя отменить.",
   "scenesStepCount": "{count, plural, =1{1 шаг} few{{count} шага} other{{count} шагов}}",
   "@scenesStepCount": {

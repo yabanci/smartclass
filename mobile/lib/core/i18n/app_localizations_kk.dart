@@ -341,12 +341,24 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String scenesRunSuccess(int total) {
-    return '$total қадам орындалды';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total қадам орындалды',
+      one: '1 қадам орындалды',
+    );
+    return '$_temp0';
   }
 
   @override
   String scenesRunPartial(int success, int total) {
-    return '$success/$total қадам ОК';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total қадам',
+      one: '1 қадам',
+    );
+    return '$success/$_temp0 ОК';
   }
 
   @override
@@ -407,11 +419,20 @@ class AppLocalizationsKk extends AppLocalizations {
   String get offlineNoInternet => 'Интернетке қосылым жоқ';
 
   @override
+  String get offlineUnreachable => 'Сервер қолжетімсіз';
+
+  @override
   String get commonCannotUndo => 'Бұл әрекетті болдырмау мүмкін емес.';
 
   @override
   String scenesStepCount(int count) {
-    return '$count қадам';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count қадам',
+      one: '1 қадам',
+    );
+    return '$_temp0';
   }
 
   @override

@@ -95,7 +95,7 @@ class ApiClient {
         return null;
       }
       final body = resp.data as Map<String, dynamic>;
-      // Backend wraps in { data: { tokens: {...} } }
+      // Backend wraps in { data: { user: {...}, tokens: {...} } }; extract tokens only.
       final tokensMap = (body['data'] as Map<String, dynamic>?)?['tokens']
           as Map<String, dynamic>?;
 

@@ -341,12 +341,24 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String scenesRunSuccess(int total) {
-    return '$total steps completed';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total steps succeeded',
+      one: '1 step succeeded',
+    );
+    return '$_temp0';
   }
 
   @override
   String scenesRunPartial(int success, int total) {
-    return '$success/$total steps OK';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total steps',
+      one: '1 step',
+    );
+    return '$success/$_temp0 OK';
   }
 
   @override
@@ -405,6 +417,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get offlineNoInternet => 'No internet connection';
+
+  @override
+  String get offlineUnreachable => 'Server unreachable';
 
   @override
   String get commonCannotUndo => 'This action cannot be undone.';

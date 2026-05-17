@@ -27,17 +27,33 @@ class WsConnectionNotifier extends StateNotifier<bool> {
   ///
   /// This avoids putting the long-lived JWT into the URL — query strings get
   /// logged by reverse proxies; tickets are one-shot and short-lived.
+  ///
+  /// C-006: ticketFactory is passed so reconnects always mint a fresh ticket.
+  /// C-007: classroom:<id>:scenes topic added.
+  /// C-019: state is only set to true after the connect Future resolves without
+  ///         throwing, so a failed socket doesn't falsely advertise "connected".
   Future<void> connectToClassroom(String classroomId) async {
-    final ticket = await _wsEndpoints.createTicket();
     final baseWs = _resolver.wsBaseUrl;
-    // B-302: baseWs already contains /api/v1 (e.g. ws://host:8080/api/v1);
-    // append /ws to reach the backend route at /api/v1/ws.
-    final url = '$baseWs/ws'
-        '?topic=classroom:$classroomId:devices'
-        '&topic=classroom:$classroomId:sensors'
-        '&ticket=$ticket';
-    _ws.connect(url);
-    state = true;
+
+    // Factory captures classroomId only for ticket scoping; the ticket itself
+    // is not classroom-scoped on the backend — this is a fresh single-use ticket.
+    Future<String> ticketFactory() => _wsEndpoints.createTicket();
+
+    try {
+      // B-302: baseWs already contains /api/v1 (e.g. ws://host:8080/api/v1);
+      // WsClient.connect appends /ws to reach the backend route at /api/v1/ws.
+      await _ws.connect(
+        wsBaseUrl: baseWs,
+        classroomId: classroomId,
+        ticketFactory: ticketFactory,
+      );
+      // C-019: only set true after connect succeeds.
+      state = true;
+    } catch (_) {
+      // Connect failed (ticket fetch failed, socket error, etc.) — stay false.
+      state = false;
+      rethrow;
+    }
   }
 
   void disconnect() {

@@ -1,3 +1,4 @@
+import '../../core/api/envelope.dart';
 import '../../core/utils/error_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -177,7 +178,8 @@ class _SceneCard extends ConsumerWidget {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(friendlyError(e)),
-            backgroundColor: Colors.red,
+            backgroundColor:
+                e is PartialFailureException ? Colors.orange : Colors.red,
           ),
         );
       }
