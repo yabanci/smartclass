@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/endpoints/classroom_endpoints.dart';
+import '../../core/cache/offline_cache.dart';
 import '../models/classroom.dart';
 import 'auth_provider.dart';
 
@@ -8,17 +9,25 @@ final classroomEndpointsProvider = Provider<ClassroomEndpoints>(
   (ref) => ClassroomEndpoints(ref.watch(apiClientProvider)),
 );
 
+/// `true` when the list currently displayed was loaded from cache.
+final classroomFromCacheProvider = StateProvider<bool>((ref) => false);
+
 final classroomListProvider =
     StateNotifierProvider<ClassroomListNotifier, AsyncValue<List<Classroom>>>(
         (ref) {
-  return ClassroomListNotifier(ref.watch(classroomEndpointsProvider));
+  return ClassroomListNotifier(
+    ref.watch(classroomEndpointsProvider),
+    ref,
+  );
 });
 
 class ClassroomListNotifier
     extends StateNotifier<AsyncValue<List<Classroom>>> {
   final ClassroomEndpoints _endpoints;
+  final Ref _ref;
 
-  ClassroomListNotifier(this._endpoints) : super(const AsyncValue.loading()) {
+  ClassroomListNotifier(this._endpoints, this._ref)
+      : super(const AsyncValue.loading()) {
     load();
   }
 
@@ -26,9 +35,30 @@ class ClassroomListNotifier
     state = const AsyncValue.loading();
     try {
       final list = await _endpoints.list();
+      // Persist fresh data to cache
+      await OfflineCache.instance.put(
+        OfflineCache.boxClassrooms,
+        'all',
+        list.map((c) => c.toJson()).toList(),
+      );
+      _ref.read(classroomFromCacheProvider.notifier).state = false;
       state = AsyncValue.data(list);
     } catch (e, st) {
-      state = AsyncValue.error(e, st);
+      // Fall back to cache on any error
+      final entry = OfflineCache.instance.get<List<Classroom>>(
+        OfflineCache.boxClassrooms,
+        'all',
+        parser: (raw) => (raw as List<dynamic>)
+            .map((e) => Classroom.fromJson(e as Map<String, dynamic>))
+            .toList(),
+      );
+      if (entry != null) {
+        _ref.read(classroomFromCacheProvider.notifier).state = true;
+        state = AsyncValue.data(entry.data);
+      } else {
+        _ref.read(classroomFromCacheProvider.notifier).state = false;
+        state = AsyncValue.error(e, st);
+      }
     }
   }
 

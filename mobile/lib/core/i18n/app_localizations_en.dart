@@ -466,4 +466,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String iotWizardEntityState(String state) {
     return 'State: $state';
   }
+
+  @override
+  String get cachedDataLabel => 'Offline data';
 }

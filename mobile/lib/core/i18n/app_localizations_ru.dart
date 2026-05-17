@@ -469,4 +469,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String iotWizardEntityState(String state) {
     return 'Состояние: $state';
   }
+
+  @override
+  String get cachedDataLabel => 'Данные из кеша';
 }

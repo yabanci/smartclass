@@ -20,6 +20,8 @@ dependencies:
   web_socket_channel: ^3.0.1
   shared_preferences: ^2.3.3
   connectivity_plus: ^6.1.1
+  hive_ce: ^2.9.0
+  hive_ce_flutter: ^2.2.0
   fl_chart: ^0.70.2
   google_fonts: ^6.2.1
   url_launcher: ^6.3.1

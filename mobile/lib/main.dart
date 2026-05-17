@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app.dart';
 import 'config/app_config.dart';
+import 'core/cache/offline_cache.dart';
 import 'core/connection/resolver.dart';
 import 'shared/providers/auth_provider.dart';
 
@@ -21,6 +22,9 @@ void main() => mainWithConfig(AppConfig.dev);
 Future<void> mainWithConfig(AppConfig config) async {
   WidgetsFlutterBinding.ensureInitialized();
   setAppConfig(config);
+
+  // Open Hive boxes for offline cache (idempotent)
+  await OfflineCache.instance.init();
 
   // Resolve connection mode before starting (uses AppConfig fallback URL)
   await ConnectionResolver.instance.resolve();

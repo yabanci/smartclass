@@ -951,6 +951,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'State: {state}'**
   String iotWizardEntityState(String state);
+
+  /// No description provided for @cachedDataLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline data'**
+  String get cachedDataLabel;
 }
 
 class _AppLocalizationsDelegate

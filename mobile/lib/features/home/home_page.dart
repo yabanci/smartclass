@@ -14,6 +14,7 @@ import '../../shared/providers/schedule_provider.dart';
 import '../../shared/providers/sensor_provider.dart';
 import '../../shared/providers/ws_provider.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/cached_banner.dart';
 import '../../shared/widgets/classroom_picker.dart';
 
 class HomePage extends ConsumerWidget {
@@ -24,6 +25,7 @@ class HomePage extends ConsumerWidget {
     final l = AppLocalizations.of(context);
     final classroomsAsync = ref.watch(classroomListProvider);
     final classroom = ref.watch(activeClassroomProvider);
+    final classroomsFromCache = ref.watch(classroomFromCacheProvider);
 
     // Auto-select first classroom as soon as list loads
     ref.listen(classroomListProvider, (_, next) {
@@ -82,6 +84,7 @@ class HomePage extends ConsumerWidget {
       ),
       body: Column(
         children: [
+          if (classroomsFromCache) const CachedBanner(),
           // Classroom selector bar
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
