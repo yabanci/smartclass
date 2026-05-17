@@ -405,14 +405,16 @@ class _IntegrationPicker extends ConsumerWidget {
                 style: const TextStyle(color: Colors.grey),
               ),
               const SizedBox(height: 8),
-              OutlinedButton(
-                onPressed: () => onSelected(HassFlowHandler(
-                  domain: brand.domains.first,
-                  name: brand.name,
-                  configFlow: true,
-                )),
-                child: Text('Try ${brand.domains.first} anyway'),
-              ),
+              // B-006 / B-207: guard against empty domains list
+              if (brand.domains.isNotEmpty)
+                OutlinedButton(
+                  onPressed: () => onSelected(HassFlowHandler(
+                    domain: brand.domains.first,
+                    name: brand.name,
+                    configFlow: true,
+                  )),
+                  child: Text('Try ${brand.domains.first} anyway'),
+                ),
             ],
           );
         }
@@ -596,7 +598,7 @@ class _EntitiesView extends ConsumerWidget {
                               style:
                                   const TextStyle(fontSize: 11)),
                           Text(
-                              'State: ${entity.state}',
+                              l.iotWizardEntityState(entity.state),
                               style: const TextStyle(
                                   fontSize: 11,
                                   color: Colors.grey)),

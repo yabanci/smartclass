@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app.dart';
 import '../../core/i18n/app_localizations.dart';
 import '../../shared/models/classroom.dart';
+import '../../shared/models/device.dart';
 import '../../shared/providers/classroom_provider.dart';
 import '../../shared/providers/device_provider.dart';
 import '../../shared/providers/schedule_provider.dart';
@@ -317,9 +318,10 @@ class _ClassroomBody extends ConsumerWidget {
                 child: _SensorCard(
                   icon: Icons.thermostat,
                   label: l.homeTemperature,
+                  // B-101: use lastOrNull to get the most recent reading
                   value: sensorState.readings
                       .where((r) => r.metric == 'temperature')
-                      .fold<double?>(null, (_, r) => r.value),
+                      .lastOrNull?.value,
                   unit: '°C',
                   color: Colors.orange,
                 ),
@@ -329,9 +331,10 @@ class _ClassroomBody extends ConsumerWidget {
                 child: _SensorCard(
                   icon: Icons.water_drop_outlined,
                   label: l.homeHumidity,
+                  // B-101: use lastOrNull for humidity too
                   value: sensorState.readings
                       .where((r) => r.metric == 'humidity')
-                      .fold<double?>(null, (_, r) => r.value),
+                      .lastOrNull?.value,
                   unit: '%',
                   color: Colors.blue,
                 ),
@@ -497,7 +500,7 @@ class _QuickBtn extends ConsumerWidget {
   final Color color;
   final String classroomId;
   final String command;
-  final List devices;
+  final List<Device> devices;
 
   const _QuickBtn({
     required this.label,
@@ -510,11 +513,23 @@ class _QuickBtn extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return GestureDetector(
-      onTap: () {
+      // B-108: catch per-device errors and show a snackbar instead of silently failing
+      onTap: () async {
         for (final d in devices) {
-          ref
-              .read(deviceListProvider(classroomId).notifier)
-              .sendCommand(d.id, command);
+          try {
+            await ref
+                .read(deviceListProvider(classroomId).notifier)
+                .sendCommand(d.id, command);
+          } catch (e) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(friendlyError(e)),
+                  backgroundColor: kDanger,
+                ),
+              );
+            }
+          }
         }
       },
       child: Container(

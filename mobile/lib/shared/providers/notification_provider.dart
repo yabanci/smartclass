@@ -52,7 +52,7 @@ class NotificationListNotifier
 
   Future<void> markAllRead() async {
     await _endpoints.markAllRead();
-    load();
+    await load(); // B-301: must await so callers can chain on completion
   }
 }
 
@@ -61,6 +61,13 @@ final notificationListProvider = StateNotifierProvider<
   return NotificationListNotifier(ref.watch(notificationEndpointsProvider));
 });
 
-final unreadCountProvider = FutureProvider<int>((ref) {
-  return ref.watch(notificationEndpointsProvider).unreadCount();
+// B-112: derive unread count from the already-loaded list instead of a separate
+// network call on every rebuild, so no extra request is made.
+final unreadCountProvider = Provider<int>((ref) {
+  final listState = ref.watch(notificationListProvider);
+  return listState.whenOrNull(
+        data: (notifications) =>
+            notifications.where((n) => n.readAt == null).length,
+      ) ??
+      0;
 });

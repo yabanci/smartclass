@@ -30,6 +30,14 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
     _phoneCtrl = TextEditingController(text: user?.phone ?? '');
   }
 
+  /// B-104: re-populate controllers when user changes and we enter edit mode.
+  void _enterEditMode() {
+    final user = ref.read(authProvider).user;
+    _nameCtrl.text = user?.fullName ?? '';
+    _phoneCtrl.text = user?.phone ?? '';
+    setState(() => _editMode = true);
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -71,7 +79,8 @@ class _ProfilePageState extends ConsumerState<ProfilePage> {
           if (!_editMode)
             IconButton(
               icon: const Icon(Icons.edit_outlined),
-              onPressed: () => setState(() => _editMode = true),
+              // B-104: populate controllers from latest user before entering edit mode
+              onPressed: _enterEditMode,
             ),
         ],
       ),
@@ -267,6 +276,8 @@ class _ServerUrlTileState extends ConsumerState<_ServerUrlTile> {
               icon: const Icon(Icons.check),
               onPressed: () async {
                 await ConnectionResolver.instance.setLocalUrl(_ctrl.text.trim());
+                // B-113: update ApiClient base URL after resolver switches mode
+                ref.read(apiClientProvider).updateBaseUrl();
                 setState(() => _editing = false);
               },
             ),
@@ -283,7 +294,7 @@ class _ServerUrlTileState extends ConsumerState<_ServerUrlTile> {
       leading: const Icon(Icons.dns_outlined),
       title: Text(l.profileLocalUrl),
       subtitle: Text(
-        _ctrl.text.isNotEmpty ? _ctrl.text : 'Not set',
+        _ctrl.text.isNotEmpty ? _ctrl.text : l.commonNotSet,
         style: const TextStyle(fontSize: 12),
       ),
       trailing: const Icon(Icons.edit_outlined, size: 18),
@@ -323,9 +334,10 @@ class _ChangePasswordSheetState
             newPassword: _newCtrl.text,
           );
       if (mounted) {
+        final l = AppLocalizations.of(context);
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password changed successfully')),
+          SnackBar(content: Text(l.profilePasswordChanged)),
         );
       }
     } catch (e) {
@@ -365,7 +377,7 @@ class _ChangePasswordSheetState
                 border: const OutlineInputBorder(),
               ),
               validator: (v) =>
-                  v == null || v.isEmpty ? 'Required' : null,
+                  v == null || v.isEmpty ? l.commonRequired : null,
             ),
             const SizedBox(height: 12),
             TextFormField(
@@ -376,7 +388,7 @@ class _ChangePasswordSheetState
                 border: const OutlineInputBorder(),
               ),
               validator: (v) =>
-                  v == null || v.length < 6 ? 'Min 6 characters' : null,
+                  v == null || v.length < 6 ? l.profilePasswordMin6 : null,
             ),
             const SizedBox(height: 16),
             FilledButton(

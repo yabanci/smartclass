@@ -109,8 +109,8 @@ class _BottomNav extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final l = AppLocalizations.of(context);
     final location = GoRouterState.of(context).matchedLocation;
-    final unreadAsync = ref.watch(unreadCountProvider);
-    final unread = unreadAsync.valueOrNull ?? 0;
+    // unreadCountProvider is now a plain Provider<int> derived from the list
+    final unread = ref.watch(unreadCountProvider);
 
     int selectedIndex = 0;
     if (location.startsWith('/devices')) {

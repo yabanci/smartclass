@@ -100,6 +100,8 @@
   "scheduleDayWed": "Ср",
   "scheduleDayThu": "Чт",
   "scheduleDayFri": "Пт",
+  "scheduleDaySat": "Сб",
+  "scheduleDaySun": "Вс",
   "scenesTitle": "Сцены",
   "scenesAdd": "Новая сцена",
   "scenesRun": "Запустить",
@@ -107,6 +109,19 @@
   "scenesDescription": "Описание",
   "scenesAddStep": "Добавить шаг",
   "scenesEmpty": "Нет сцен",
+  "scenesRunSuccess": "{total} шагов выполнено",
+  "@scenesRunSuccess": {
+    "placeholders": {
+      "total": { "type": "int" }
+    }
+  },
+  "scenesRunPartial": "{success}/{total} шагов ОК",
+  "@scenesRunPartial": {
+    "placeholders": {
+      "success": { "type": "int" },
+      "total": { "type": "int" }
+    }
+  },
   "analyticsTitle": "Аналитика",
   "analyticsSensorsSeries": "Серия сенсоров",
   "analyticsDeviceUsage": "Использование устройств",
@@ -124,5 +139,28 @@
   "profileCurrentPassword": "Текущий пароль",
   "profileNewPassword": "Новый пароль",
   "profileLocalUrl": "Локальный URL сервера",
-  "profileLocalUrlHint": "например http://192.168.1.100:8080"
+  "profileLocalUrlHint": "например http://192.168.1.100:8080",
+  "offlineNoInternet": "Нет подключения к интернету",
+  "commonCannotUndo": "Это действие нельзя отменить.",
+  "scenesStepCount": "{count, plural, =1{1 шаг} few{{count} шага} other{{count} шагов}}",
+  "@scenesStepCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "analyticsNoData": "Нет данных",
+  "analyticsNoUsageData": "Нет данных об использовании",
+  "scenesAddAtLeastOneStep": "Добавьте хотя бы один шаг",
+  "scenesNameRequired": "Название сцены обязательно",
+  "commonRequired": "Обязательное поле",
+  "profilePasswordChanged": "Пароль успешно изменён",
+  "profilePasswordMin6": "Минимум 6 символов",
+  "commonNotSet": "Не задан",
+  "scenesStepsLabel": "Шаги",
+  "iotWizardEntityState": "Состояние: {state}",
+  "@iotWizardEntityState": {
+    "placeholders": {
+      "state": { "type": "String" }
+    }
+  }
 }

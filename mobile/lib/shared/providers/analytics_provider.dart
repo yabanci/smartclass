@@ -23,6 +23,21 @@ class AnalyticsQuery {
     this.from,
     this.to,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is AnalyticsQuery &&
+          runtimeType == other.runtimeType &&
+          classroomId == other.classroomId &&
+          metric == other.metric &&
+          bucket == other.bucket &&
+          from == other.from &&
+          to == other.to;
+
+  @override
+  int get hashCode =>
+      Object.hash(classroomId, metric, bucket, from, to);
 }
 
 final sensorSeriesProvider =

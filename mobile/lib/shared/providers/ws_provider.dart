@@ -30,6 +30,8 @@ class WsConnectionNotifier extends StateNotifier<bool> {
   Future<void> connectToClassroom(String classroomId) async {
     final ticket = await _wsEndpoints.createTicket();
     final baseWs = _resolver.wsBaseUrl;
+    // B-302: baseWs already contains /api/v1 (e.g. ws://host:8080/api/v1);
+    // append /ws to reach the backend route at /api/v1/ws.
     final url = '$baseWs/ws'
         '?topic=classroom:$classroomId:devices'
         '&topic=classroom:$classroomId:sensors'
@@ -46,9 +48,11 @@ class WsConnectionNotifier extends StateNotifier<bool> {
 
 final wsConnectionProvider =
     StateNotifierProvider<WsConnectionNotifier, bool>((ref) {
+  // B-005: watch apiClientProvider so WsEndpoints is rebuilt when client changes
+  final apiClient = ref.watch(apiClientProvider);
   return WsConnectionNotifier(
     ref.watch(wsProvider),
-    WsEndpoints(ref.watch(apiClientProvider)),
+    WsEndpoints(apiClient),
     ConnectionResolver.instance,
   );
 });

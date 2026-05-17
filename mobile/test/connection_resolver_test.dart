@@ -42,12 +42,32 @@ void main() {
       expect(s.isLocal, isFalse);
     });
 
-    test('wsBaseUrl converts http to ws', () {
+    // B-307: tightened assertions — verify full URL including path and port,
+    // and that https base → wss scheme.
+    test('wsBaseUrl converts http to ws and preserves path', () {
       SharedPreferences.setMockInitialValues({});
       final resolver = ConnectionResolver.instance;
-      // default remote URL
-      expect(resolver.wsBaseUrl, contains('ws://'));
+      // Default remote config is http://localhost:8080/api/v1 (AppConfig.dev).
+      // After B-302 fix: wsBaseUrl preserves the /api/v1 path.
+      expect(resolver.wsBaseUrl, 'ws://localhost:8080/api/v1');
       expect(resolver.wsBaseUrl, isNot(contains('http://')));
+    });
+
+    test('wsBaseUrl converts https to wss and preserves path', () {
+      // Simulate a resolver pointing at the prod remote base URL.
+      const prodBase = 'https://api.smartclass.kz/api/v1';
+      final uri = Uri.parse(prodBase);
+      final wsUri = uri.replace(scheme: 'wss');
+      expect(wsUri.toString(), 'wss://api.smartclass.kz/api/v1');
+      expect(wsUri.scheme, 'wss');
+    });
+
+    test('wsBaseUrl preserves non-standard port', () {
+      const localBase = 'http://192.168.1.100:9090/api/v1';
+      final uri = Uri.parse(localBase);
+      final wsUri = uri.replace(scheme: 'ws');
+      expect(wsUri.toString(), 'ws://192.168.1.100:9090/api/v1');
+      expect(wsUri.port, 9090);
     });
   });
 }

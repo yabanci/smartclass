@@ -4,6 +4,7 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/material.dart';
 
 import '../../app.dart';
+import '../../core/i18n/app_localizations.dart';
 
 class OfflineBanner extends StatefulWidget {
   final Widget child;
@@ -41,10 +42,11 @@ class _OfflineBannerState extends State<OfflineBanner> {
           height: _offline ? 32 : 0,
           color: kDanger,
           child: _offline
-              ? const Center(
+              ? Center(
+                  // B-202: use l10n key instead of hardcoded English
                   child: Text(
-                    'No internet connection',
-                    style: TextStyle(color: Colors.white, fontSize: 12),
+                    AppLocalizations.of(context).offlineNoInternet,
+                    style: const TextStyle(color: Colors.white, fontSize: 12),
                   ),
                 )
               : null,

@@ -133,10 +133,13 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       },
                     ),
                     const SizedBox(height: 16),
+                    // B-111: re-validate confirm field on every interaction so
+                    // it stays in sync when the user edits the password field
                     TextFormField(
                       key: const Key('confirm_password_field'),
                       controller: _confirmCtrl,
                       obscureText: _obscure,
+                      autovalidateMode: AutovalidateMode.onUserInteraction,
                       decoration: InputDecoration(
                         labelText: l.authConfirmPassword,
                         prefixIcon: const Icon(Icons.lock_outlined),

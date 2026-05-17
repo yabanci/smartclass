@@ -48,8 +48,11 @@ class ConnectionResolver {
         connectTimeout: const Duration(milliseconds: 600),
         receiveTimeout: const Duration(milliseconds: 600),
       ));
+      // B-206: only 2xx counts as reachable; 404 is not a healthy endpoint
       final response = await dio.get('$baseUrl/healthz');
-      return response.statusCode != null && response.statusCode! < 500;
+      return response.statusCode != null &&
+          response.statusCode! >= 200 &&
+          response.statusCode! < 300;
     } catch (_) {
       return false;
     }
@@ -66,11 +69,11 @@ class ConnectionResolver {
     return prefs.getString(_kLocalUrlKey);
   }
 
+  // B-109: use Uri.parse to safely convert http→ws and preserve the /api/v1 path.
+  // B-302: keep path intact so callers can append /ws directly.
   String get wsBaseUrl {
-    final base = current.baseUrl
-        .replaceFirst('https://', 'wss://')
-        .replaceFirst('http://', 'ws://');
-    // Strip /api/v1 suffix for WS construction
-    return base;
+    final uri = Uri.parse(current.baseUrl);
+    final wsScheme = uri.scheme == 'https' ? 'wss' : 'ws';
+    return uri.replace(scheme: wsScheme).toString();
   }
 }

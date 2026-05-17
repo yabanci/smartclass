@@ -42,9 +42,10 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
     }
   }
 
+  // B-103: use >= to prevent zero-duration lessons
   bool _endAfterStart() {
-    return (_endTime.hour * 60 + _endTime.minute) >
-        (_startTime.hour * 60 + _startTime.minute);
+    return (_endTime.hour * 60 + _endTime.minute) >=
+        (_startTime.hour * 60 + _startTime.minute + 1);
   }
 
   Future<void> _submit() async {
@@ -84,6 +85,8 @@ class _AddLessonSheetState extends ConsumerState<AddLessonSheet> {
       (3, l.scheduleDayWed),
       (4, l.scheduleDayThu),
       (5, l.scheduleDayFri),
+      (6, l.scheduleDaySat), // B-303
+      (7, l.scheduleDaySun), // B-303
     ];
 
     return Padding(

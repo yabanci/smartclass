@@ -20,6 +20,7 @@ class WsClient {
   bool _disposed = false;
 
   void connect(String wsUrl) {
+    _disposed = false;
     if (_currentUrl == wsUrl) return;
     _currentUrl = wsUrl;
     _dispose();
@@ -46,8 +47,10 @@ class WsClient {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       _sub = _channel!.stream.listen(
         (data) {
+          // B-007: guard against binary frames — only handle String messages
+          if (data is! String) return;
           try {
-            final decoded = jsonDecode(data as String) as Map<String, dynamic>;
+            final decoded = jsonDecode(data) as Map<String, dynamic>;
             _controller.add(WsEvent.fromJson(decoded));
           } catch (_) {
             // ignore malformed messages

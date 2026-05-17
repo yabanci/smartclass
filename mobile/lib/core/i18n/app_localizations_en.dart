@@ -313,6 +313,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get scheduleDayFri => 'Fri';
 
   @override
+  String get scheduleDaySat => 'Sat';
+
+  @override
+  String get scheduleDaySun => 'Sun';
+
+  @override
   String get scenesTitle => 'Scenes';
 
   @override
@@ -332,6 +338,16 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get scenesEmpty => 'No scenes yet';
+
+  @override
+  String scenesRunSuccess(int total) {
+    return '$total steps completed';
+  }
+
+  @override
+  String scenesRunPartial(int success, int total) {
+    return '$success/$total steps OK';
+  }
 
   @override
   String get analyticsTitle => 'Analytics';
@@ -386,4 +402,53 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileLocalUrlHint => 'e.g. http://192.168.1.100:8080';
+
+  @override
+  String get offlineNoInternet => 'No internet connection';
+
+  @override
+  String get commonCannotUndo => 'This action cannot be undone.';
+
+  @override
+  String scenesStepCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count steps',
+      one: '1 step',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get analyticsNoData => 'No data';
+
+  @override
+  String get analyticsNoUsageData => 'No usage data';
+
+  @override
+  String get scenesAddAtLeastOneStep => 'Add at least one step';
+
+  @override
+  String get scenesNameRequired => 'Scene name is required';
+
+  @override
+  String get commonRequired => 'Required';
+
+  @override
+  String get profilePasswordChanged => 'Password changed successfully';
+
+  @override
+  String get profilePasswordMin6 => 'Min 6 characters';
+
+  @override
+  String get commonNotSet => 'Not set';
+
+  @override
+  String get scenesStepsLabel => 'Steps';
+
+  @override
+  String iotWizardEntityState(String state) {
+    return 'State: $state';
+  }
 }

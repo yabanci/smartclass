@@ -10,7 +10,8 @@ import '../models/user.dart';
 final tokenStorageProvider = Provider<TokenStorage>((ref) => TokenStorage());
 
 final apiClientProvider = Provider<ApiClient>((ref) {
-  final client = ApiClient(tokenStorage: ref.read(tokenStorageProvider));
+  // B-004: use ref.watch so provider rebuilds if tokenStorage changes
+  final client = ApiClient(tokenStorage: ref.watch(tokenStorageProvider));
   return client;
 });
 
@@ -128,7 +129,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // Called by ApiClient when refresh token is expired/invalid
-  void forceLogout() {
+  // B-208: clear token storage in addition to resetting state
+  Future<void> forceLogout() async {
+    await _storage.clear();
     state = const AuthState();
   }
 }
@@ -141,7 +144,7 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   );
   // Wire logout so expired tokens redirect to login
   ref.read(apiClientProvider).setLogoutCallback(() async {
-    notifier.forceLogout();
+    await notifier.forceLogout();
   });
   return notifier;
 });
