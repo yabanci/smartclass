@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -67,6 +68,33 @@ func TestJWT_RejectsWrongIssuer(t *testing.T) {
 	_, err = b.Parse(pair.Access)
 	require.ErrorIs(t, err, ErrInvalidToken,
 		"a token signed with issuer=A must not be accepted under issuer=B even when the secret matches")
+}
+
+func TestJWT_RejectsTokenWithoutAudience(t *testing.T) {
+	const secret = "audience-test-secret"
+	const issuer = "smartclass"
+	j := NewJWT(secret, time.Minute, time.Hour, issuer)
+
+	uid := uuid.New()
+	now := time.Now()
+	// Build a token with every valid field EXCEPT audience — RegisteredClaims
+	// with an empty Audience slice so jwt.WithAudience validation must reject it.
+	claims := jwt.RegisteredClaims{
+		Issuer:    issuer,
+		Subject:   uid.String(),
+		Audience:  jwt.ClaimStrings{}, // no audience
+		IssuedAt:  jwt.NewNumericDate(now),
+		NotBefore: jwt.NewNumericDate(now),
+		ExpiresAt: jwt.NewNumericDate(now.Add(time.Minute)),
+		ID:        uuid.New().String(),
+	}
+	tok := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := tok.SignedString([]byte(secret))
+	require.NoError(t, err)
+
+	_, err = j.Parse(signed)
+	require.ErrorIs(t, err, ErrInvalidToken,
+		"a token without an audience must be rejected even when issuer and secret are correct")
 }
 
 func TestJWT_AllowsClockSkewWithinLeeway(t *testing.T) {

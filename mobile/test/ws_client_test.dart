@@ -10,10 +10,10 @@ import 'package:smartclass/core/ws/ws_client.dart';
 
 WsClient _freshClient() {
   // WsClient has a private constructor and exposes a singleton.  For isolation
-  // we need to reset it.  The only safe public surface is connect/disconnect/close/dispose.
-  // Reset state via close() then test.
+  // we need to reset it.  resetForTest() nulls/zeros every mutable field and
+  // recreates the StreamController so no residual state bleeds between tests.
   final c = WsClient.instance;
-  c.close();
+  c.resetForTest();
   return c;
 }
 
@@ -27,7 +27,7 @@ void main() {
     });
 
     tearDown(() {
-      client.close();
+      client.resetForTest();
     });
 
     test('second concurrent caller receives error when first connect throws', () async {
