@@ -25,7 +25,6 @@ class WsClient {
 
   String? _wsBaseUrl;
   String? _classroomId;
-  String? _userId;
   TicketFactory? _ticketFactory;
 
   bool _disposed = false;
@@ -39,11 +38,12 @@ class WsClient {
   Future<void> connect({
     required String wsBaseUrl,
     required String classroomId,
-    required String userId,
     required TicketFactory ticketFactory,
   }) async {
     _disposed = false;
     // C-005: if already connecting, wait for the in-flight connect to finish.
+    // V-4: propagate errors — if the first caller's connect threw, the awaited
+    // future completes with an error and this caller rethrows it too.
     if (_connecting != null) {
       await _connecting;
       return;
@@ -58,7 +58,6 @@ class WsClient {
     try {
       _wsBaseUrl = wsBaseUrl;
       _classroomId = classroomId;
-      _userId = userId;
       _ticketFactory = ticketFactory;
       _reconnectAttempt = 0;
       _dispose();
@@ -69,28 +68,34 @@ class WsClient {
       }
       // C-006: always mint a fresh ticket on (re)connect via the factory.
       final ticket = await ticketFactory();
-      final url = _buildUrl(wsBaseUrl, classroomId, userId, ticket);
+      final url = _buildUrl(wsBaseUrl, classroomId, ticket);
       _connectUrl(url);
+      completer.complete();
+    } catch (e, st) {
+      // V-4: complete with error so concurrent waiters also receive the failure.
+      completer.completeError(e, st);
+      rethrow;
     } finally {
       _connecting = null;
-      completer.complete();
     }
   }
 
   static String _buildUrl(
-      String wsBaseUrl, String classroomId, String userId, String ticket) {
+      String wsBaseUrl, String classroomId, String ticket) {
+    // V-6: user:<id>:notifications topic is omitted — the backend's
+    // authorizeTopics() auto-adds it from the ticket's UserID claim, so
+    // sending it explicitly from the client is redundant and leaks the userId
+    // into the URL (logged by reverse proxies).
     return '$wsBaseUrl/ws'
         '?topic=classroom:$classroomId:devices'
         '&topic=classroom:$classroomId:sensors'
         '&topic=classroom:$classroomId:scenes'
-        '&topic=user:$userId:notifications'
         '&ticket=$ticket';
   }
 
   void disconnect() {
     _wsBaseUrl = null;
     _classroomId = null;
-    _userId = null;
     _ticketFactory = null;
     _dispose();
   }
@@ -154,11 +159,10 @@ class WsClient {
       final factory = _ticketFactory;
       final base = _wsBaseUrl;
       final room = _classroomId;
-      final user = _userId;
-      if (factory == null || base == null || room == null || user == null) return;
+      if (factory == null || base == null || room == null) return;
       try {
         final ticket = await factory();
-        final url = _buildUrl(base, room, user, ticket);
+        final url = _buildUrl(base, room, ticket);
         if (_wsBaseUrl == base && _classroomId == room) {
           _connectUrl(url);
         }

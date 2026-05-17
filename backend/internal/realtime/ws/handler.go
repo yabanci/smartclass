@@ -92,6 +92,8 @@ func (h *Handler) Serve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if h.tickets == nil {
+		h.log.Warn("ws: ticket store not configured — rejecting connection (misconfiguration)")
+		metrics.WSTicketInvalid.Inc()
 		httpx.WriteError(w, r, h.bundle, httpx.ErrWSTicketInvalid)
 		return
 	}

@@ -71,9 +71,9 @@ func New(d Deps) *Server {
 	// Auth limiter inherits the same proxy trust configuration.
 	authRL := mw.NewRateLimiter(5, 10).WithTrustedProxies(d.TrustedProxies)
 
-	r.Use(mw.Recoverer(d.Logger))
 	r.Use(mw.RequestID)
 	r.Use(mw.RequestLogger(d.Logger))
+	r.Use(mw.Recoverer(d.Logger))
 	r.Use(metrics.HTTPMiddleware)
 	r.Use(mw.CORS(d.Cfg.CORS.Origins))
 	r.Use(mw.Language)

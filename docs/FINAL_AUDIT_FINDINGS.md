@@ -34,7 +34,7 @@ Plan: `docs/FINAL_AUDIT_PLAN.md`
 | FA-S1 | L4 | SQL identifier concat in `user.getByColumn` | FIXED (queriesByColumn map) |
 | FA-S2 | L4 | `CORS_ORIGINS=*` default + no prod guard | FIXED (compose default narrowed + Load() guard) |
 | FA-CI1 | L8 | `avoid_print` disabled in mobile analyzer | FIXED |
-| FA-CI2 | L8 | No mobile coverage gate | FIXED (lcov 30% gate) |
+| FA-CI2 | L8 | No mobile coverage gate | FIXED (lcov 10% gate, current ~15%) |
 | FA-CI3 | L8 | No Docker image scan | FIXED (trivy HIGH/CRITICAL block) |
 | FA-CI4 | L8 | `staticcheck`/`govulncheck` at `@latest` | FIXED (pinned to v0.5.1 / v1.1.4) |
 
