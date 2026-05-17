@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"go.uber.org/zap"
 
 	"smartclass/internal/platform/metrics"
 )
@@ -36,6 +37,7 @@ const oauthClientID = "https://smartclass.local/"
 type Client struct {
 	http    *http.Client
 	baseURL string
+	logger  *zap.Logger // may be nil; used for slow-call WARN in TrackHassLog
 }
 
 func NewClient(baseURL string, httpClient *http.Client) *Client {
@@ -48,6 +50,13 @@ func NewClient(baseURL string, httpClient *http.Client) *Client {
 		httpClient = &http.Client{Timeout: 120 * time.Second}
 	}
 	return &Client{http: httpClient, baseURL: strings.TrimRight(baseURL, "/")}
+}
+
+// WithLogger attaches a logger to the client. When set, calls that exceed the
+// slow-call threshold (5 s) emit a WARN log via metrics.TrackHassLog.
+func (c *Client) WithLogger(l *zap.Logger) *Client {
+	c.logger = l
+	return c
 }
 
 func (c *Client) BaseURL() string { return c.baseURL }
@@ -385,7 +394,7 @@ func (c *Client) ListFlowHandlers(ctx context.Context, token string) ([]FlowHand
 	// domain into a FlowHandler with ConfigFlow=true so the frontend's brand
 	// catalog can still match on domain.
 	var domains []string
-	if err := c.getJSON(ctx, token, "/api/config/config_entries/flow_handlers", &domains); err != nil {
+	if err := c.getJSON(ctx, token, "ListFlowHandlers", "/api/config/config_entries/flow_handlers", &domains); err != nil {
 		return nil, err
 	}
 	out := make([]FlowHandler, 0, len(domains))
@@ -473,11 +482,11 @@ func (c *Client) ListInProgressFlows(ctx context.Context, token string) ([]FlowP
 
 func (c *Client) StartFlow(ctx context.Context, token, handler string) (*FlowStep, error) {
 	body, _ := json.Marshal(map[string]any{
-		"handler":      handler,
+		"handler":               handler,
 		"show_advanced_options": false,
 	})
 	var step FlowStep
-	if err := c.requestJSON(ctx, http.MethodPost, token, "/api/config/config_entries/flow", bytes.NewReader(body), &step); err != nil {
+	if err := c.requestJSON(ctx, http.MethodPost, token, "StartFlow", "/api/config/config_entries/flow", bytes.NewReader(body), &step); err != nil {
 		return nil, err
 	}
 	return &step, nil
@@ -492,7 +501,7 @@ func (c *Client) StepFlow(ctx context.Context, token, flowID string, data map[st
 	}
 	body, _ := json.Marshal(data)
 	var step FlowStep
-	if err := c.requestJSON(ctx, http.MethodPost, token, "/api/config/config_entries/flow/"+flowID, bytes.NewReader(body), &step); err != nil {
+	if err := c.requestJSON(ctx, http.MethodPost, token, "StepFlow", "/api/config/config_entries/flow/"+flowID, bytes.NewReader(body), &step); err != nil {
 		return nil, err
 	}
 	return &step, nil
@@ -502,7 +511,7 @@ func (c *Client) AbortFlow(ctx context.Context, token, flowID string) error {
 	if !flowIDPattern.MatchString(flowID) {
 		return ErrInvalidFlowID
 	}
-	return metrics.TrackHass(ctx, "AbortFlow", func(ctx context.Context) error {
+	return metrics.TrackHassLog(ctx, "AbortFlow", c.logger, func(ctx context.Context) error {
 		// #nosec G704 -- baseURL is operator-configured (HA endpoint); flowID is regex-validated above.
 		req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+"/api/config/config_entries/flow/"+flowID, nil)
 		if err != nil {
@@ -532,7 +541,7 @@ type haState struct {
 
 func (c *Client) ListEntities(ctx context.Context, token string) ([]Entity, error) {
 	var states []haState
-	if err := c.getJSON(ctx, token, "/api/states", &states); err != nil {
+	if err := c.getJSON(ctx, token, "ListEntities", "/api/states", &states); err != nil {
 		return nil, err
 	}
 	out := make([]Entity, 0, len(states))
@@ -553,12 +562,12 @@ func (c *Client) ListEntities(ctx context.Context, token string) ([]Entity, erro
 	return out, nil
 }
 
-func (c *Client) getJSON(ctx context.Context, token, path string, out any) error {
-	return c.requestJSON(ctx, http.MethodGet, token, path, nil, out)
+func (c *Client) getJSON(ctx context.Context, token, op, path string, out any) error {
+	return c.requestJSON(ctx, http.MethodGet, token, op, path, nil, out)
 }
 
-func (c *Client) requestJSON(ctx context.Context, method, token, path string, body io.Reader, out any) error {
-	return metrics.TrackHass(ctx, "requestJSON", func(ctx context.Context) error {
+func (c *Client) requestJSON(ctx context.Context, method, token, op, path string, body io.Reader, out any) error {
+	return metrics.TrackHassLog(ctx, op, c.logger, func(ctx context.Context) error {
 		// #nosec G704 -- baseURL is operator-configured (HA endpoint), path is internal/validated input.
 		req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 		if err != nil {

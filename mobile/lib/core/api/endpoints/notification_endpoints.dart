@@ -5,11 +5,12 @@ class NotificationEndpoints {
   final ApiClient _client;
   NotificationEndpoints(this._client);
 
-  Future<List<AppNotification>> list({bool? unread, int? limit}) =>
+  Future<List<AppNotification>> list({bool? unread, int? limit, int? offset}) =>
       _client.unwrap(
         _client.get('/notifications', queryParameters: {
           if (unread != null) 'unread': unread.toString(),
           if (limit != null) 'limit': limit.toString(),
+          if (offset != null) 'offset': offset.toString(),
         }),
         (d) => (d as List)
             .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))

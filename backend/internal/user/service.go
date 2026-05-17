@@ -71,16 +71,6 @@ func (s *Service) UpdateProfile(ctx context.Context, id uuid.UUID, in UpdateProf
 	return u, nil
 }
 
-func (s *Service) UpdateFCMToken(ctx context.Context, userID uuid.UUID, token string) error {
-	if err := s.repo.UpdateFCMToken(ctx, userID, token); err != nil {
-		if errors.Is(err, ErrNotFound) {
-			return ErrDomainNotFound
-		}
-		return err
-	}
-	return nil
-}
-
 func (s *Service) ChangePassword(ctx context.Context, id uuid.UUID, current, next string) error {
 	if len(next) < 8 {
 		return ErrWeakPassword

@@ -140,8 +140,8 @@ class _SceneCard extends ConsumerWidget {
                   Text(l.scenesStepCount(scene.steps.length),
                       style: const TextStyle(
                           fontSize: 12, color: Colors.grey)),
-                  if (scene.description != null)
-                    Text(scene.description!,
+                  if (scene.description.isNotEmpty)
+                    Text(scene.description,
                         style: const TextStyle(
                             fontSize: 12, color: Colors.grey),
                         overflow: TextOverflow.ellipsis),

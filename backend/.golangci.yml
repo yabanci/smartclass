@@ -16,9 +16,6 @@ linters:
     - sqlclosecheck
 
   settings:
-    gosec:
-      excludes:
-        - G104
     staticcheck:
       checks:
         - all
@@ -34,6 +31,12 @@ linters:
         linters:
           - gosec
           - errcheck
+      # G104 (unhandled errors from io.Closer etc.) suppressed only in tests.
+      # Production code must handle all errors — G104 is enforced there.
+      - path: _test\.go
+        text: "G104"
+        linters:
+          - gosec
 
 issues:
   max-same-issues: 0

@@ -26,7 +26,7 @@ class Scene {
   final String id;
   final String classroomId;
   final String name;
-  final String? description;
+  final String description;
   final List<SceneStep> steps;
   final String createdAt;
   final String updatedAt;
@@ -35,7 +35,7 @@ class Scene {
     required this.id,
     required this.classroomId,
     required this.name,
-    this.description,
+    this.description = '',
     required this.steps,
     required this.createdAt,
     required this.updatedAt,
@@ -45,7 +45,7 @@ class Scene {
         id: json['id'] as String,
         classroomId: json['classroomId'] as String,
         name: json['name'] as String,
-        description: json['description'] as String?,
+        description: (json['description'] as String?) ?? '',
         steps: (json['steps'] as List<dynamic>? ?? [])
             .map((e) => SceneStep.fromJson(e as Map<String, dynamic>))
             .toList(),
@@ -57,7 +57,7 @@ class Scene {
         'id': id,
         'classroomId': classroomId,
         'name': name,
-        if (description != null) 'description': description,
+        'description': description,
         'steps': steps.map((s) => s.toJson()).toList(),
         'createdAt': createdAt,
         'updatedAt': updatedAt,

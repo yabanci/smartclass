@@ -98,7 +98,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       keyboardType: TextInputType.emailAddress,
                       autocorrect: false,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return '${l.authEmail} is required';
+                        if (v == null || v.isEmpty) return l.authEmailRequired;
                         if (!RegExp(r'^[\w.+-]+@[\w-]+\.\w+$').hasMatch(v)) {
                           return 'Enter a valid email';
                         }
@@ -124,7 +124,7 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                       ),
                       validator: (v) {
                         if (v == null || v.isEmpty) {
-                          return '${l.authPassword} is required';
+                          return l.authPasswordRequired;
                         }
                         return null;
                       },

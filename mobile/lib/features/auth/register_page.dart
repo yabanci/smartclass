@@ -81,7 +81,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                         border: const OutlineInputBorder(),
                       ),
                       validator: (v) =>
-                          v == null || v.isEmpty ? '${l.authFullName} is required' : null,
+                          v == null || v.isEmpty ? l.authFullNameRequired : null,
                     ),
                     const SizedBox(height: 16),
                     TextFormField(
@@ -93,7 +93,7 @@ class _RegisterPageState extends ConsumerState<RegisterPage> {
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (v) {
-                        if (v == null || v.isEmpty) return '${l.authEmail} is required';
+                        if (v == null || v.isEmpty) return l.authEmailRequired;
                         if (!RegExp(r'^[\w.+-]+@[\w-]+\.\w+$').hasMatch(v)) {
                           return 'Enter a valid email';
                         }

@@ -469,4 +469,38 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cachedDataLabel => 'Offline data';
+
+  @override
+  String get authEmailRequired => 'Email is required';
+
+  @override
+  String get authPasswordRequired => 'Password is required';
+
+  @override
+  String get authFullNameRequired => 'Full name is required';
+
+  @override
+  String get devicesNameRequired => 'Name is required';
+
+  @override
+  String get classroomRename => 'Rename';
+
+  @override
+  String get classroomDelete => 'Delete';
+
+  @override
+  String get classroomOptions => 'Classroom options';
+
+  @override
+  String get classroomRenameTitle => 'Rename classroom';
+
+  @override
+  String get classroomNameLabel => 'Name';
+
+  @override
+  String get classroomDeleteTitle => 'Delete classroom?';
+
+  @override
+  String get classroomDeleteBody =>
+      'This will remove the classroom and all its data. This cannot be undone.';
 }

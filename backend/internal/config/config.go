@@ -18,6 +18,11 @@ type Config struct {
 	CORS      CORS          `envPrefix:"CORS_"`
 	Hass      Hass          `envPrefix:"HASS_"`
 	Paths     Paths
+	// MetricsToken, when non-empty, requires every request to /metrics to carry
+	// the header `X-Metrics-Token: <value>`. When unset (default), /metrics is
+	// open — acceptable for local dev but should be set in any internet-facing
+	// deployment (see README §"Local observability").
+	MetricsToken    string        `env:"METRICS_TOKEN"`
 	ShutdownTimeout time.Duration `env:"SHUTDOWN_TIMEOUT" envDefault:"10s"`
 }
 
@@ -31,7 +36,7 @@ type Database struct {
 	User     string `env:"USER" envDefault:"smartclass"`
 	Password string `env:"PASSWORD" envDefault:"smartclass"`
 	Name     string `env:"NAME" envDefault:"smartclass"`
-	SSLMode  string `env:"SSLMODE" envDefault:"disable"`
+	SSLMode  string `env:"SSLMODE" envDefault:"require"`
 }
 
 func (d Database) DSN() string {
@@ -88,6 +93,9 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("config: JWT_SECRET must be at least 32 characters")
 	}
 	if cfg.Env == "production" {
+		if cfg.DB.SSLMode == "disable" || cfg.DB.SSLMode == "allow" {
+			return Config{}, fmt.Errorf("config: DB_SSLMODE=%q is not safe for production; use require, verify-ca, or verify-full", cfg.DB.SSLMode)
+		}
 		if len(cfg.CORS.Origins) == 0 {
 			return Config{}, fmt.Errorf("config: CORS_ORIGINS must be set explicitly in production")
 		}

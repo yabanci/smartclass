@@ -469,4 +469,38 @@ class AppLocalizationsKk extends AppLocalizations {
 
   @override
   String get cachedDataLabel => 'Кэш деректері';
+
+  @override
+  String get authEmailRequired => 'Email міндетті';
+
+  @override
+  String get authPasswordRequired => 'Құпия сөз міндетті';
+
+  @override
+  String get authFullNameRequired => 'Толық аты міндетті';
+
+  @override
+  String get devicesNameRequired => 'Атауы міндетті';
+
+  @override
+  String get classroomRename => 'Атауын өзгерту';
+
+  @override
+  String get classroomDelete => 'Жою';
+
+  @override
+  String get classroomOptions => 'Сынып параметрлері';
+
+  @override
+  String get classroomRenameTitle => 'Сынып атауын өзгерту';
+
+  @override
+  String get classroomNameLabel => 'Атауы';
+
+  @override
+  String get classroomDeleteTitle => 'Сыныпты жою?';
+
+  @override
+  String get classroomDeleteBody =>
+      'Бұл сынып пен оның барлық деректерін жояды. Бұл әрекетті болдырмау мүмкін емес.';
 }

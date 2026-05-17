@@ -25,6 +25,9 @@ class HassFlowHandler {
   final String? integration;
   final String? iotClass;
   final bool configFlow;
+  // Y-4: backend sends supported_by and depends_on — preserved, not exposed in UI yet.
+  final List<String> supportedBy;
+  final List<String> dependsOn;
 
   const HassFlowHandler({
     required this.domain,
@@ -32,6 +35,8 @@ class HassFlowHandler {
     this.integration,
     this.iotClass,
     required this.configFlow,
+    this.supportedBy = const [],
+    this.dependsOn = const [],
   });
 
   factory HassFlowHandler.fromJson(Map<String, dynamic> json) =>
@@ -41,6 +46,14 @@ class HassFlowHandler {
         integration: json['integration'] as String?,
         iotClass: json['iot_class'] as String?,
         configFlow: json['config_flow'] as bool? ?? false,
+        supportedBy: (json['supported_by'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            [],
+        dependsOn: (json['depends_on'] as List<dynamic>?)
+                ?.map((e) => e as String)
+                .toList() ??
+            [],
       );
 }
 
@@ -112,7 +125,8 @@ class HassFlowStep {
   final String type;
   final String? stepId;
   final List<HassSchemaField>? dataSchema;
-  final Map<String, dynamic>? errors;
+  // Y-3: backend sends map[string]string; tightened from Map<String, dynamic>?.
+  final Map<String, String>? errors;
   final String? description;
   final Map<String, String>? descriptionPlaceholders;
   final String? reason;
@@ -141,7 +155,8 @@ class HassFlowStep {
         dataSchema: (json['data_schema'] as List<dynamic>?)
             ?.map((e) => HassSchemaField.fromJson(e as Map<String, dynamic>))
             .toList(),
-        errors: json['errors'] as Map<String, dynamic>?,
+        errors: (json['errors'] as Map<String, dynamic>?)
+            ?.map((k, v) => MapEntry(k, v as String)),
         description: json['description'] as String?,
         descriptionPlaceholders:
             (json['description_placeholders'] as Map<String, dynamic>?)

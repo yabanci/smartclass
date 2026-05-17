@@ -147,6 +147,7 @@ var appTables = []string{
 	"classroom_users",
 	"classrooms",
 	"hass_config",
+	"device_tokens",
 	"users",
 }
 

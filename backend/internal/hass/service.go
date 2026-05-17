@@ -14,6 +14,7 @@ import (
 	"smartclass/internal/classroom"
 	"smartclass/internal/device"
 	"smartclass/internal/devicectl/drivers/homeassistant"
+	mw "smartclass/internal/platform/httpx/middleware"
 )
 
 type Config struct {
@@ -86,7 +87,7 @@ func (s *Service) Bootstrap(ctx context.Context) (*Credentials, error) {
 		if st, err := s.client.OnboardingStatus(ctx); err == nil &&
 			(!st.CoreConfigDone || !st.IntegrationDone || !st.AnalyticsDone) {
 			if err := s.client.FinishOnboarding(ctx, stored.Token); err != nil && s.logger != nil {
-				s.logger.Warn("hass: resume finish onboarding failed", zap.Error(err))
+				mw.LoggerFromCtx(ctx, s.logger).Warn("hass: resume finish onboarding failed", zap.Error(err))
 			}
 		}
 		return stored, nil
@@ -131,7 +132,7 @@ func (s *Service) Bootstrap(ctx context.Context) (*Credentials, error) {
 	// We don't fail the bootstrap if finish errors — the token is still valid
 	// and REST reads work — but we log it loudly so retries surface the issue.
 	if err := s.client.FinishOnboarding(ctx, tokens.AccessToken); err != nil && s.logger != nil {
-		s.logger.Warn("hass: finish onboarding failed; UI may stay on welcome wizard", zap.Error(err))
+		mw.LoggerFromCtx(ctx, s.logger).Warn("hass: finish onboarding failed; UI may stay on welcome wizard", zap.Error(err))
 	}
 	c := &Credentials{
 		BaseURL:      s.client.BaseURL(),
@@ -457,7 +458,7 @@ func (s *Service) ListIntegrations(ctx context.Context) ([]FlowHandler, error) {
 	}
 	out, err := s.client.ListFlowHandlers(ctx, c.Token)
 	if err != nil && s.logger != nil {
-		s.logger.Error("hass: ListFlowHandlers upstream failed",
+		mw.LoggerFromCtx(ctx, s.logger).Error("hass: ListFlowHandlers upstream failed",
 			zap.Error(err),
 			zap.String("base_url", c.BaseURL),
 			zap.Int("token_len", len(c.Token)),
@@ -519,9 +520,10 @@ func (s *Service) popLastFlow(handler string) string {
 // non-user orphans. All errors are logged but never fatal: a 404 means the
 // flow already disappeared, anything else we'd rather ignore than block.
 func (s *Service) scrubFlows(ctx context.Context, token, handler string) {
+	log := mw.LoggerFromCtx(ctx, s.logger)
 	if prev := s.popLastFlow(handler); prev != "" {
 		if err := s.client.AbortFlow(ctx, token, prev); err != nil && !errors.Is(err, ErrFlowNotFound) && s.logger != nil {
-			s.logger.Warn("hass: scrub prev flow failed",
+			log.Warn("hass: scrub prev flow failed",
 				zap.Error(err),
 				zap.String("flow_id", prev),
 				zap.String("handler", handler),
@@ -531,7 +533,7 @@ func (s *Service) scrubFlows(ctx context.Context, token, handler string) {
 	flows, err := s.client.ListInProgressFlows(ctx, token)
 	if err != nil {
 		if s.logger != nil {
-			s.logger.Warn("hass: scrub list failed", zap.Error(err), zap.String("handler", handler))
+			log.Warn("hass: scrub list failed", zap.Error(err), zap.String("handler", handler))
 		}
 		return
 	}
@@ -540,7 +542,7 @@ func (s *Service) scrubFlows(ctx context.Context, token, handler string) {
 			continue
 		}
 		if err := s.client.AbortFlow(ctx, token, f.FlowID); err != nil && !errors.Is(err, ErrFlowNotFound) && s.logger != nil {
-			s.logger.Warn("hass: scrub abort failed",
+			log.Warn("hass: scrub abort failed",
 				zap.Error(err),
 				zap.String("flow_id", f.FlowID),
 				zap.String("handler", handler),

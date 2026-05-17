@@ -957,6 +957,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Offline data'**
   String get cachedDataLabel;
+
+  String get authEmailRequired;
+  String get authPasswordRequired;
+  String get authFullNameRequired;
+  String get devicesNameRequired;
+  String get classroomRename;
+  String get classroomDelete;
+  String get classroomOptions;
+  String get classroomRenameTitle;
+  String get classroomNameLabel;
+  String get classroomDeleteTitle;
+  String get classroomDeleteBody;
 }
 
 class _AppLocalizationsDelegate

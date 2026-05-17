@@ -131,7 +131,7 @@ func main() {
 		WithTrigger(triggerEngine)
 	analyticsSvc := analytics.NewService(analyticsRepo, classroomSvc)
 
-	hassClient := hass.NewClient(cfg.Hass.URL, nil)
+	hassClient := hass.NewClient(cfg.Hass.URL, nil).WithLogger(logger)
 	hassSvc := hass.NewService(hass.Config{
 		BaseURL:       cfg.Hass.URL,
 		OwnerName:     cfg.Hass.OwnerName,

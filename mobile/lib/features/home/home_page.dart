@@ -133,46 +133,50 @@ class HomePage extends ConsumerWidget {
   Future<void> _showCreateDialog(BuildContext context, WidgetRef ref) async {
     final l = AppLocalizations.of(context);
     final ctrl = TextEditingController();
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(l.homeCreateClassroom),
-        content: TextField(
-          controller: ctrl,
-          decoration: InputDecoration(
-            labelText: l.homeClassroomName,
-          ),
-          autofocus: true,
-          onSubmitted: (_) => Navigator.pop(ctx, true),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: Text(l.commonCancel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(l.commonCreate),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true && ctrl.text.trim().isNotEmpty && context.mounted) {
-      try {
-        final classroom = await ref
-            .read(classroomListProvider.notifier)
-            .create(ctrl.text.trim());
-        ref.read(activeClassroomProvider.notifier).select(classroom);
-      } catch (e) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(friendlyError(e)),
-              backgroundColor: kDanger,
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: Text(l.homeCreateClassroom),
+          content: TextField(
+            controller: ctrl,
+            decoration: InputDecoration(
+              labelText: l.homeClassroomName,
             ),
-          );
+            autofocus: true,
+            onSubmitted: (_) => Navigator.pop(ctx, true),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: Text(l.commonCancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: Text(l.commonCreate),
+            ),
+          ],
+        ),
+      );
+      if (confirmed == true && ctrl.text.trim().isNotEmpty && context.mounted) {
+        try {
+          final classroom = await ref
+              .read(classroomListProvider.notifier)
+              .create(ctrl.text.trim());
+          ref.read(activeClassroomProvider.notifier).select(classroom);
+        } catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(friendlyError(e)),
+                backgroundColor: kDanger,
+              ),
+            );
+          }
         }
       }
+    } finally {
+      ctrl.dispose();
     }
   }
 }
@@ -523,39 +527,42 @@ class _QuickBtn extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return GestureDetector(
-      // B-108: catch per-device errors and show a snackbar instead of silently failing
-      onTap: () async {
-        for (final d in devices) {
-          try {
-            await ref
-                .read(deviceListProvider(classroomId).notifier)
-                .sendCommand(d.id, command);
-          } catch (e) {
-            if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(friendlyError(e)),
-                  backgroundColor: kDanger,
-                ),
-              );
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        splashColor: color.withValues(alpha: 0.2),
+        // B-108: catch per-device errors and show a snackbar instead of silently failing
+        onTap: () async {
+          for (final d in devices) {
+            try {
+              await ref
+                  .read(deviceListProvider(classroomId).notifier)
+                  .sendCommand(d.id, command);
+            } catch (e) {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(friendlyError(e)),
+                    backgroundColor: kDanger,
+                  ),
+                );
+              }
             }
           }
-        }
-      },
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: color == Colors.grey ? Colors.grey.shade700 : color,
-              fontWeight: FontWeight.w700,
-              fontSize: 13,
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 48),
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: color == Colors.grey ? Colors.grey.shade700 : color,
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+              ),
             ),
           ),
         ),

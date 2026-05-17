@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/api/endpoints/ws_endpoints.dart';
@@ -16,9 +18,22 @@ class WsConnectionNotifier extends StateNotifier<bool> {
   final WsClient _ws;
   final WsEndpoints _wsEndpoints;
   final ConnectionResolver _resolver;
+  StreamSubscription<WsState>? _stateSub;
 
   WsConnectionNotifier(this._ws, this._wsEndpoints, this._resolver)
-      : super(false);
+      : super(false) {
+    _stateSub = _ws.connectionState.listen((wsState) {
+      if (wsState == WsState.failed && mounted) {
+        state = false;
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _stateSub?.cancel();
+    super.dispose();
+  }
 
   /// Connects the WebSocket. The auth flow is:
   /// 1) POST /ws/ticket with the access JWT (added by ApiClient's

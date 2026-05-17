@@ -12,6 +12,7 @@ import (
 
 	"smartclass/internal/platform/hasher"
 	"smartclass/internal/platform/httpx"
+	mw "smartclass/internal/platform/httpx/middleware"
 	"smartclass/internal/platform/metrics"
 	"smartclass/internal/platform/tokens"
 	"smartclass/internal/user"
@@ -154,10 +155,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 		// Replay attempt: legitimate user already rotated this token, so
 		// whoever is presenting it now is unauthorized. Burn every live
 		// refresh token for this user; force them to log in again.
-		s.logger.Warn("refresh replay detected — revoking all sessions",
+		log := mw.LoggerFromCtx(ctx, s.logger)
+		log.Warn("refresh replay detected — revoking all sessions",
 			zap.Stringer("user_id", status.UserID), zap.Stringer("jti", jti))
 		if err := s.store.RevokeUser(ctx, status.UserID); err != nil {
-			s.logger.Warn("refresh replay: RevokeUser failed",
+			log.Warn("refresh replay: RevokeUser failed",
 				zap.Stringer("user_id", status.UserID), zap.Error(err))
 		}
 		metrics.AuthRefresh.WithLabelValues("replay").Inc()
@@ -173,10 +175,11 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 		if errors.Is(err, ErrRefreshAlreadyUsed) {
 			// Lost a race to another consumer of the same token (or a
 			// concurrent replay). Revoke and reject.
-			s.logger.Warn("refresh race lost — revoking all sessions",
+			log := mw.LoggerFromCtx(ctx, s.logger)
+			log.Warn("refresh race lost — revoking all sessions",
 				zap.Stringer("user_id", status.UserID), zap.Stringer("jti", jti))
 			if revokeErr := s.store.RevokeUser(ctx, status.UserID); revokeErr != nil {
-				s.logger.Warn("refresh race: RevokeUser failed",
+				log.Warn("refresh race: RevokeUser failed",
 					zap.Stringer("user_id", status.UserID), zap.Error(revokeErr))
 			}
 			metrics.AuthRefresh.WithLabelValues("replay").Inc()
@@ -206,6 +209,15 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (*LoginResul
 // access token (which we don't track in DB to keep the hot path stateless)
 // remains valid until its short TTL expires; that's the trade-off for a
 // stateless access path.
+//
+// Residual access-token window: after Logout returns, any access token issued
+// before this call stays cryptographically valid until its TTL elapses
+// (JWT_ACCESS_TTL, default 15 minutes). This is an explicit design trade-off:
+// tracking every issued access token in a DB/cache would require a lookup on
+// every authenticated request, adding latency and a hot DB dependency on the
+// critical path. The 15-minute window is considered acceptable for a pet-
+// project context. If tighter revocation is required, reduce JWT_ACCESS_TTL or
+// introduce a short-lived token blocklist (e.g., Redis with TTL = access TTL).
 func (s *Service) Logout(ctx context.Context, userID uuid.UUID) error {
 	return s.store.RevokeUser(ctx, userID)
 }
